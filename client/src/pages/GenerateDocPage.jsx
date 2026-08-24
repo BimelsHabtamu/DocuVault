@@ -11,7 +11,56 @@ const STATUS_COLORS = {
   signed: 'bg-blue-100 text-blue-700', delivered: 'bg-emerald-100 text-emerald-700',
   rejected: 'bg-red-100 text-red-600', hand_delivered: 'bg-purple-100 text-purple-700',
 };
-const TYPE_INPUT = { string: 'text', number: 'number', date: 'date' };
+// ── Date placeholders that must be provided by user at generation time ────────
+// These are NOT auto-filled by the server like generation_date is.
+// The server only auto-fills: generation_date, generation_time,
+// generation_datetime, generation_year, generation_month, generation_day
+// Everything else that looks like a date placeholder needs user input.
+const USER_DATE_PLACEHOLDERS = [
+  { key: 'effective_date',   label: 'Effective Date',    hint: 'e.g. contract start, payroll period' },
+  { key: 'expiry_date',      label: 'Expiry Date',       hint: 'e.g. contract end date' },
+  { key: 'issue_date',       label: 'Issue Date',        hint: 'e.g. certificate issue date' },
+  { key: 'start_date',       label: 'Start Date',        hint: '' },
+  { key: 'end_date',         label: 'End Date',          hint: '' },
+  { key: 'due_date',         label: 'Due Date',          hint: '' },
+  { key: 'signing_date',     label: 'Signing Date',      hint: '' },
+  { key: 'reference_date',   label: 'Reference Date',    hint: '' },
+];
+
+// These are auto-filled by the server — never show input fields for them
+const SERVER_AUTO_DATES = new Set([
+  'generation_date', 'generation_time', 'generation_datetime',
+  'generation_year', 'generation_month', 'generation_day',
+]);
+
+/**
+ * Scan template HTML for {{date_placeholder}} tokens that need user input.
+ * Returns only the ones found in the template that are NOT server-auto-filled.
+ */
+function detectUserDatePlaceholders(templateHtml) {
+  if (!templateHtml) return [];
+  const combined = [
+    templateHtml.header_html || '',
+    templateHtml.body_html   || '',
+    templateHtml.footer_html || '',
+  ].join(' ');
+
+  const found = [];
+  for (const dp of USER_DATE_PLACEHOLDERS) {
+    if (combined.includes(`{{${dp.key}}}`)) {
+      found.push(dp);
+    }
+  }
+  // Also catch any unknown {{*_date}} or {{*_at}} patterns not in the known list
+  const matches = combined.match(/\{\{([a-z_]+(?:_date|_at|_time|_on))\}\}/g) || [];
+  for (const m of matches) {
+    const key = m.replace(/[{}]/g, '');
+    if (!SERVER_AUTO_DATES.has(key) && !found.find(f => f.key === key)) {
+      found.push({ key, label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), hint: '' });
+    }
+  }
+  return found;
+}
 
 function StepBadge({ step, label, active, done }) {
   return (

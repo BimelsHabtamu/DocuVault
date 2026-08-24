@@ -45,7 +45,7 @@ exports.getTemplateById = async (req, res) => {
 };
 
 exports.createTemplate = async (req, res) => {
-  const { name, description, category, header_html, body_html, footer_html, watermark_text } = req.body;
+  const { name, description, category, header_html, body_html, footer_html, watermark_text, data_source } = req.body;
   if (!name || !category || !body_html) {
     return res.status(400).json({ message: 'name, category, and body_html are required' });
   }
@@ -53,23 +53,24 @@ exports.createTemplate = async (req, res) => {
     return res.status(400).json({ message: 'Invalid category' });
   }
   const [result] = await db.query(
-    `INSERT INTO templates (name, description, category, version, header_html, body_html, footer_html, watermark_text)
-     VALUES (?, ?, ?, 1, ?, ?, ?, ?)`,
-    [name, description || null, category, header_html || null, body_html, footer_html || null, watermark_text || null]
+    `INSERT INTO templates (name, description, category, version, header_html, body_html, footer_html, watermark_text, data_source)
+     VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)`,
+    [name, description || null, category, header_html || null, body_html, footer_html || null, watermark_text || null, data_source || null]
   );
   res.status(201).json({ message: 'Template created', id: result.insertId });
 };
 
 exports.updateTemplate = async (req, res) => {
-  const { name, description, category, header_html, body_html, footer_html, watermark_text } = req.body;
+  const { name, description, category, header_html, body_html, footer_html, watermark_text, data_source } = req.body;
   const [existing] = await db.query('SELECT * FROM templates WHERE id = ?', [req.params.id]);
   if (existing.length === 0) return res.status(404).json({ message: 'Template not found' });
   const newVersion = existing[0].version + 1;
   await db.query(
     `UPDATE templates SET name=?, description=?, category=?, version=?,
-     header_html=?, body_html=?, footer_html=?, watermark_text=? WHERE id=?`,
+     header_html=?, body_html=?, footer_html=?, watermark_text=?, data_source=? WHERE id=?`,
     [name, description || null, category, newVersion,
-     header_html || null, body_html, footer_html || null, watermark_text || null, req.params.id]
+     header_html || null, body_html, footer_html || null, watermark_text || null,
+     data_source || null, req.params.id]
   );
   res.json({ message: 'Template updated', version: newVersion });
 };
@@ -106,17 +107,16 @@ exports.uploadTemplateImage = async (req, res) => {
 };
 
 // ── POST /templates/:id/preview-pdf — generate a real sample PDF ──────────────
-// Used by the template editor "Download Preview PDF" button.
-// Injects SAMPLE data so the template designer can see the final result.
 exports.previewTemplatePdf = async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM templates WHERE id = ?', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Template not found' });
 
-    const template = rows[0];
+    const template   = rows[0];
     const { generatePDF } = require('../services/pdfService');
+    const path       = require('path');
+    const fs         = require('fs');
 
-    // Sample data that covers all common placeholders
     const sampleData = {
       'employee.full_name':    'Sara Ahmed (Preview)',
       'employee.position':     'HR Manager',
@@ -140,37 +140,33 @@ exports.previewTemplatePdf = async (req, res) => {
       'effective_date':        new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
     };
 
-    const path     = require('path');
-    const os       = require('os');
-    const docUuid  = `PREVIEW-${Date.now()}`;
-    const outDir   = os.tmpdir();
+    const docUuid    = `PREVIEW-${Date.now()}`;
+    // Use the server's own storage/pdfs directory — avoids os.tmpdir() path issues on Windows
+    const outDir     = path.join(__dirname, '../storage/pdfs');
     const verifyBase = process.env.CLIENT_URL || 'http://localhost:5173';
 
     const { filePath } = await generatePDF(
-      template,
-      sampleData,
-      docUuid,
-      verifyBase,
-      outDir,
-      'draft',
-      { db }
+      template, sampleData, docUuid, verifyBase, outDir, 'draft', { db }
     );
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="preview-${template.name.replace(/[^a-z0-9]/gi, '_')}.pdf"`);
+    if (!fs.existsSync(filePath)) {
+      return res.status(500).json({ message: 'PDF was not created' });
+    }
 
-    const fs = require('fs');
-    const stream = fs.createReadStream(filePath);
-    stream.pipe(res);
-    stream.on('end', () => {
-      // Clean up temp file after sending
-      fs.unlink(filePath, () => {});
-    });
-    stream.on('error', (err) => {
-      res.status(500).json({ message: 'Failed to stream PDF', error: err.message });
-    });
+    const safeName = template.name.replace(/[^a-z0-9_\-]/gi, '_').slice(0, 60);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="preview-${safeName}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store');
+
+    // Read into buffer then send — avoids "headers already sent" on stream error
+    const buffer = fs.readFileSync(filePath);
+    fs.unlink(filePath, () => {}); // clean up async
+    res.end(buffer);
+
   } catch (err) {
     console.error('[previewTemplatePdf]', err.message);
-    res.status(500).json({ message: 'PDF preview generation failed', error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'PDF preview failed', error: err.message });
+    }
   }
 };

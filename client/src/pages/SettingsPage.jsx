@@ -36,8 +36,22 @@ export default function SettingsPage() {
       setForm(data);
       if (data.language) i18n.changeLanguage(data.language);
       if (data.theme) setTheme(data.theme);
-    }).catch(() => toast.error('Could not load your settings')).finally(() => setLoading(false));
-  }, [setTheme, toast]);
+    }).catch((err) => {
+      const status = err.response?.status;
+      if (status === 401) {
+        // axiosInstance interceptor already redirects to /login — nothing to do here
+      } else if (status === 403) {
+        toast.error('You do not have permission to access settings.');
+      } else if (status === 404) {
+        toast.error('Settings not found. Please contact your administrator.');
+      } else {
+        toast.error(err.response?.data?.message || 'Could not load your settings. Please try again.');
+      }
+    }).finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // ↑ intentionally empty — runs once on mount only.
+  // setTheme and toast are intentionally excluded: setTheme is stable (from context),
+  // and toast is a new object on every render which would cause an infinite loop.
 
   const change = e => {
     const { name, value, type, checked } = e.target;

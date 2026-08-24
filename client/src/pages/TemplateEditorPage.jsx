@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -26,7 +26,14 @@ import { useToast } from '../context/ToastContext';
 const CATEGORIES = ['HR', 'Finance', 'Academic', 'Procurement', 'General'];
 const WATERMARKS = ['', 'DRAFT', 'CONFIDENTIAL', 'FINAL'];
 
-// ── Static field groups (shown when DB schema not yet loaded) ─────────────────
+// ── Internal system tables that should NOT appear in the sidebar ─────────────
+// These are DocuVault's own tables — not document data sources
+const SYSTEM_TABLES = new Set([
+  'users', 'templates', 'template_placeholders', 'generated_docs',
+  'signature_requests', 'digital_signatures', 'delivery_logs',
+  'audit_logs', 'system_settings', 'bulk_jobs', 'field_mappings',
+  'notifications',
+]);
 const STATIC_FIELDS = {
   '👤 Employee': [
     { label: 'Full Name',    tag: '{{employee.full_name}}' },
@@ -76,7 +83,7 @@ const STATIC_FIELDS = {
 
 // ── Sample data for live preview ──────────────────────────────────────────────
 const SAMPLE = {
-  'employee.full_name': '',
+  'employee.full_name': 'Sara Ahmed',
   'employee.position':  'HR Manager',
   'employee.department':'Human Resources',
   'employee.email':     'sara@company.com',
@@ -152,17 +159,28 @@ function ToolBtn({ onClick, active, title, children }) {
   );
 }
 
-function EditorToolbar({ editor, onInsert }) {
+function EditorToolbar({ editor, onInsert, templateId }) {
   if (!editor) return null;
+
+  // ── Resize selected image — correct TipTap approach ────────────────────
+  const resizeImage = (width) => {
+    // Use TipTap's chain API which handles selection correctly
+    editor.chain().focus().updateAttributes('image', {
+      style: width === '100%'
+        ? 'width:100%;height:auto;display:block;margin:8px 0;border-radius:8px;'
+        : `width:${width};height:auto;display:block;margin:8px auto;border-radius:8px;`,
+    }).run();
+  };
+
+  const isImageSelected = editor.isActive('image');
 
   const uploadImage = async () => {
     const input = document.createElement('input');
-    input.type = 'file';
+    input.type  = 'file';
     input.accept = 'image/*';
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
-
       try {
         const formData = new FormData();
         formData.append('image', file);
@@ -171,77 +189,196 @@ function EditorToolbar({ editor, onInsert }) {
         });
         const imageUrl = response.data.url || response.data.fullUrl || URL.createObjectURL(file);
         editor.chain().focus().insertContent({
-          type: 'image',
+          type:  'image',
           attrs: {
-            src: imageUrl,
-            alt: file.name,
-            style: 'width: 320px; height: auto; display: block; margin: 12px auto; border-radius: 12px; max-width: 100%;',
+            src:   imageUrl,
+            alt:   file.name,
+            style: 'width:320px;height:auto;display:block;margin:8px auto;border-radius:8px;',
           },
         }).run();
       } catch {
-        const imageUrl = URL.createObjectURL(file);
+        // Fallback to local blob URL
         editor.chain().focus().insertContent({
-          type: 'image',
+          type:  'image',
           attrs: {
-            src: imageUrl,
-            alt: file.name,
-            style: 'width: 320px; height: auto; display: block; margin: 12px auto; border-radius: 12px; max-width: 100%;',
+            src:   URL.createObjectURL(file),
+            alt:   file.name,
+            style: 'width:320px;height:auto;display:block;margin:8px auto;border-radius:8px;',
           },
         }).run();
       }
     };
-
     input.click();
-  };
-
-  const insertByUrl = () => {
-    const url = window.prompt('Enter image URL:');
-    if (!url) return;
-    editor.chain().focus().insertContent({
-      type: 'image',
-      attrs: {
-        src: url,
-        alt: 'Inserted image',
-        style: 'width: 320px; height: auto; display: block; margin: 12px auto; border-radius: 12px; max-width: 100%;',
-      },
-    }).run();
   };
 
   return (
     <div className="border-b border-slate-200 bg-white">
+
+      {/* ── Row 1: Text formatting ──────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-1 px-3 py-2">
-        <ToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Bold"><BoldIcon className="h-3.5 w-3.5" /></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive('italic')} title="Italic"><ItalicIcon className="h-3.5 w-3.5" /></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Underline"><span className="text-[11px] font-black underline">U</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Strike"><span className="text-[11px] font-black line-through">S</span></ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive('bold')} title="Bold">
+          <BoldIcon className="h-3.5 w-3.5"/>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive('italic')} title="Italic">
+          <ItalicIcon className="h-3.5 w-3.5"/>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleUnderline().run()}
+          active={editor.isActive('underline')} title="Underline">
+          <span className="text-[11px] font-black underline">U</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={editor.isActive('strike')} title="Strikethrough">
+          <span className="text-[11px] font-black line-through">S</span>
+        </ToolBtn>
 
-        <div className="mx-1 h-5 w-px bg-slate-200" />
+        <div className="mx-1 h-5 w-px bg-slate-200"/>
 
-        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive('heading', { level: 1 })} title="Heading 1"><span className="text-[10px] font-black">H1</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive('heading', { level: 2 })} title="Heading 2"><span className="text-[10px] font-black">H2</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={editor.isActive('heading', { level: 3 })} title="Heading 3"><span className="text-[10px] font-black">H3</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().setParagraph().run()} active={editor.isActive('paragraph')} title="Paragraph"><span className="text-[10px] font-bold">P</span></ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          active={editor.isActive('heading', { level: 1 })} title="Heading 1">
+          <span className="text-[10px] font-black">H1</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          active={editor.isActive('heading', { level: 2 })} title="Heading 2">
+          <span className="text-[10px] font-black">H2</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          active={editor.isActive('heading', { level: 3 })} title="Heading 3">
+          <span className="text-[10px] font-black">H3</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().setParagraph().run()}
+          active={editor.isActive('paragraph')} title="Paragraph">
+          <span className="text-[10px] font-bold">P</span>
+        </ToolBtn>
 
-        <div className="mx-1 h-5 w-px bg-slate-200" />
-        <ToolBtn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({ textAlign: 'left' })} title="Left align"><span className="text-[11px] font-bold">L</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({ textAlign: 'center' })} title="Center align"><span className="text-[11px] font-bold">C</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({ textAlign: 'right' })} title="Right align"><span className="text-[11px] font-bold">R</span></ToolBtn>
+        <div className="mx-1 h-5 w-px bg-slate-200"/>
 
-        <div className="mx-1 h-5 w-px bg-slate-200" />
-        <ToolBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Bullet list"><ListBulletIcon className="h-3.5 w-3.5" /></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Ordered list"><span className="text-[10px] font-bold">1.</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Quote"><span className="text-[10px] font-bold">❝</span></ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Divider"><span className="text-[10px] font-bold">—</span></ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().setTextAlign('left').run()}
+          active={editor.isActive({ textAlign: 'left' })} title="Align left">
+          <span className="text-[11px] font-bold">L</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().setTextAlign('center').run()}
+          active={editor.isActive({ textAlign: 'center' })} title="Align center">
+          <span className="text-[11px] font-bold">C</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().setTextAlign('right').run()}
+          active={editor.isActive({ textAlign: 'right' })} title="Align right">
+          <span className="text-[11px] font-bold">R</span>
+        </ToolBtn>
+
+        <div className="mx-1 h-5 w-px bg-slate-200"/>
+
+        <ToolBtn onClick={() => editor.chain().focus().toggleBulletList().run()}
+          active={editor.isActive('bulletList')} title="Bullet list">
+          <ListBulletIcon className="h-3.5 w-3.5"/>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          active={editor.isActive('orderedList')} title="Numbered list">
+          <span className="text-[10px] font-bold">1.</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={editor.isActive('blockquote')} title="Quote">
+          <span className="text-[10px] font-bold">❝</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          title="Horizontal rule">
+          <span className="text-[10px] font-bold">—</span>
+        </ToolBtn>
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 px-3 pb-2">
-        <button type="button" onClick={uploadImage} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"><PhotoIcon className="h-3.5 w-3.5" />Insert Image</button>
-        <button type="button" onClick={insertByUrl} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-50"><PhotoIcon className="h-3.5 w-3.5" />Image URL</button>
-        <div className="mx-1 h-5 w-px bg-slate-200" />
-        <ToolBtn onClick={() => onInsert('{{employee.full_name}}')} title="Add employee full name"><span className="text-[9px] font-bold text-blue-600">{'{{name}}'}</span></ToolBtn>
-        <ToolBtn onClick={() => onInsert('{{finance.salary}}')} title="Add salary"><span className="text-[9px] font-bold text-emerald-600">{'{{salary}}'}</span></ToolBtn>
-        <ToolBtn onClick={() => onInsert('{{generation_date}}')} title="Add generation date"><span className="text-[9px] font-bold text-violet-600">{'{{date}}'}</span></ToolBtn>
+      {/* ── Row 2: Insert media + smart placeholders ────────── */}
+      <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
+
+        {/* Upload image — only option for images */}
+        <button type="button" onClick={uploadImage}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200
+            bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700
+            transition-colors hover:bg-slate-50">
+          <PhotoIcon className="h-3.5 w-3.5"/>
+          Insert Image
+        </button>
+
+        <div className="mx-1 h-5 w-px bg-slate-200"/>
+
+        {/* Logo — inserts text placeholder that resolves at generation time */}
+        <button type="button"
+          onClick={() => onInsert('{{system.logo_url}}')}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-purple-200
+            bg-purple-50 px-2.5 py-1.5 text-[11px] font-semibold text-purple-700
+            transition-colors hover:bg-purple-100"
+          title="Inserts the organisation logo — resolved from System Configuration at PDF generation">
+          🏢 Logo
+        </button>
+
+        {/* Seal — inserts text placeholder */}
+        <button type="button"
+          onClick={() => onInsert('{{system.company_seal}}')}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200
+            bg-indigo-50 px-2.5 py-1.5 text-[11px] font-semibold text-indigo-700
+            transition-colors hover:bg-indigo-100"
+          title="Inserts the official company seal — resolved from System Configuration at PDF generation">
+          🔏 Seal
+        </button>
+
+        {/* Signature — inserts text placeholder */}
+        <button type="button"
+          onClick={() => onInsert('{{approver.signature_image}}')}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200
+            bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700
+            transition-colors hover:bg-emerald-100"
+          title="Inserts the approver signature — resolved when the document is approved">
+          ✍️ Sign
+        </button>
+
+        <div className="mx-1 h-5 w-px bg-slate-200"/>
+
+        {/* Quick shortcut chips */}
+        <ToolBtn onClick={() => onInsert('{{employee.full_name}}')}
+          title="Insert employee full name">
+          <span className="text-[9px] font-bold text-blue-600">{'{{name}}'}</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => onInsert('{{finance.salary}}')}
+          title="Insert finance salary">
+          <span className="text-[9px] font-bold text-emerald-600">{'{{salary}}'}</span>
+        </ToolBtn>
+        <ToolBtn onClick={() => onInsert('{{generation_date}}')}
+          title="Insert auto-filled generation date">
+          <span className="text-[9px] font-bold text-violet-600">{'{{date}}'}</span>
+        </ToolBtn>
       </div>
+
+      {/* ── Row 3: Image resize bar (only when image is selected) ── */}
+      {isImageSelected && (
+        <div className="flex items-center gap-2 border-t border-slate-100 bg-blue-50 px-3 py-2">
+          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wide mr-1">
+            Resize:
+          </span>
+          {[
+            { label: 'XS',   width: '80px',  title: 'Extra small — 80px (seal / icon)' },
+            { label: 'S',    width: '160px', title: 'Small — 160px (signature / logo)' },
+            { label: 'M',    width: '320px', title: 'Medium — 320px' },
+            { label: 'L',    width: '480px', title: 'Large — 480px' },
+            { label: 'Full', width: '100%',  title: 'Full page width' },
+          ].map(({ label, width, title }) => (
+            <button
+              key={label}
+              type="button"
+              title={title}
+              onClick={() => resizeImage(width)}
+              className="px-2.5 py-1 text-[11px] font-bold rounded-lg
+                bg-white border border-blue-200 text-blue-700
+                hover:bg-blue-600 hover:text-white hover:border-blue-600
+                transition-colors"
+            >
+              {label}
+            </button>
+          ))}
+          <span className="text-[10px] text-blue-400 ml-1 hidden sm:block">
+            ← resize selected image
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -303,16 +440,19 @@ export default function TemplateEditorPage() {
     formState: { errors },
   } = useForm({
     defaultValues: {
-      name: '',
-      description: '',
-      category: 'HR',
+      name:           '',
+      description:    '',
+      category:       'HR',
       watermark_text: '',
-      is_active: true,
+      data_source:    '',
+      version:        1,
+      is_active:      true,
     },
   });
 
-  const [section, setSection] = useState('body');
-  const [rightTab, setRightTab] = useState('fields');
+  const [section, setSection]     = useState('body'); // tracks which editor has focus for insertPlaceholder
+  const [rightTab, setRightTab]   = useState('fields');
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [schema, setSchema] = useState({});
   const [openTables, setOpenTables] = useState({});
   const [fieldSearch, setFieldSearch] = useState('');
@@ -386,11 +526,13 @@ export default function TemplateEditorPage() {
     axiosInstance.get(`/templates/${id}`)
       .then((response) => {
         const template = response.data;
-        setValue('name', template.name || '');
-        setValue('description', template.description || '');
-        setValue('category', template.category || 'HR');
+        setValue('name',           template.name          || '');
+        setValue('description',    template.description   || '');
+        setValue('category',       template.category      || 'HR');
         setValue('watermark_text', template.watermark_text || '');
-        setValue('is_active', Boolean(template.is_active));
+        setValue('data_source',    template.data_source   || '');
+        setValue('version',        template.version       || 1);
+        setValue('is_active',      Boolean(template.is_active));
 
         if (template.header_html && headerEditor) {
           headerEditor.commands.setContent(template.header_html);
@@ -420,10 +562,11 @@ export default function TemplateEditorPage() {
     try {
       const payload = {
         ...data,
-        is_active: activate ? true : data.is_active,
+        is_active:   activate ? true : data.is_active,
         header_html: headerHtml,
-        body_html: bodyHtml,
+        body_html:   bodyHtml,
         footer_html: footerHtml,
+        data_source: data.data_source || null,
       };
 
       let savedId = id;
@@ -454,6 +597,42 @@ export default function TemplateEditorPage() {
 
   const watchedWatermark = watch('watermark_text');
 
+  // ── Download a real sample PDF preview ───────────────────────────────────
+  const downloadPreviewPdf = async () => {
+    if (!id) {
+      toast.error('Save the template first (Save Draft), then click Download Preview PDF.');
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      // Use axiosInstance.post with blob responseType — goes through Vite proxy correctly
+      const res = await axiosInstance.post(`/templates/${id}/preview-pdf`, {}, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `preview-${(watch('name') || 'template').replace(/[^a-z0-9]/gi, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Preview PDF downloaded');
+    } catch (err) {
+      // If blob response contains error JSON, read it
+      if (err.response?.data instanceof Blob) {
+        const text = await err.response.data.text().catch(() => '');
+        const parsed = JSON.parse(text).catch?.(() => ({})) || {};
+        toast.error(parsed.message || 'Preview PDF generation failed');
+      } else {
+        toast.error(err.response?.data?.message || err.message || 'Preview PDF generation failed');
+      }
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   // ── Merge static fields with live DB schema ──────────────────────────────
   // Static groups always appear first; DB tables appear below with a "DB:" prefix
   const filteredSchema = Object.entries(schema).reduce((acc, [table, fields]) => {
@@ -465,12 +644,14 @@ export default function TemplateEditorPage() {
     return acc;
   }, {});
 
-  const dbGroups = Object.entries(filteredSchema).map(([table, fields]) => ({
-    key:    `db_${table}`,
-    label:  `🗄 ${table}`,
-    isDb:   true,
-    fields: fields.map(f => ({ label: f.field, tag: f.placeholder })),
-  }));
+  const dbGroups = Object.entries(filteredSchema)
+    .filter(([table]) => !SYSTEM_TABLES.has(table))  // hide internal DocuVault tables
+    .map(([table, fields]) => ({
+      key:    `db_${table}`,
+      label:  `🗄 ${table}`,
+      isDb:   true,
+      fields: fields.map(f => ({ label: f.field, tag: f.placeholder })),
+    }));
 
   const staticGroups = Object.entries(STATIC_FIELDS).map(([group, fields]) => {
     const q       = fieldSearch.toLowerCase();
@@ -507,51 +688,95 @@ export default function TemplateEditorPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit((data) => onSubmit(data, false))} className="flex h-[calc(100vh-64px)] flex-col overflow-hidden bg-slate-50">
+    <form onSubmit={handleSubmit((data) => onSubmit(data, false))}
+      className="flex h-[calc(100vh-64px)] flex-col overflow-hidden bg-[var(--color-bg)]">
       <style>{PROSE_CSS}</style>
 
-      <div className="flex-shrink-0 border-b border-slate-200 bg-white px-6 py-4">
+      {/* ── Top bar ─────────────────────────────────────────── */}
+      <div className="flex-shrink-0 border-b border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <button type="button" onClick={() => navigate('/templates')} className="text-slate-400 transition-colors hover:text-slate-700"><ArrowLeftIcon className="h-5 w-5" /></button>
+            <button type="button" onClick={() => navigate('/templates')}
+              className="text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
+              <ArrowLeftIcon className="h-5 w-5" />
+            </button>
             <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Template Builder</div>
-              <div className="mt-1 truncate text-xl font-bold text-slate-900">{watch('name') || 'New Template'}</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-secondary)]">
+                Template Builder
+              </div>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="truncate text-xl font-bold text-[var(--color-text-primary)]">
+                  {watch('name') || 'New Template'}
+                </span>
+                {id && (
+                  <span className="text-[11px] font-bold bg-indigo-100 text-[#3b5bdb]
+                    px-2 py-0.5 rounded-full flex-shrink-0">
+                    v{watch('version') || 1}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => navigate('/templates')} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50">Cancel</button>
-            <button type="submit" disabled={saving} className="rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50">{saving ? 'Saving…' : 'Save Draft'}</button>
-            <button type="button" disabled={saving} onClick={handleSubmit((data) => onSubmit(data, true))} className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition-colors hover:bg-blue-700 disabled:opacity-50"><CheckCircleIcon className="h-4 w-4" />Activate</button>
+            <button type="button" onClick={() => navigate('/templates')}
+              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]
+                px-3.5 py-2 text-sm font-semibold text-[var(--color-text-secondary)]
+                transition-colors hover:bg-[var(--color-surface-raised)]">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving}
+              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]
+                px-3.5 py-2 text-sm font-semibold text-[var(--color-text-primary)]
+                transition-colors hover:bg-[var(--color-surface-raised)] disabled:opacity-50">
+              {saving ? 'Saving…' : 'Save Draft'}
+            </button>
+            <button type="button" disabled={saving}
+              onClick={handleSubmit((data) => onSubmit(data, true))}
+              className="flex items-center gap-2 rounded-xl bg-[#3b5bdb] px-4 py-2.5 text-sm
+                font-bold text-white shadow-sm shadow-indigo-200/60
+                transition-colors hover:bg-[#2f4ac4] disabled:opacity-50">
+              <CheckCircleIcon className="h-4 w-4" />
+              Activate
+            </button>
           </div>
         </div>
       </div>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        <aside className="w-[280px] flex-shrink-0 overflow-hidden border-r border-slate-200 bg-white">
-          <div className="border-b border-slate-200 px-4 py-4">
+        <aside className="w-[280px] flex-shrink-0 flex flex-col overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-surface)]">
+          <div className="border-b border-[var(--color-border)] px-4 py-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">Dynamic Fields</h2>
-              <span className="text-[10px] font-medium text-slate-400">Live</span>
+              <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Dynamic Fields</h2>
+              <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Live</span>
             </div>
             <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)} placeholder="Search fields" className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+              <input value={fieldSearch} onChange={(event) => setFieldSearch(event.target.value)}
+                placeholder="Search fields"
+                className="w-full rounded-xl border border-[var(--color-border)]
+                  bg-[var(--color-bg)] text-[var(--color-text-primary)]
+                  placeholder-[var(--color-text-secondary)]
+                  py-2 pl-9 pr-3 text-sm
+                  focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20" />
             </div>
           </div>
 
-          <div className="space-y-4 overflow-y-auto p-4">
+          <div className="flex-1 min-h-0 overflow-y-scroll space-y-3 p-4"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 transparent' }}>
             {[...staticGroups, ...dbGroups].map((group) => (
               <div key={group.key}
-                className={`rounded-2xl border ${group.isDb ? 'border-indigo-100 bg-indigo-50/40' : 'border-slate-200 bg-slate-50/70'}`}>
+                className={`rounded-2xl border ${group.isDb
+                  ? 'border-indigo-200/70 bg-indigo-50/30'
+                  : 'border-[var(--color-border)] bg-[var(--color-surface-raised)]'
+                }`}>
                 <button
                   type="button"
                   onClick={() => setOpenTables(prev => ({ ...prev, [group.key]: !prev[group.key] }))}
                   className="flex w-full items-center justify-between px-3 py-2.5 text-left"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-600 truncate">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--color-text-secondary)] truncate">
                       {group.label}
                     </span>
                     {group.isDb && (
@@ -560,7 +785,7 @@ export default function TemplateEditorPage() {
                       </span>
                     )}
                   </div>
-                  <ChevronDownIcon className={`h-4 w-4 text-slate-400 transition-transform flex-shrink-0 ${openTables[group.key] !== false ? 'rotate-180' : ''}`} />
+                  <ChevronDownIcon className={`h-4 w-4 text-[var(--color-text-secondary)] transition-transform flex-shrink-0 ${openTables[group.key] !== false ? 'rotate-180' : ''}`} />
                 </button>
 
                 {openTables[group.key] !== false && (
@@ -578,11 +803,11 @@ export default function TemplateEditorPage() {
                             ? 'border-purple-200 bg-purple-50 hover:bg-purple-100'
                             : field.tag.startsWith('{{approver.')
                             ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100'
-                            : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50'
+                            : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-indigo-200 hover:bg-indigo-50'
                           } px-3 py-2`}
                       >
-                        <div className="text-[11px] font-semibold text-slate-700">{field.label}</div>
-                        <div className="mt-0.5 break-all font-mono text-[9px] text-slate-400 leading-tight">
+                        <div className="text-[11px] font-semibold text-[var(--color-text-primary)]">{field.label}</div>
+                        <div className="mt-0.5 break-all font-mono text-[9px] text-[var(--color-text-secondary)] leading-tight">
                           {field.tag.length > 40 ? field.tag.slice(0, 38) + '…' : field.tag}
                         </div>
                       </button>
@@ -640,25 +865,115 @@ export default function TemplateEditorPage() {
             </div>
           </div>
 
-          <div className="flex border-b border-slate-200 bg-white px-4 py-2">
-            {['header', 'body', 'footer'].map((item) => (
-              <button key={item} type="button" onClick={() => setSection(item)} className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${section === item ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                {item === 'header' ? 'Header' : item === 'body' ? 'Body' : 'Footer'}
-              </button>
-            ))}
+          {/* ── Data Source row (FR-009) ─────────────────────────── */}
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 flex items-center gap-4">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                  d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7M4 7c0-2 1.5-3 3.5-3h9C18.5 4 20 5 20 7M4 7h16M12 11v6M8 11v6M16 11v6"/>
+              </svg>
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                Data Source
+              </span>
+              <span className="text-[9px] bg-indigo-100 text-indigo-600 font-bold px-1.5 py-0.5 rounded-full">
+                FR-009
+              </span>
+            </div>
+            <select
+              {...register('data_source')}
+              className="h-8 flex-1 max-w-xs rounded-xl border border-slate-200 bg-white px-3 text-xs
+                focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value="">— No specific table (manual data entry) —</option>
+              {Object.keys(schema).map(table => (
+                <option key={table} value={table}>{table}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-400 hidden lg:block">
+              Binding a table auto-suggests fields and enables record-ID generation
+            </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto bg-white p-4">
-            <div className="mx-auto max-w-[860px] rounded-[28px] border border-slate-200 bg-white shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
-              <EditorToolbar editor={activeEditor} onInsert={insertPlaceholder} />
-              <div className="min-h-[520px] bg-slate-50/40 p-2">
-                {['header', 'body', 'footer'].map((item) => (
-                  <div key={item} style={{ display: section === item ? 'block' : 'none' }}>
-                    <EditorContent editor={editors[item]} />
-                  </div>
-                ))}
+          <div className="flex-1 overflow-y-auto bg-slate-100 p-4 space-y-4">
+
+            {/* ── HEADER section ──────────────────────────────────────── */}
+            <div className="mx-auto max-w-[860px]">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500"/>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    Header
+                  </span>
+                </div>
+                <div className="flex-1 h-px bg-slate-200"/>
+                <span className="text-[10px] text-slate-400">
+                  Organization name, logo, letterhead
+                </span>
+              </div>
+              <div
+                className={`rounded-2xl border bg-white shadow-sm overflow-hidden
+                  transition-shadow ${section === 'header' ? 'border-blue-300 shadow-blue-100/50' : 'border-slate-200'}`}
+                onFocus={() => setSection('header')}
+              >
+                <EditorToolbar editor={headerEditor} onInsert={insertPlaceholder} templateId={id} />
+                <div className="min-h-[120px] bg-white">
+                  <EditorContent editor={headerEditor} />
+                </div>
               </div>
             </div>
+
+            {/* ── BODY section ────────────────────────────────────────── */}
+            <div className="mx-auto max-w-[860px]">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"/>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    Body
+                  </span>
+                </div>
+                <div className="flex-1 h-px bg-slate-200"/>
+                <span className="text-[10px] text-slate-400">
+                  Main document content
+                </span>
+              </div>
+              <div
+                className={`rounded-2xl border bg-white shadow-sm overflow-hidden
+                  transition-shadow ${section === 'body' ? 'border-blue-300 shadow-blue-100/50' : 'border-slate-200'}`}
+                onFocus={() => setSection('body')}
+              >
+                <EditorToolbar editor={bodyEditor} onInsert={insertPlaceholder} templateId={id} />
+                <div className="min-h-[360px] bg-white">
+                  <EditorContent editor={bodyEditor} />
+                </div>
+              </div>
+            </div>
+
+            {/* ── FOOTER section ──────────────────────────────────────── */}
+            <div className="mx-auto max-w-[860px]">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-400"/>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    Footer
+                  </span>
+                </div>
+                <div className="flex-1 h-px bg-slate-200"/>
+                <span className="text-[10px] text-slate-400">
+                  Signature block, seal, page reference
+                </span>
+              </div>
+              <div
+                className={`rounded-2xl border bg-white shadow-sm overflow-hidden
+                  transition-shadow ${section === 'footer' ? 'border-blue-300 shadow-blue-100/50' : 'border-slate-200'}`}
+                onFocus={() => setSection('footer')}
+              >
+                <EditorToolbar editor={footerEditor} onInsert={insertPlaceholder} templateId={id} />
+                <div className="min-h-[160px] bg-white">
+                  <EditorContent editor={footerEditor} />
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <div className="flex-shrink-0 border-t border-slate-200 bg-white px-6 py-3">
@@ -668,11 +983,41 @@ export default function TemplateEditorPage() {
                   <input type="checkbox" {...register('is_active')} className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                   Active
                 </label>
-                <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">{saved ? 'Saved' : 'Auto-save ready'}</span>
+                <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-400">
+                  {saved ? '✓ Saved' : 'Auto-save ready'}
+                </span>
               </div>
 
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setRightTab('preview')} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200">Preview</button>
+                {/* Download real sample PDF */}
+                <button
+                  type="button"
+                  onClick={downloadPreviewPdf}
+                  disabled={previewLoading || !id}
+                  title={!id ? 'Save the template first to generate a preview PDF' : 'Download a real PDF with sample data'}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200
+                    bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-700
+                    hover:bg-emerald-600 hover:text-white hover:border-emerald-600
+                    disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {previewLoading
+                    ? <><svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>Generating…</>
+                    : <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>Download Preview PDF</>
+                  }
+                </button>
+
+                {/* Switch to preview tab */}
+                <button type="button" onClick={() => setRightTab('preview')}
+                  className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold
+                    text-slate-700 hover:bg-slate-200 transition-colors">
+                  Preview
+                </button>
               </div>
             </div>
           </div>
@@ -690,67 +1035,148 @@ export default function TemplateEditorPage() {
 
           {rightTab === 'properties' ? (
             <div className="space-y-4 overflow-y-auto p-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-600">Template Logo</span>
-                  <span className="text-[10px] text-slate-400">Optional</span>
-                </div>
 
+              {/* ── Template Logo (FR-008) ────────────────────────── */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Template Logo</span>
+                  <span className="text-[9px] bg-purple-100 text-purple-600 font-bold px-1.5 py-0.5 rounded-full">FR-008</span>
+                </div>
+                <p className="text-[10px] text-slate-400 leading-snug">
+                  Shown in the document header. Use <code className="bg-white px-1 rounded font-mono text-purple-600">{'{{system.logo_url}}'}</code> in the Header editor or click 🏢 Logo in toolbar.
+                </p>
                 {logoPreview ? (
-                  <div className="flex items-center gap-3">
-                    <img src={logoPreview} alt="Logo preview" className="h-12 w-12 rounded-lg border border-slate-200 bg-white object-contain" />
-                    <button type="button" onClick={() => { setLogo(null); setLogoPreview(''); }} className="text-xs font-medium text-red-500 hover:text-red-600">Remove</button>
+                  <div className="flex items-center gap-3 bg-white rounded-xl border border-slate-200 p-2.5">
+                    <img src={logoPreview} alt="Logo preview"
+                      className="h-10 w-24 rounded-lg border border-slate-200 bg-white object-contain flex-shrink-0"/>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] text-slate-500 truncate">Logo uploaded</p>
+                    </div>
+                    <button type="button" onClick={() => { setLogo(null); setLogoPreview(''); }}
+                      className="text-[10px] font-semibold text-red-500 hover:text-red-600 flex-shrink-0">
+                      Remove
+                    </button>
                   </div>
                 ) : (
-                  <input type="file" accept="image/*" onChange={async (event) => {
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-
-                    try {
-                      const formData = new FormData();
-                      formData.append('image', file);
-                      const response = await axiosInstance.post('/templates/upload-image', formData, {
-                        headers: { 'Content-Type': 'multipart/form-data' },
-                      });
-                      setLogoPreview(response.data.url || response.data.fullUrl || URL.createObjectURL(file));
-                    } catch {
-                      setLogoPreview(URL.createObjectURL(file));
-                    }
-                    setLogo(file);
-                  }} className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-200 file:px-3 file:py-2 file:font-semibold file:text-slate-700 hover:file:bg-slate-300" />
+                  <label className="flex items-center gap-2 cursor-pointer bg-white border border-dashed border-slate-300
+                    rounded-xl px-3 py-2.5 hover:border-purple-300 hover:bg-purple-50 transition-colors">
+                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    <span className="text-[11px] font-semibold text-slate-600">Choose logo file…</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const fd = new FormData();
+                        fd.append('image', file);
+                        const r = await axiosInstance.post('/templates/upload-image', fd, {
+                          headers: { 'Content-Type': 'multipart/form-data' },
+                        });
+                        setLogoPreview(r.data.url || r.data.fullUrl || URL.createObjectURL(file));
+                      } catch { setLogoPreview(URL.createObjectURL(file)); }
+                      setLogo(file);
+                    }}/>
+                  </label>
                 )}
+                <p className="text-[9px] text-slate-400">PNG/JPG/SVG · max 2 MB · transparent background recommended</p>
               </div>
 
-              <div>
-                <label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">Description</label>
-                <textarea {...register('description')} rows={4} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-3 flex items-center justify-between text-xs font-semibold text-slate-600">
-                  <span>Page Settings</span>
-                  <span className="text-slate-400">A4</span>
+              {/* ── Company Seal (from System Config) ─────────────── */}
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Company Seal</span>
+                  <span className="text-[9px] bg-indigo-100 text-indigo-600 font-bold px-1.5 py-0.5 rounded-full">System Config</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">Size</label>
-                    <select defaultValue="A4" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"><option>A4</option><option>A5</option><option>Letter</option></select>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  The official seal is uploaded in <strong>System Configuration → Institution & Branding</strong> and auto-embedded into every PDF.
+                </p>
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-indigo-100 px-3 py-2">
+                  <code className="text-[10px] font-mono text-indigo-600 flex-1">{'{{system.company_seal}}'}</code>
+                  <button type="button"
+                    onClick={() => {
+                      insertPlaceholder('<img src="{{system.company_seal}}" style="width:80px;height:80px;object-fit:contain;display:inline-block;" alt="Seal"/>');
+                    }}
+                    className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg flex-shrink-0">
+                    Insert →
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Approver Signature (from user profile) ────────── */}
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Approver Signature</span>
+                  <span className="text-[9px] bg-emerald-100 text-emerald-600 font-bold px-1.5 py-0.5 rounded-full">Auto</span>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  Approvers upload their signature in <strong>My Settings → Signature Image</strong>. Auto-embedded when the document is approved.
+                </p>
+                <div className="flex items-center gap-2 bg-white rounded-xl border border-emerald-100 px-3 py-2">
+                  <code className="text-[10px] font-mono text-emerald-600 flex-1">{'{{approver.signature_image}}'}</code>
+                  <button type="button"
+                    onClick={() => {
+                      insertPlaceholder('<img src="{{approver.signature_image}}" style="width:160px;height:60px;object-fit:contain;display:block;margin:4px 0;" alt="Signature"/>');
+                    }}
+                    className="text-[10px] font-semibold text-emerald-600 hover:text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg flex-shrink-0">
+                    Insert →
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Template versioning info ───────────────────────── */}
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/40 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Version Control</span>
+                  <span className="text-[9px] bg-amber-100 text-amber-600 font-bold px-1.5 py-0.5 rounded-full">FR-006</span>
+                </div>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  Version is managed automatically. Every time you save, the version increments.
+                  Generated documents always link to the version used — older PDFs are never affected.
+                </p>
+                <div className="bg-white rounded-xl border border-amber-100 px-3 py-2 flex items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-slate-400">Current:</span>
+                    <span className="text-sm font-black text-amber-700">
+                      v{watch('version') || (id ? '?' : 'New')}
+                    </span>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">Orientation</label>
-                    <select defaultValue="Portrait" className="h-9 w-full rounded-lg border border-slate-200 bg-white px-2 text-xs focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20"><option>Portrait</option><option>Landscape</option></select>
-                  </div>
+                  {id && (
+                    <>
+                      <div className="w-px h-4 bg-amber-100"/>
+                      <span className="text-[10px] text-slate-400">
+                        Next save → <strong className="text-amber-600">v{(parseInt(watch('version') || 1) + 1)}</strong>
+                      </span>
+                    </>
+                  )}
+                  {!id && (
+                    <span className="text-[10px] text-slate-400">
+                      First save creates <strong className="text-amber-600">v1</strong>
+                    </span>
+                  )}
                 </div>
+                <p className="text-[9px] text-slate-400">
+                  ⚠️ Version cannot be set manually — this ensures document integrity (FR-006).
+                </p>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-2 text-xs font-semibold text-slate-600">Document Layout</div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-slate-600"><span>Header</span><span className="text-slate-400">Default</span></div>
-                  <div className="flex items-center justify-between text-xs text-slate-600"><span>Footer</span><span className="text-slate-400">Default</span></div>
-                  <div className="flex items-center justify-between text-xs text-slate-600"><span>Page Number</span><span className="text-slate-400">Enabled</span></div>
+              {/* ── Active / Archived status ───────────────────────── */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Template Status</span>
+                  <span className="text-[9px] bg-slate-200 text-slate-600 font-bold px-1.5 py-0.5 rounded-full">FR-007</span>
                 </div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" {...register('is_active')}
+                    className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"/>
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">Active</p>
+                    <p className="text-[10px] text-slate-400">Archived templates cannot generate new documents</p>
+                  </div>
+                </label>
               </div>
+
             </div>
           ) : (
             <div className="h-full overflow-y-auto bg-[#e8eaf0] p-4">
