@@ -18,14 +18,17 @@ const ICONS = {
   logout: <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="w-[18px] h-[18px]"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>,
 };
 
-function NavItem({ item, collapsed }) {
+function NavItem({ item, collapsed, onClose }) {
   const { t } = useTranslation();
+
   return (
     <NavLink
       to={item.to}
+      end                          // ← Important: prevents multiple active items
+      onClick={onClose}
       title={collapsed ? t(`nav.${item.translationKey}`) : undefined}
       className={({ isActive }) =>
-        `flex items-center rounded-xl text-[13px] font-medium transition-all duration-150 group
+        `flex items-center rounded-xl text-[13px] font-medium transition-all duration-150 group outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300
         ${collapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-3 px-3 py-2'}
         ${isActive
           ? 'bg-indigo-50 text-[#3b5bdb]'
@@ -39,11 +42,15 @@ function NavItem({ item, collapsed }) {
             ${isActive ? 'text-[#3b5bdb]' : 'text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)]'}`}>
             {ICONS[item.icon]}
           </span>
+
           {!collapsed && (
-            <span className="truncate leading-tight">{t(`nav.${item.translationKey}`)}</span>
+            <span className="truncate leading-tight">
+              {t(`nav.${item.translationKey}`)}
+            </span>
           )}
+
           {!collapsed && isActive && (
-            <span className="ml-auto w-1 h-4 rounded-full bg-[#3b5bdb] flex-shrink-0"/>
+            <span className="ml-auto w-1 h-4 rounded-full bg-[#3b5bdb] flex-shrink-0" />
           )}
         </>
       )}
@@ -51,34 +58,43 @@ function NavItem({ item, collapsed }) {
   );
 }
 
-export default function Sidebar({ collapsed, setCollapsed }) {
+export default function Sidebar({ collapsed, setCollapsed, onClose }) {
   const { user, logout } = useAuth();
-  const { t }            = useTranslation();
-  const navigate         = useNavigate();
-  const handleLogout     = () => { logout(); navigate('/login'); };
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   const visibleGroups = navGroups
-    .map(g => ({ ...g, items: g.items.filter(i => i.roles.includes(user?.role)) }))
+    .map(g => ({
+      ...g,
+      items: g.items.filter(i => i.roles.includes(user?.role)),
+    }))
     .filter(g => g.items.length > 0);
 
   return (
-    <aside className={`
-      ${collapsed ? 'w-[68px]' : 'w-[240px]'}
-      flex-shrink-0 h-screen
-      bg-[var(--color-surface)] border-r border-[var(--color-border)]
-      flex flex-col
-      transition-[width,background-color,border-color] duration-300 ease-in-out relative
-      shadow-sm
-    `}>
-
-      {/* ── Logo ──────────────────────────────────────── */}
-      <div className={`flex items-center h-16 border-b border-[var(--color-border)] flex-shrink-0
-        ${collapsed ? 'justify-center' : 'px-4 gap-3'}`}>
-        <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0
-          border border-[var(--color-border)] flex items-center justify-center
-          bg-[var(--color-surface-raised)]">
-          <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain"/>
+    <aside
+      className={`
+        ${collapsed ? 'w-[68px]' : 'w-[240px]'}
+        flex-shrink-0 h-screen
+        bg-[var(--color-surface)] border-r border-[var(--color-border)]
+        flex flex-col
+        transition-[width,background-color,border-color] duration-300 ease-in-out relative
+        shadow-sm
+      `}
+    >
+      {/* Logo */}
+      <div
+        className={`flex items-center h-16 border-b border-[var(--color-border)] flex-shrink-0
+        ${collapsed ? 'justify-center' : 'px-4 gap-3'}`}
+      >
+        <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 border border-[var(--color-border)] flex items-center justify-center bg-[var(--color-surface-raised)]">
+          <img src="/logo.png" alt="Logo" className="w-7 h-7 object-contain" />
         </div>
+
         {!collapsed && (
           <div className="overflow-hidden leading-tight">
             <p className="text-[var(--color-text-primary)] font-bold text-[13px] tracking-tight">
@@ -91,7 +107,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
         )}
       </div>
 
-      {/* ── Collapse toggle ───────────────────────────── */}
+      {/* Collapse Toggle */}
       <button
         onClick={() => setCollapsed(c => !c)}
         className="absolute -right-3 top-[30px] w-6 h-6 rounded-full
@@ -101,48 +117,53 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           hover:border-[var(--color-text-secondary)]
           transition-colors z-20 shadow-sm"
       >
-        <svg className={`w-3 h-3 transition-transform duration-300 ${collapsed ? '' : 'rotate-180'}`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+        <svg
+          className={`w-3 h-3 transition-transform duration-300 ${collapsed ? '' : 'rotate-180'}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
       </button>
 
-      {/* ── Nav ───────────────────────────────────────── */}
-      <nav className="flex-1 flex flex-col justify-between py-3 px-2 min-h-0 overflow-y-auto scrollbar-none">
+      {/* Navigation */}
+      <nav className="flex-1 flex flex-col justify-between py-3 px-2 min-h-0 overflow-y-auto sidebar-scroll">
         <div className="space-y-0.5">
           {visibleGroups.map((group, gi) => (
             <div key={group.group} className={gi > 0 ? 'pt-3' : ''}>
-              {/* Group label */}
               {!collapsed ? (
-                <p className="text-[9px] font-bold text-[var(--color-text-secondary)]
-                  uppercase tracking-[0.14em] px-3 pb-1.5 pt-0.5 opacity-60">
+                <p className="text-[9px] font-bold text-[var(--color-text-secondary)] uppercase tracking-[0.14em] px-3 pb-1.5 pt-0.5 opacity-60">
                   {t(`nav.${group.translationKey}`)}
                 </p>
               ) : (
                 gi > 0 && (
                   <div className="py-1.5 flex justify-center">
-                    <div className="w-5 h-px bg-[var(--color-border)]"/>
+                    <div className="w-5 h-px bg-[var(--color-border)]" />
                   </div>
                 )
               )}
+
               <div className="space-y-0.5">
                 {group.items.map(item => (
-                  <NavItem key={item.to} item={item} collapsed={collapsed}/>
+                  <NavItem
+                    key={item.to}
+                    item={item}
+                    collapsed={collapsed}
+                    onClose={onClose}
+                  />
                 ))}
               </div>
             </div>
           ))}
         </div>
-        <div/>
       </nav>
 
-      {/* ── User card + Sign Out ──────────────────────── */}
+      {/* User + Logout */}
       <div className="border-t border-[var(--color-border)] px-2 py-3 flex-shrink-0 space-y-1">
         {!collapsed && (
-          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl
-            bg-[var(--color-surface-raised)] border border-[var(--color-border)] mb-1">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500
-              flex items-center justify-center flex-shrink-0 shadow-sm">
+          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[var(--color-surface-raised)] border border-[var(--color-border)] mb-1">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-blue-500 flex items-center justify-center flex-shrink-0 shadow-sm">
               <span className="text-[11px] font-bold text-white">
                 {user?.full_name?.charAt(0)?.toUpperCase()}
               </span>
@@ -157,6 +178,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
             </div>
           </div>
         )}
+
         <button
           onClick={handleLogout}
           title={collapsed ? t('actions.signOut') : undefined}

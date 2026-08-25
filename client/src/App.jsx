@@ -9,7 +9,7 @@ import PublicVerifyPage   from './pages/PublicVerifyPage';
 import LoginPage          from './pages/LoginPage';
 import DashboardPage      from './pages/DashboardPage';
 import TemplatesPage      from './pages/TemplatesPage';
-import TemplateEditorPage from './pages/TemplateEditorPage';
+import TemplateFormPage   from './pages/TemplateFormPage';
 import GenerateDocPage    from './pages/GenerateDocPage';
 import DocumentsPage      from './pages/DocumentsPage';
 import ApprovalsPage      from './pages/ApprovalsPage';
@@ -52,8 +52,8 @@ export default function App() {
 
             {/* Admins only */}
             <Route path="/templates"          element={<Guard roles={[SA,SYS]}><TemplatesPage /></Guard>} />
-            <Route path="/templates/new"      element={<Guard roles={[SA,SYS]}><TemplateEditorPage /></Guard>} />
-            <Route path="/templates/:id/edit" element={<Guard roles={[SA,SYS]}><TemplateEditorPage /></Guard>} />
+            <Route path="/templates/new"      element={<Guard roles={[SA,SYS]}><TemplateFormPage /></Guard>} />
+            <Route path="/templates/:id/edit" element={<Guard roles={[SA,SYS]}><TemplateFormPage /></Guard>} />
             <Route path="/users"              element={<Guard roles={[SA,SYS]}><UsersPage /></Guard>} />
             <Route path="/audit"              element={<Guard roles={[SA,SYS]}><AuditPage /></Guard>} />
             <Route path="/delivery-logs"      element={<Guard roles={[SA,SYS]}><DeliveryLogsPage /></Guard>} />

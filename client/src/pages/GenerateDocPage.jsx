@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import axiosInstance from '../api/axiosInstance';
+import { useToast } from '../context/ToastContext';
 
 const CATEGORY_COLORS = {
   HR: 'bg-blue-100 text-blue-700', Finance: 'bg-green-100 text-green-700',
@@ -139,6 +140,7 @@ function BulkJobCard({ job, onDownload }) {
 }
 
 export default function GenerateDocPage() {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('single'); // 'single' | 'bulk'
 
   // ── Single generation state ───────────────────────────────────────────────
@@ -210,6 +212,48 @@ export default function GenerateDocPage() {
       axiosInstance.get('/documents').then(r => setRecentDocs(r.data.slice(0, 8))).catch(() => {});
     } catch (e) { setError(e.response?.data?.message || 'Generation failed'); }
     finally { setGenerating(false); }
+  };
+
+  const handleDownload = async (docId, docUuid) => {
+    try {
+      const response = await axiosInstance.get(`/documents/${docId}/download`, {
+        responseType: 'blob',
+      });
+
+      const contentType = response.headers['content-type'];
+      if (contentType && contentType.includes('application/json')) {
+        const text = await response.data.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.message || 'Download failed');
+      }
+
+      const url = window.URL.createObjectURL(
+        new Blob([response.data], { type: 'application/pdf' })
+      );
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${docUuid || 'document'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      let message = 'Failed to download PDF';
+
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const errorData = JSON.parse(text);
+          message = errorData.message || message;
+        } catch (_) {}
+      } else if (err.response?.data?.message) {
+        message = err.response.data.message;
+      } else if (err.message) {
+        message = err.message;
+      }
+
+      toast.error(message);
+    }
   };
 
   const reset = () => {
@@ -503,11 +547,11 @@ export default function GenerateDocPage() {
                   ))}
                 </div>
                 <div className="flex gap-3">
-                  <a href={`/api/documents/${generated.id}/download`} target="_blank" rel="noreferrer"
+                  <button type="button" onClick={() => handleDownload(generated.id, generated.doc_uuid)}
                     className="flex-1 bg-emerald-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-emerald-700 transition-colors text-center flex items-center justify-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                     Download PDF
-                  </a>
+                  </button>
                   <button onClick={reset} className="flex-1 bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-700 transition-colors">
                     Generate Another
                   </button>

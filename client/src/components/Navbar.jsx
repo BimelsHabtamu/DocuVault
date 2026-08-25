@@ -31,7 +31,7 @@ function SearchBar() {
   const [focused, setFocused] = useState(false);
 
   return (
-    <div className={`relative transition-all duration-200 ${focused ? 'w-80' : 'w-64'}`}>
+    <div className={`relative transition-all duration-200 ${focused ? 'w-52 sm:w-80' : 'w-40 sm:w-64'}`}>
       <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4
         text-[var(--color-text-secondary)] pointer-events-none"
         fill="none" stroke="currentColor" viewBox="0 0 24 24">

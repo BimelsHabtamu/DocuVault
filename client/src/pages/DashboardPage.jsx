@@ -1,34 +1,36 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth }   from '../context/AuthContext';
-import { useToast }  from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import axiosInstance from '../api/axiosInstance';
 import { SkeletonCard } from '../components/ui/Skeleton';
 
 const ACTION_COLORS = {
-  GENERATE: { bg: 'bg-blue-100',   text: 'text-blue-700'   },
+  GENERATE: { bg: 'bg-blue-100', text: 'text-blue-700' },
   SIGN:     { bg: 'bg-purple-100', text: 'text-purple-700' },
-  DELIVER:  { bg: 'bg-emerald-100',text: 'text-emerald-700'},
+  DELIVER:  { bg: 'bg-emerald-100', text: 'text-emerald-700' },
   VERIFY:   { bg: 'bg-yellow-100', text: 'text-yellow-700' },
-  PREVIEW:  { bg: 'bg-gray-100',   text: 'text-gray-600'   },
+  PREVIEW:  { bg: 'bg-gray-100', text: 'text-gray-600' },
 };
+
 const STATUS_COLORS = {
-  draft:          { bar: 'bg-gray-400',    pct: 0 },
-  pending:        { bar: 'bg-yellow-400',  pct: 0 },
-  signed:         { bar: 'bg-blue-500',    pct: 0 },
-  delivered:      { bar: 'bg-emerald-500', pct: 0 },
-  hand_delivered: { bar: 'bg-purple-500',  pct: 0 },
-  rejected:       { bar: 'bg-red-400',     pct: 0 },
+  draft:          { bar: 'bg-gray-400' },
+  pending:        { bar: 'bg-yellow-400' },
+  signed:         { bar: 'bg-blue-500' },
+  delivered:      { bar: 'bg-emerald-500' },
+  hand_delivered: { bar: 'bg-purple-500' },
+  rejected:       { bar: 'bg-red-400' },
 };
+
 function timeAgo(d) {
   const s = Math.floor((Date.now() - new Date(d)) / 1000);
-  if (s < 60)    return `${s}s ago`;
-  if (s < 3600)  return `${Math.floor(s/60)}m ago`;
-  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
-  return `${Math.floor(s/86400)}d ago`;
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
 }
 
-function KpiCard({ label, value, sub, icon, iconBg, border, trend }) {
+function KpiCard({ label, value, sub, icon, iconBg, border }) {
   if (value === null || value === undefined) return null;
   return (
     <div className={`bg-white rounded-2xl border-l-4 ${border} shadow-sm p-5 flex flex-col gap-3 hover:shadow-md transition-shadow`}>
@@ -38,24 +40,24 @@ function KpiCard({ label, value, sub, icon, iconBg, border, trend }) {
           <p className="text-3xl font-bold text-gray-900 mt-1 leading-none">{value}</p>
           {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
         </div>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>{icon}</div>
-      </div>
-      {trend && (
-        <div className="pt-2 border-t border-gray-50">
-          <p className="text-[11px] text-gray-400">{trend}</p>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+          {icon}
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-function QuickAction({ label, desc, icon, bg, to, roles, role }) {
+function QuickAction({ label, desc, icon, bg, to }) {
   const nav = useNavigate();
-  if (!roles.includes(role)) return null;
   return (
-    <button onClick={() => nav(to)}
-      className="flex items-center gap-3.5 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all text-left w-full group">
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform ${bg}`}>{icon}</div>
+    <button
+      onClick={() => nav(to)}
+      className="flex items-center gap-3.5 p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all text-left w-full group"
+    >
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform ${bg}`}>
+        {icon}
+      </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-gray-800">{label}</p>
         <p className="text-[11px] text-gray-400 truncate mt-0.5">{desc}</p>
@@ -67,186 +69,228 @@ function QuickAction({ label, desc, icon, bg, to, roles, role }) {
   );
 }
 
-const QUICK_ACTIONS = [
-  { 
-    label:'Generate Document',
-     desc:'Create a new PDF from a template',  
-     to:'/generate',  
-     bg:'bg-blue-100', 
-    roles:['admin','generator','approver'],
-    icon:
-    <svg className="w-4.5 h-4.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" 
-     strokeLinejoin="round"
-     strokeWidth={1.8} 
-     d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-     </svg>
-      },
-  { 
-    label:'Manage Templates',  
-    desc:'Create, edit or archive templates',  
-    to:'/templates', bg:'bg-indigo-100',  
-    roles:['admin'],
-    icon:
-    <svg className="w-4.5 h-4.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} 
-    d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
-    </svg>
-     },
-  { 
-    label:'Pending Approvals', 
-    desc:'Review and sign documents', 
-    to:'/approvals', 
-    bg:'bg-yellow-100', 
-    roles:['admin','approver'],
-    icon:
-    <svg className="w-4.5 h-4.5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} 
-    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-    </svg> 
-    },
-  { 
-    label:'Verify Document',
-    desc:'Check document authenticity via QR', 
-    to:'/verify', 
-    bg:'bg-emerald-100', 
-    roles:['admin','generator','approver','recipient'],
-    icon:
-    <svg className="w-4.5 h-4.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} 
-    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-    </svg>
-     },
-  { 
-    label:'Manage Users',
-    desc:'Add, edit or deactivate accounts',
-    to:'/users',
-    bg:'bg-purple-100', 
-    roles:['admin'],
-    icon:
-    <svg className="w-4.5 h-4.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} 
-    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-    </svg> 
-    },
-  {
-    label:'View Audit Logs',
-    desc:'Full forensic event trail',
-    to:'/audit',  
-    bg:'bg-gray-100',
-    roles:['admin'],
-    icon:
-    <svg className="w-4.5 h-4.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} 
-    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-    </svg> 
-    },
-];
-
 export default function DashboardPage() {
   const { user } = useAuth();
-  const toast    = useToast();
-  const [data, setData]    = useState(null);
+  const toast = useToast();
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+
   const role = user?.role;
+  const isAdmin = role === 'super_admin' || role === 'system_admin';
 
   useEffect(() => {
-    axiosInstance.get('/audit/dashboard')
-      .then(r => setData(r.data))
+    axiosInstance
+      .get('/audit/dashboard')
+      .then((r) => setData(r.data))
       .catch(() => toast.error('Could not load dashboard data'))
       .finally(() => setLoading(false));
   }, []);
 
-  const statusTotal = data?.status_breakdown?.reduce((s,r) => s + Number(r.count), 0) || 0;
-  const delivTotal  = data?.delivery_stats?.reduce((s,r)  => s + Number(r.count), 0) || 0;
+  const statusTotal = data?.status_breakdown?.reduce((s, r) => s + Number(r.count), 0) || 0;
+  const delivTotal = data?.delivery_stats?.reduce((s, r) => s + Number(r.count), 0) || 0;
+
+  // Quick Actions based on role
+  const quickActions = [
+    {
+      label: 'Generate Document',
+      desc: 'Create a new PDF from a template',
+      to: '/generate',
+      bg: 'bg-blue-100',
+      roles: ['super_admin', 'system_admin', 'generator', 'approver'],
+      icon: (
+        <svg className="w-4.5 h-4.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Manage Templates',
+      desc: 'Create, edit or archive templates',
+      to: '/templates',
+      bg: 'bg-indigo-100',
+      roles: ['super_admin', 'system_admin'],
+      icon: (
+        <svg className="w-4.5 h-4.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Pending Approvals',
+      desc: 'Review and sign documents',
+      to: '/approvals',
+      bg: 'bg-yellow-100',
+      roles: ['super_admin', 'system_admin', 'approver'],
+      icon: (
+        <svg className="w-4.5 h-4.5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Verify Document',
+      desc: 'Check document authenticity via QR',
+      to: '/verify',
+      bg: 'bg-emerald-100',
+      roles: ['super_admin', 'system_admin', 'generator', 'approver', 'recipient'],
+      icon: (
+        <svg className="w-4.5 h-4.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Manage Users',
+      desc: 'Add, edit or deactivate accounts',
+      to: '/users',
+      bg: 'bg-purple-100',
+      roles: ['super_admin', 'system_admin'],
+      icon: (
+        <svg className="w-4.5 h-4.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'View Audit Logs',
+      desc: 'Full forensic event trail',
+      to: '/audit',
+      bg: 'bg-gray-100',
+      roles: ['super_admin', 'system_admin'],
+      icon: (
+        <svg className="w-4.5 h-4.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+        </svg>
+      ),
+    },
+  ].filter((action) => action.roles.includes(role));
 
   return (
-    <div className="space-y-6">     
+    <div className="space-y-6 min-w-0 overflow-x-hidden">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <p className="text-sm text-gray-400 mt-0.5 break-words">
             Welcome back, <span className="font-semibold text-gray-700">{user?.full_name}</span>
             <span className="mx-2 text-gray-200">·</span>
-            <span className="capitalize">{role}</span>
+            <span className="capitalize">{role?.replace('_', ' ')}</span>
             <span className="mx-2 text-gray-200">·</span>
-            {new Date().toLocaleDateString('en-US', { weekday:'short', month:'long', day:'numeric', year:'numeric' })}
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
           </p>
         </div>
-      </div>      
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {loading ? [1,2,3,4].map(i => <SkeletonCard key={i} />) : (<>
-          <KpiCard label="Docs Generated Today" value={data?.docs_today ?? 0}    
-            border="border-blue-500" iconBg="bg-blue-50"            
-            icon={
-            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-          } />
+      </div>
 
-          {(role==='admin'||role==='approver') && (
-            <KpiCard label="Pending Approvals" value={data?.pending_approvals ?? 0}
-              border="border-yellow-500" iconBg="bg-yellow-50"
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {loading ? (
+          [1, 2, 3, 4].map((i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            <KpiCard
+              label="Docs Generated Today"
+              value={data?.docs_today ?? 0}
+              border="border-blue-500"
+              iconBg="bg-blue-50"
               icon={
-              <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} 
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              } />
-          )}
-          {(role==='admin'||role==='generator') && (
-            <KpiCard label="Total Documents" value={data?.total_docs ?? 0}
-              border="border-indigo-500" iconBg="bg-indigo-50"
-              icon={
-              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-               d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
-               </svg>
-               } />
-          )}
-          {role==='admin' && (
-            <KpiCard label="Active Users" value={data?.active_users ?? 0}
-              border="border-emerald-500" iconBg="bg-emerald-50"
-              icon={
-              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} 
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-              </svg>
-              } />
-          )}
-        </>)}
-      </div>      
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">        
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              }
+            />
+
+            {(isAdmin || role === 'approver') && (
+              <KpiCard
+                label="Pending Approvals"
+                value={data?.pending_approvals ?? 0}
+                border="border-yellow-500"
+                iconBg="bg-yellow-50"
+                icon={
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                }
+              />
+            )}
+
+            {(isAdmin || role === 'generator') && (
+              <KpiCard
+                label="Total Documents"
+                value={data?.total_docs ?? 0}
+                border="border-indigo-500"
+                iconBg="bg-indigo-50"
+                icon={
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 7a2 2 0 012-2h4l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                  </svg>
+                }
+              />
+            )}
+
+            {isAdmin && (
+              <KpiCard
+                label="Active Users"
+                value={data?.active_users ?? 0}
+                border="border-emerald-500"
+                iconBg="bg-emerald-50"
+                icon={
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                }
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      {quickActions.length > 0 && (
+        <div>
+          <h2 className="text-sm font-bold text-gray-900 mb-3">Quick Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {quickActions.map((action) => (
+              <QuickAction key={action.to} {...action} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        {/* Activity Timeline */}
         <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold text-gray-900">Activity Timeline</p>
-            </div>
+            <p className="text-sm font-bold text-gray-900">Activity Timeline</p>
             <a href="/audit" className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1">
-              Full log <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+              Full log
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </a>
           </div>
 
           {loading ? (
             <div className="px-6 py-4 space-y-4">
-              {[1,2,3,4].map(i => (
+              {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex items-start gap-3 animate-pulse">
                   <div className="w-8 h-8 bg-gray-100 rounded-lg flex-shrink-0 mt-0.5" />
                   <div className="flex-1 space-y-1.5">
                     <div className="h-3 bg-gray-100 rounded w-3/4" />
                     <div className="h-2.5 bg-gray-50 rounded w-1/2" />
                   </div>
-                  <div className="h-3 bg-gray-100 rounded w-12 flex-shrink-0" />
                 </div>
               ))}
             </div>
           ) : !data?.recent_activity?.length ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <svg className="w-10 h-10 text-gray-200 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
               <p className="text-sm text-gray-400">No activity yet</p>
               <p className="text-xs text-gray-300 mt-1">Events appear when you generate, sign, or verify documents</p>
-              <a href="/generate" className="mt-4 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-lg">Generate your first document →</a>
             </div>
           ) : (
             <div className="px-6 py-2 divide-y divide-gray-50">
@@ -255,16 +299,23 @@ export default function DashboardPage() {
                 return (
                   <div key={i} className="flex items-center gap-3.5 py-3.5">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${ac.bg}`}>
-                      <span className={`text-[9px] font-black ${ac.text}`}>{ev.action.slice(0,3)}</span>
+                      <span className={`text-[9px] font-black ${ac.text}`}>{ev.action.slice(0, 3)}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800 truncate">
                         {ev.user_name || 'Public'}
-                        {ev.doc_uuid && <span className="text-gray-400 font-normal"> on <span className="font-mono">{ev.doc_uuid}</span></span>}
+                        {ev.doc_uuid && (
+                          <span className="text-gray-400 font-normal">
+                            {' '}
+                            on <span className="font-mono">{ev.doc_uuid}</span>
+                          </span>
+                        )}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-0.5">{ev.ip_address || '—'}</p>
                     </div>
-                    <span className="text-[10px] text-gray-400 flex-shrink-0 bg-gray-50 px-2 py-0.5 rounded-md">{timeAgo(ev.timestamp)}</span>
+                    <span className="text-[10px] text-gray-400 flex-shrink-0 bg-gray-50 px-2 py-0.5 rounded-md">
+                      {timeAgo(ev.timestamp)}
+                    </span>
                   </div>
                 );
               })}
@@ -272,24 +323,28 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Right column */}
+        {/* Right Column */}
         <div className="space-y-5">
-
-          {/* Document status */}
-          {(role==='admin'||role==='generator') && (
+          {/* Document Status */}
+          {(isAdmin || role === 'generator') && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <p className="text-sm font-bold text-gray-900">Document Status</p>
               <p className="text-[11px] text-gray-400 mt-0.5 mb-4">Breakdown · {statusTotal} total</p>
+
               {loading ? (
-                <div className="space-y-3">{[1,2,3,4,5].map(i=><div key={i} className="animate-pulse h-5 bg-gray-100 rounded"/>)}</div>
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="animate-pulse h-5 bg-gray-100 rounded" />
+                  ))}
+                </div>
               ) : statusTotal === 0 ? (
                 <p className="text-xs text-gray-300 text-center py-4">No documents generated yet</p>
               ) : (
                 <div className="space-y-3">
                   {Object.entries(STATUS_COLORS).map(([s, meta]) => {
-                    const row   = data?.status_breakdown?.find(r => r.status === s);
+                    const row = data?.status_breakdown?.find((r) => r.status === s);
                     const count = row ? Number(row.count) : 0;
-                    const pct   = statusTotal > 0 ? Math.round((count/statusTotal)*100) : 0;
+                    const pct = statusTotal > 0 ? Math.round((count / statusTotal) * 100) : 0;
                     return (
                       <div key={s}>
                         <div className="flex justify-between items-center mb-1">
@@ -303,7 +358,10 @@ export default function DashboardPage() {
                           </div>
                         </div>
                         <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full ${meta.bar} rounded-full transition-all duration-700`} style={{width:`${pct}%`}} />
+                          <div
+                            className={`h-full ${meta.bar} rounded-full transition-all duration-700`}
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                       </div>
                     );
@@ -313,25 +371,37 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Delivery stats */}
-          {(role==='admin'||role==='generator') && (
+          {/* Delivery Stats */}
+          {(isAdmin || role === 'generator') && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
               <p className="text-sm font-bold text-gray-900">Delivery Status</p>
               <p className="text-[11px] text-gray-400 mt-0.5 mb-4">From delivery_logs · {delivTotal} sent</p>
+
               {loading ? (
-                <div className="space-y-2">{[1,2,3].map(i=><div key={i} className="animate-pulse h-5 bg-gray-100 rounded"/>)}</div>
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse h-5 bg-gray-100 rounded" />
+                  ))}
+                </div>
               ) : delivTotal === 0 ? (
                 <p className="text-xs text-gray-300 text-center py-4">No deliveries yet</p>
               ) : (
                 <div className="space-y-2.5">
-                  {data?.delivery_stats?.map(d => {
-                    const colors = { sent:'bg-blue-500', opened:'bg-emerald-500', queued:'bg-yellow-400', failed:'bg-red-400' };
+                  {data?.delivery_stats?.map((d) => {
+                    const colors = {
+                      sent: 'bg-blue-500',
+                      opened: 'bg-emerald-500',
+                      queued: 'bg-yellow-400',
+                      failed: 'bg-red-400',
+                    };
                     return (
                       <div key={d.email_status} className="flex items-center gap-2.5">
-                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${colors[d.email_status]||'bg-gray-300'}`} />
+                        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${colors[d.email_status] || 'bg-gray-300'}`} />
                         <span className="text-xs font-medium text-gray-600 capitalize flex-1">{d.email_status}</span>
                         <span className="text-xs font-bold text-gray-700">{d.count}</span>
-                        <span className="text-[10px] text-gray-400 w-8 text-right">{Math.round((d.count/delivTotal)*100)}%</span>
+                        <span className="text-[10px] text-gray-400 w-8 text-right">
+                          {Math.round((d.count / delivTotal) * 100)}%
+                        </span>
                       </div>
                     );
                   })}
@@ -339,25 +409,8 @@ export default function DashboardPage() {
               )}
             </div>
           )}
-
-          {/* Top templates */}
-          {(role==='admin'||role==='generator') && data?.top_templates?.length > 0 && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-sm font-bold text-gray-900">Top Templates</p>
-              <p className="text-[11px] text-gray-400 mt-0.5 mb-4">By document count</p>
-              <div className="space-y-2.5">
-                {data.top_templates.map((t, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-gray-400 w-3">{i+1}</span>
-                    <span className="text-xs font-medium text-gray-700 flex-1 truncate">{t.name}</span>
-                    <span className="text-xs font-bold text-gray-700">{t.usage_count}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      </div>     
+      </div>
     </div>
   );
 }
