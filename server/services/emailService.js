@@ -31,11 +31,14 @@ function btn(text, url) { return `<a href="${url}" style="display:inline-block;b
 const baseUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
 async function send(to, subject, html) {
-  if (!process.env.MAIL_USER || process.env.MAIL_USER === 'your_email@gmail.com') {
-    console.log(`[EMAIL STUB] To: ${to} | Subject: ${subject}`);
-    return;
-  }
-  await transporter.sendMail({ from: `"DocuVault" <${process.env.MAIL_USER}>`, to, subject, html });
+  // Email is mandatory — always attempt real delivery.
+  // If MAIL_USER is missing the server startup check in server.js will have warned already.
+  await transporter.sendMail({
+    from:    `"DocuVault" <${process.env.MAIL_USER}>`,
+    to,
+    subject,
+    html,
+  });
 }
 
 async function sendOtpEmail(toEmail, approverName, otp, docUuid) {
@@ -102,11 +105,13 @@ async function sendDeliveryEmail(toEmail, recipientName, docUuid, downloadLink, 
     btn('Download Document', downloadLink) +
     p('<span style="font-size:12px;color:#9ca3af">This download link expires in 7 days.</span>')
   );
-  if (!process.env.MAIL_USER || process.env.MAIL_USER === 'your_email@gmail.com') {
-    console.log(`[EMAIL STUB] Delivery to: ${toEmail} | Doc: ${docUuid}`);
-    return;
-  }
-  await transporter.sendMail({ from: `"DocuVault" <${process.env.MAIL_USER}>`, to: toEmail, subject: `Your Document ${docUuid} is Ready`, html, attachments });
+  await transporter.sendMail({
+    from:        `"DocuVault" <${process.env.MAIL_USER}>`,
+    to:          toEmail,
+    subject:     `Your Document ${docUuid} is Ready`,
+    html,
+    attachments,
+  });
 }
 
 async function sendRejectionEmail(toEmail, generatorName, docUuid, reason) {
@@ -141,6 +146,132 @@ async function send72hrEscalationEmail(toEmail, name, docUuid, role) {
   );
 }
 
+// ── NEW RECIPIENT ACCOUNT: Set Password + Access Document ────────────────────
+// Sent when recipient email does NOT exist → auto-created account (Option C)
+async function sendSetPasswordEmail(toEmail, recipientName, setPasswordLink, docUuid) {
+  await send(toEmail, `Set your password to access your document on DocuVault`,
+    brand('Welcome to DocuVault',
+      h('A document has been shared with you') +
+      p(`Hello <strong>${recipientName || toEmail}</strong>,`) +
+      p('A document has been prepared and delivered to you through DocuVault. To access it, you need to set a password for your new account.') +
+      docBadge(docUuid) +
+      `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;margin:16px 0">
+        <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#1d4ed8">Step 1 — Set your password</p>
+        <p style="margin:0 0 12px;font-size:13px;color:#374151">Click the button below to create your password. This link expires in <strong>48 hours</strong>.</p>
+        <a href="${setPasswordLink}" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600">Set My Password & View Document →</a>
+      </div>` +
+      `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px 16px;margin:12px 0">
+        <p style="margin:0;font-size:13px;font-weight:600;color:#16a34a">Step 2 — After setting your password</p>
+        <p style="margin:4px 0 0;font-size:13px;color:#374151">You will be automatically taken to your document where you can scan the QR code to verify its authenticity and download it.</p>
+      </div>` +
+      p('<span style="font-size:12px;color:#9ca3af">If you did not expect this email, please ignore it. No account will be activated without setting a password.</span>')
+    )
+  );
+}
+
+// ── EXISTING RECIPIENT ACCOUNT: Login + Document Link ────────────────────────
+// Sent when recipient email already EXISTS in the system (Option C)
+async function sendDocumentAccessEmail(toEmail, recipientName, loginLink, docUuid) {
+  await send(toEmail, `Your document ${docUuid} is ready on DocuVault`,
+    brand('Document Ready',
+      h('Your Document is Ready') +
+      p(`Hello <strong>${recipientName || toEmail}</strong>,`) +
+      p('A document has been prepared and delivered to you through DocuVault.') +
+      docBadge(docUuid) +
+      p('Log in to your DocuVault account to view, verify, and download your document.') +
+      btn('View My Document →', loginLink) +
+      p('<span style="font-size:12px;color:#9ca3af">You will be taken directly to your document after logging in.</span>')
+    )
+  );
+}
+
+// ── SUPER ADMIN DOWNLOAD NOTIFICATION ────────────────────────────────────────
+// Sent to all super_admins when a recipient downloads a document
+async function sendAdminDownloadNotificationEmail(toEmail, adminName, recipientName, recipientEmail, docUuid, downloadedAt) {
+  const timeStr = new Date(downloadedAt).toLocaleString('en-US', {
+    dateStyle: 'medium', timeStyle: 'short',
+  });
+  await send(toEmail, `Document ${docUuid} was downloaded by recipient`,
+    brand('Download Notification',
+      h('📥 Recipient Downloaded a Document') +
+      p(`Hello <strong>${adminName}</strong>,`) +
+      p('A recipient has downloaded their document. Details below:') +
+      docBadge(docUuid) +
+      `<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:13px">
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:8px 0;color:#6b7280;width:140px">Recipient Name</td>
+          <td style="padding:8px 0;color:#111827;font-weight:600">${recipientName || '—'}</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:8px 0;color:#6b7280">Recipient Email</td>
+          <td style="padding:8px 0;color:#111827">${recipientEmail}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#6b7280">Downloaded At</td>
+          <td style="padding:8px 0;color:#111827">${timeStr}</td>
+        </tr>
+      </table>` +
+      btn('View Delivery Logs', `${baseUrl}/delivery-logs`)
+    )
+  );
+}
+
+// ── EMAIL CHANGE VERIFICATION ─────────────────────────────────────────────────
+// Sent to the NEW email address when a user requests an email change.
+// The old email stays active until this link is clicked.
+async function sendEmailVerificationEmail(toNewEmail, userName, verifyLink, oldEmail) {
+  await send(
+    toNewEmail,
+    'Verify your new email address — DocuVault',
+    brand('Email Verification',
+      h('Verify Your New Email Address') +
+      p(`Hello <strong>${userName}</strong>,`) +
+      p('You requested to change your DocuVault email address. Click the button below to confirm this is really you.') +
+      `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;
+        padding:14px 16px;margin:16px 0">
+        <p style="margin:0 0 4px;font-size:12px;color:#6b7280">Changing from</p>
+        <p style="margin:0 0 10px;font-size:13px;font-weight:600;color:#374151">${oldEmail}</p>
+        <p style="margin:0 0 4px;font-size:12px;color:#6b7280">Changing to</p>
+        <p style="margin:0 0 14px;font-size:13px;font-weight:600;color:#1d4ed8">${toNewEmail}</p>
+        <a href="${verifyLink}"
+          style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;
+            padding:10px 22px;border-radius:8px;font-size:13px;font-weight:600">
+          Confirm New Email Address →
+        </a>
+      </div>` +
+      p('<strong>This link expires in 24 hours.</strong>') +
+      p('<span style="font-size:12px;color:#9ca3af">If you did not request this change, you can safely ignore this email. Your current email address will remain unchanged.</span>')
+    )
+  );
+}
+
+// ── PASSWORD CHANGED NOTIFICATION ─────────────────────────────────────────────
+// Sent to the user's current email after a successful password change.
+// Security alert — lets them know if someone else changed it.
+async function sendPasswordChangedEmail(toEmail, userName) {
+  const timeStr = new Date().toLocaleString('en-US', {
+    dateStyle: 'medium', timeStyle: 'short',
+  });
+  await send(
+    toEmail,
+    'Your DocuVault password was changed',
+    brand('Password Changed',
+      h('Your Password Was Changed') +
+      p(`Hello <strong>${userName}</strong>,`) +
+      p(`Your DocuVault account password was successfully changed on <strong>${timeStr}</strong>.`) +
+      `<div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;
+        padding:12px 16px;margin:16px 0;display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:18px;line-height:1">⚠️</span>
+        <p style="margin:0;font-size:13px;color:#92400e">
+          <strong>Was this you?</strong> If you made this change, no action is needed.<br/>
+          If you did <strong>not</strong> change your password, contact your system administrator immediately.
+        </p>
+      </div>` +
+      btn('Go to DocuVault', `${baseUrl}/login`)
+    )
+  );
+}
+
 module.exports = {
   sendOtpEmail,
   sendDocReadyEmail,
@@ -150,4 +281,9 @@ module.exports = {
   sendRejectionEmail,
   send24hrReminderEmail,
   send72hrEscalationEmail,
+  sendSetPasswordEmail,
+  sendDocumentAccessEmail,
+  sendAdminDownloadNotificationEmail,
+  sendEmailVerificationEmail,
+  sendPasswordChangedEmail,
 };

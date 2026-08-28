@@ -1,12 +1,29 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import PublicLayout from '../components/PublicLayout';
 
+/* ── Scroll-reveal hook ─────────────────────────── */
+function useReveal() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { el.classList.add('visible'); obs.disconnect(); } },
+      { threshold: 0.12 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return ref;
+}
+
 function FeatureCard({ icon, title, description, accent }) {
   return (
     <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm
-      hover:shadow-md hover:border-indigo-100 transition-all duration-200 p-6 space-y-4">
+      hover:shadow-lg hover:shadow-indigo-100/60 hover:-translate-y-1 hover:border-indigo-200
+      transition-all duration-300 p-6 space-y-4 cursor-default">
       <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${accent}`}>
         {icon}
       </div>
@@ -19,10 +36,10 @@ function FeatureCard({ icon, title, description, accent }) {
 function StepCard({ num, title, description, active }) {
   return (
     <div className={`flex flex-col items-center text-center gap-3 p-5 rounded-2xl border
-      transition-all duration-300
+      transition-all duration-300 cursor-default
       ${active
-        ? 'bg-indigo-50 border-indigo-200 shadow-sm'
-        : 'bg-[var(--color-surface)] border-[var(--color-border)] hover:border-indigo-100'}`}>
+        ? 'bg-indigo-50 border-indigo-200 shadow-md shadow-indigo-100/60 -translate-y-1'
+        : 'bg-[var(--color-surface)] border-[var(--color-border)] hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-100/50 hover:-translate-y-0.5'}`}>
       <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm font-black
         shadow-sm transition-all duration-300
         ${active ? 'bg-[#3b5bdb] text-white shadow-indigo-200' : 'bg-[#f0f2fa] text-[#3b5bdb]'}`}>
@@ -39,7 +56,8 @@ function StepCard({ num, title, description, active }) {
 function RoleCard({ role, description, permissions, image }) {
   return (
     <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm p-5 space-y-3
-      hover:border-indigo-100 hover:shadow-md transition-all duration-200">
+      hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-100/50 hover:-translate-y-1
+      transition-all duration-300 cursor-default">
       <img src={image} alt="" className="w-10 h-10 rounded-xl object-contain shadow-sm" />
       <div>
         <h4 className="text-sm font-bold text-[var(--color-text-primary)]">{role}</h4>
@@ -61,7 +79,9 @@ function RoleCard({ role, description, permissions, image }) {
 
 function StatBox({ value, label }) {
   return (
-    <div className="text-center space-y-1.5 px-6 py-5 bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm">
+    <div className="text-center space-y-1.5 px-6 py-5 bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)]
+      shadow-md shadow-indigo-100/40 hover:shadow-xl hover:shadow-indigo-100/60 hover:-translate-y-1
+      transition-all duration-300 cursor-default">
       <p className="text-3xl font-black text-[#3b5bdb]">{value}</p>
       <p className="text-xs text-[var(--color-text-secondary)] font-medium leading-tight">{label}</p>
     </div>
@@ -80,6 +100,21 @@ export default function LandingPage() {
   const [activeStep,  setActiveStep]  = useState(0);
   const [slideIndex,  setSlideIndex]  = useState(0);
   const [fadeIn,      setFadeIn]      = useState(true);
+
+  // Scroll-reveal refs
+  const refStats    = useReveal();
+  const refDepts    = useReveal();
+  const refFeatHead = useReveal();
+  const refFeats    = useReveal();
+  const refHowHead  = useReveal();
+  const refSteps    = useReveal();
+  const refHowCta   = useReveal();
+  const refSecLeft  = useReveal();
+  const refSecRight = useReveal();
+  const refRolesHead= useReveal();
+  const refRoles    = useReveal();
+  const refVerifyCta= useReveal();
+  const refFinalCta = useReveal();
 
   const STEPS = [
     { title: t('landing.step1Title'), desc: t('landing.step1Desc') },
@@ -162,7 +197,7 @@ export default function LandingPage() {
 
         {/* Hero content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 w-full">
-          <div className="max-w-2xl space-y-8">
+          <div className="max-w-2xl space-y-8 hero-animate">
 
             <div className="space-y-2">
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-tight tracking-tight">
@@ -226,7 +261,7 @@ export default function LandingPage() {
       {/* ── Stats ─────────────────────────────────────── */}
       <section className="bg-[var(--color-bg)] pb-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 -mt-6 relative z-10">
+          <div ref={refStats} className="reveal reveal-stagger grid grid-cols-2 sm:grid-cols-4 gap-4 -mt-6 relative z-10">
             <StatBox value={t('landing.stat1Value')} label={t('landing.stat1Label')} />
             <StatBox value={t('landing.stat2Value')} label={t('landing.stat2Label')} />
             <StatBox value={t('landing.stat3Value')} label={t('landing.stat3Label')} />
@@ -238,7 +273,7 @@ export default function LandingPage() {
       {/* ── Dept tags ─────────────────────────────────── */}
       <section className="bg-[var(--color-surface)] py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-wrap justify-center gap-2">
+          <div ref={refDepts} className="reveal flex flex-wrap justify-center gap-2">
             {[
               t('landing.dept1'), t('landing.dept2'), t('landing.dept3'), t('landing.dept4'),
               t('landing.dept5'), t('landing.dept6'), t('landing.dept7'), t('landing.dept8'),
@@ -257,7 +292,7 @@ export default function LandingPage() {
       {/* ── Features ──────────────────────────────────── */}
       <section id="features" className="bg-[var(--color-bg)] py-20 lg:py-28">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
+          <div ref={refFeatHead} className="reveal text-center max-w-2xl mx-auto mb-14">
             <span className="inline-block text-xs font-bold text-[#3b5bdb] uppercase tracking-widest
               bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full mb-4">
               {t('landing.featuresBadge')}
@@ -271,7 +306,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div ref={refFeats} className="reveal reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             <FeatureCard accent="bg-indigo-50"  title={t('landing.feat1Title')} description={t('landing.feat1Desc')}
               icon={<svg className="w-5 h-5 text-[#3b5bdb]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>}
             />
@@ -297,7 +332,7 @@ export default function LandingPage() {
       {/* ── How It Works ──────────────────────────────── */}
       <section id="how" className="bg-[var(--color-surface)] py-20 lg:py-28 border-t border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-14">
+          <div ref={refHowHead} className="reveal text-center max-w-2xl mx-auto mb-14">
             <span className="inline-block text-xs font-bold text-[#3b5bdb] uppercase tracking-widest
               bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full mb-4">
               {t('landing.howBadge')}
@@ -311,14 +346,14 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div ref={refSteps} className="reveal reveal-stagger grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {STEPS.map((s, i) => (
               <StepCard key={s.title} num={i + 1} title={s.title}
                 description={s.desc} active={activeStep === i} />
             ))}
           </div>
 
-          <div className="mt-12 text-center">
+          <div ref={refHowCta} className="reveal mt-12 text-center">
             <Link to="/login"
               className="inline-flex items-center gap-2 bg-[#3b5bdb] hover:bg-[#2f4ac4]
                 text-white text-sm font-bold px-8 py-3.5 rounded-xl
@@ -337,7 +372,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
 
-            <div className="space-y-6">
+            <div ref={refSecLeft} className="reveal space-y-6">
               <span className="inline-block text-xs font-bold text-[#3b5bdb] uppercase tracking-widest
                 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full">
                 {t('landing.securityBadge')}
@@ -357,7 +392,8 @@ export default function LandingPage() {
                   { title: 'JWT',     sub: t('landing.secJwt') },
                 ].map(({ title, sub }) => (
                   <div key={title} className="bg-[var(--color-surface)] border border-[var(--color-border)]
-                    rounded-xl p-3.5 hover:border-indigo-200 transition-colors">
+                    rounded-xl p-3.5 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-100/50
+                    hover:-translate-y-0.5 transition-all duration-300 cursor-default">
                     <p className="text-[var(--color-text-primary)] font-bold text-sm">{title}</p>
                     <p className="text-[var(--color-text-secondary)] text-[11px] mt-0.5">{sub}</p>
                   </div>
@@ -376,9 +412,9 @@ export default function LandingPage() {
             </div>
 
             {/* Integrity chain */}
-            <div className="relative">
+            <div ref={refSecRight} className="reveal relative">
               <div className="absolute inset-0 bg-indigo-50/60 blur-3xl rounded-3xl"/>
-              <div className="relative bg-[var(--color-surface)] rounded-3xl border border-[var(--color-border)] shadow-sm p-6 space-y-3">
+              <div className="relative bg-[var(--color-surface)] rounded-3xl border border-[var(--color-border)] shadow-md p-6 space-y-3">
                 <p className="text-xs font-bold text-[var(--color-text-secondary)] uppercase tracking-wider mb-4">
                   {t('landing.secChainTitle')}
                 </p>
@@ -406,7 +442,7 @@ export default function LandingPage() {
       {/* ── Roles ─────────────────────────────────────── */}
       <section id="about" className="bg-[var(--color-surface)] py-20 lg:py-28 border-t border-[var(--color-border)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-12">
+          <div ref={refRolesHead} className="reveal text-center max-w-2xl mx-auto mb-12">
             <span className="inline-block text-xs font-bold text-[#3b5bdb] uppercase tracking-widest
               bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full mb-4">
               {t('landing.rolesBadge')}
@@ -420,7 +456,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          <div ref={refRoles} className="reveal reveal-stagger grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             <RoleCard role={t('landing.role1Name')} description={t('landing.role1Desc')} image="/super.png"
               permissions={[t('landing.role1p1'), t('landing.role1p2'), t('landing.role1p3'), t('landing.role1p4')]} />
             <RoleCard role={t('landing.role2Name')} description={t('landing.role2Desc')} image="/system.png"
@@ -437,7 +473,7 @@ export default function LandingPage() {
 
       {/* ── Verify CTA ────────────────────────────────── */}
       <section className="bg-[var(--color-bg)] py-14 border-t border-[var(--color-border)]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center space-y-5">
+        <div ref={refVerifyCta} className="reveal max-w-3xl mx-auto px-4 sm:px-6 text-center space-y-5">
           <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto
             border border-indigo-100">
             <svg className="w-7 h-7 text-[#3b5bdb]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -467,7 +503,7 @@ export default function LandingPage() {
 
       {/* ── Final CTA ─────────────────────────────────── */}
       <section className="bg-[var(--color-surface)] py-20 border-t border-[var(--color-border)]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-7">
+        <div ref={refFinalCta} className="reveal max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-7">
           <img src="/logo.png" alt="DocuVault"
             className="h-16 w-auto object-contain mx-auto drop-shadow-sm" />
           <div className="space-y-3">

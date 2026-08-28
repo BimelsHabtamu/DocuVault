@@ -1,8 +1,28 @@
-const db                    = require('../config/db');
-const jwt                   = require('jsonwebtoken');
-const path                  = require('path');
-const { sendDeliveryEmail } = require('../services/emailService');
+const db      = require('../config/db');
+const jwt     = require('jsonwebtoken');
+const crypto  = require('crypto');
+const bcrypt  = require('bcryptjs');
+const path    = require('path');
+const {
+  sendSetPasswordEmail,
+  sendDocumentAccessEmail,
+} = require('../services/emailService');
 
+// ── Helper: generate a cryptographically random token ────────────────────────
+function generateSecureToken() {
+  return crypto.randomBytes(32).toString('hex'); // 64-char hex string
+}
+
+// ── Helper: insert a persistent bell notification ─────────────────────────────
+async function insertNotification(userId, type, title, body, link, docUuid) {
+  await db.query(
+    `INSERT INTO notifications (user_id, type, title, body, link, doc_uuid)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [userId, type, title, body, link, docUuid || null]
+  );
+}
+
+// ── GET /api/delivery/logs ────────────────────────────────────────────────────
 exports.getDeliveryLogs = async (req, res) => {
   const { recipient_email, email_status, from, to } = req.query;
 
@@ -26,9 +46,19 @@ exports.getDeliveryLogs = async (req, res) => {
   res.json(rows);
 };
 
+// ── POST /api/delivery/deliver ────────────────────────────────────────────────
+// Option C Hybrid:
+//   - If recipient_email already in users → send login + doc link
+//   - If not → auto-create recipient account (is_active=0, password_set=0),
+//              generate 48h set-password token, send set-password email
 exports.deliverDocument = async (req, res) => {
   const { doc_id, recipient_email, recipient_name } = req.body;
 
+  if (!doc_id || !recipient_email) {
+    return res.status(400).json({ message: 'doc_id and recipient_email are required' });
+  }
+
+  // ── 1. Validate document ──────────────────────────────────────────────────
   const [docs] = await db.query('SELECT * FROM generated_docs WHERE id = ?', [doc_id]);
   if (docs.length === 0) return res.status(404).json({ message: 'Document not found' });
 
@@ -37,35 +67,113 @@ exports.deliverDocument = async (req, res) => {
     return res.status(400).json({ message: 'Only signed documents can be delivered' });
   }
 
-  const tokenPayload  = { doc_id, doc_uuid: doc.doc_uuid, recipient_email };
-  const downloadToken = jwt.sign(tokenPayload, process.env.DOWNLOAD_TOKEN_SECRET, { expiresIn: '7d' });
-  const tokenExpiry   = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const downloadLink  = `${process.env.CLIENT_URL}/download?token=${downloadToken}`;
-  const fullPdfPath   = path.join(__dirname, '..', doc.file_path);
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
-  await db.query(
-    'INSERT INTO delivery_logs (doc_id, recipient_email, sent_at, download_token, token_expiry, email_status) VALUES (?, ?, NOW(), ?, ?, ?)',
-    [doc_id, recipient_email, downloadToken, tokenExpiry, 'queued']
+  // ── 2. Option C: Check if recipient email exists ──────────────────────────
+  const [existingUsers] = await db.query(
+    'SELECT * FROM users WHERE email = ?',
+    [recipient_email]
   );
 
-  const [logRows] = await db.query('SELECT id FROM delivery_logs WHERE download_token = ?', [downloadToken]);
+  let recipientUserId = null;
+  let finalRecipientName = recipient_name || recipient_email;
+  let emailLink;
+  let isNewUser = false;
+
+  if (existingUsers.length > 0) {
+    // ── Existing user: send login + document link ─────────────────────────
+    const existingUser    = existingUsers[0];
+    recipientUserId       = existingUser.id;
+    finalRecipientName    = existingUser.full_name || recipient_name || recipient_email;
+    // Redirect to /my-documents with the specific doc highlighted
+    emailLink = `${clientUrl}/login?redirect=/my-documents/${doc.doc_uuid}`;
+
+  } else {
+    // ── New user: auto-create recipient account ───────────────────────────
+    isNewUser = true;
+    const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
+    const [newUser] = await db.query(
+      `INSERT INTO users
+         (email, password_hash, full_name, role, is_active, password_set)
+       VALUES (?, ?, ?, 'recipient', 0, 0)`,
+      [recipient_email, dummyHash, finalRecipientName]
+    );
+    recipientUserId = newUser.insertId;
+
+    // Generate 48-hour set-password token
+    const rawToken  = generateSecureToken();
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+
+    await db.query(
+      `INSERT INTO password_reset_tokens
+         (user_id, token_hash, doc_uuid, expires_at)
+       VALUES (?, ?, ?, ?)`,
+      [recipientUserId, tokenHash, doc.doc_uuid, expiresAt]
+    );
+
+    // Link goes to set-password page; after setting password → auto-redirect to doc
+    emailLink = `${clientUrl}/set-password?token=${rawToken}`;
+  }
+
+  // ── 3. Insert delivery log ────────────────────────────────────────────────
+  await db.query(
+    `INSERT INTO delivery_logs
+       (doc_id, recipient_email, recipient_name, recipient_user_id,
+        doc_uuid, sent_at, download_token, token_expiry, email_status)
+     VALUES (?, ?, ?, ?, ?, NOW(), '', DATE_ADD(NOW(), INTERVAL 30 DAY), 'queued')`,
+    [doc_id, recipient_email, finalRecipientName, recipientUserId, doc.doc_uuid]
+  );
+
+  const [logRows] = await db.query(
+    'SELECT id FROM delivery_logs WHERE doc_id = ? AND recipient_email = ? ORDER BY id DESC LIMIT 1',
+    [doc_id, recipient_email]
+  );
   const logId = logRows[0].id;
 
+  // ── 4. Send the correct email & update log ────────────────────────────────
   try {
-    await sendDeliveryEmail(recipient_email, recipient_name || recipient_email, doc.doc_uuid, downloadLink, fullPdfPath);
+    if (isNewUser) {
+      await sendSetPasswordEmail(recipient_email, finalRecipientName, emailLink, doc.doc_uuid);
+    } else {
+      await sendDocumentAccessEmail(recipient_email, finalRecipientName, emailLink, doc.doc_uuid);
+    }
+
     await db.query('UPDATE delivery_logs SET email_status = ? WHERE id = ?', ['sent', logId]);
-    await db.query(
-      'INSERT INTO audit_logs (user_id, doc_id, action, action_details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.id, doc_id, 'DELIVER', JSON.stringify({ recipient_email, download_token: downloadToken }), req.ip, req.headers['user-agent']]
-    );
     await db.query('UPDATE generated_docs SET status = ? WHERE id = ?', ['delivered', doc_id]);
-    res.json({ message: 'Document delivered', download_link: downloadLink });
+
+    // Audit log
+    await db.query(
+      `INSERT INTO audit_logs
+         (user_id, doc_id, action, action_details, ip_address, user_agent)
+       VALUES (?, ?, 'DELIVER', ?, ?, ?)`,
+      [
+        req.user.id, doc_id,
+        JSON.stringify({
+          recipient_email,
+          recipient_user_id: recipientUserId,
+          is_new_user: isNewUser,
+          email_type: isNewUser ? 'set_password' : 'login_link',
+        }),
+        req.ip, req.headers['user-agent'],
+      ]
+    );
+
+    res.json({
+      message:      'Document delivered successfully',
+      is_new_user:  isNewUser,
+      recipient_user_id: recipientUserId,
+    });
+
   } catch (err) {
     await db.query('UPDATE delivery_logs SET email_status = ? WHERE id = ?', ['failed', logId]);
     res.status(500).json({ message: 'Email delivery failed', error: err.message });
   }
 };
 
+// ── GET /api/delivery/download?token=... ──────────────────────────────────────
+// Legacy token-based download (kept for backward compatibility).
+// New flow uses authenticated /api/documents/:id/download instead.
 exports.downloadDocument = async (req, res) => {
   const { token } = req.query;
   if (!token) return res.status(400).json({ message: 'Token required' });
@@ -93,8 +201,10 @@ exports.downloadDocument = async (req, res) => {
     [req.ip, log.id]
   );
   await db.query(
-    'INSERT INTO audit_logs (user_id, doc_id, action, action_details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)',
-    [null, decoded.doc_id, 'DELIVER', JSON.stringify({ event: 'downloaded', recipient_email: decoded.recipient_email }), req.ip, req.headers['user-agent']]
+    `INSERT INTO audit_logs
+       (user_id, doc_id, action, action_details, ip_address, user_agent)
+     VALUES (?, ?, 'DELIVER', ?, ?, ?)`,
+    [null, decoded.doc_id, JSON.stringify({ event: 'downloaded', recipient_email: decoded.recipient_email }), req.ip, req.headers['user-agent']]
   );
 
   const fullPath = path.join(__dirname, '..', docs[0].file_path);

@@ -78,3 +78,57 @@ body {
 .prose h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
 .prose ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
 .prose li { margin-bottom: 0.25rem; }
+
+/* ── Landing page scroll-reveal animations ───────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Base hidden state — applied via JS by adding .reveal to observed elements */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger children inside a .reveal-stagger container */
+.reveal-stagger > * {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal-stagger.visible > *:nth-child(1)  { transition-delay: 0.05s; opacity: 1; transform: none; }
+.reveal-stagger.visible > *:nth-child(2)  { transition-delay: 0.12s; opacity: 1; transform: none; }
+.reveal-stagger.visible > *:nth-child(3)  { transition-delay: 0.19s; opacity: 1; transform: none; }
+.reveal-stagger.visible > *:nth-child(4)  { transition-delay: 0.26s; opacity: 1; transform: none; }
+.reveal-stagger.visible > *:nth-child(5)  { transition-delay: 0.33s; opacity: 1; transform: none; }
+.reveal-stagger.visible > *:nth-child(6)  { transition-delay: 0.40s; opacity: 1; transform: none; }
+.reveal-stagger.visible > *:nth-child(7)  { transition-delay: 0.47s; opacity: 1; transform: none; }
+.reveal-stagger.visible > *:nth-child(8)  { transition-delay: 0.54s; opacity: 1; transform: none; }
+
+/* Hero text entrance */
+@keyframes heroSlideUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.hero-animate > * {
+  animation: heroSlideUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.hero-animate > *:nth-child(1) { animation-delay: 0.15s; }
+.hero-animate > *:nth-child(2) { animation-delay: 0.30s; }
+.hero-animate > *:nth-child(3) { animation-delay: 0.45s; }

@@ -332,7 +332,8 @@ async function generatePDF(template, data, docUuid, verifyBaseUrl, outputDir, do
     : template.name;
 
   // QR code pointing to public verify URL (FR-016)
-  const verifyUrl = `${verifyBaseUrl}/verify?id=${docUuid}`;
+  // Uses path segment format /verify/:doc_uuid so PublicVerifyPage useParams() works correctly
+  const verifyUrl = `${verifyBaseUrl}/verify/${docUuid}`;
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, { width: 80, margin: 1 });
   const qrBase64  = qrDataUrl.split(',')[1];
 

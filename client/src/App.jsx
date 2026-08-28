@@ -7,6 +7,8 @@ import Layout           from './components/Layout';
 import LandingPage        from './pages/LandingPage';
 import PublicVerifyPage   from './pages/PublicVerifyPage';
 import LoginPage          from './pages/LoginPage';
+import SetPasswordPage    from './pages/SetPasswordPage';
+import VerifyEmailPage    from './pages/VerifyEmailPage';
 import DashboardPage      from './pages/DashboardPage';
 import TemplatesPage      from './pages/TemplatesPage';
 import TemplateFormPage   from './pages/TemplateFormPage';
@@ -19,6 +21,8 @@ import AuditPage          from './pages/AuditPage';
 import DeliveryLogsPage   from './pages/DeliveryLogsPage';
 import SettingsPage       from './pages/SettingsPage';
 import SystemConfigurationPage from './pages/SystemConfigurationPage';
+import RecipientInboxPage from './pages/RecipientInboxPage';
+import RecipientDocPage   from './pages/RecipientDocPage';
 import NotFoundPage       from './pages/NotFoundPage';
 
 const SA  = 'super_admin';
@@ -43,6 +47,10 @@ export default function App() {
           {/* QR codes embed /verify/:doc_uuid — resolves directly */}
           <Route path="/verify/:doc_uuid" element={<PublicVerifyPage />} />
           <Route path="/login"  element={<LoginPage />} />
+          {/* Recipient set-password — public, minimal card layout */}
+          <Route path="/set-password"  element={<SetPasswordPage />} />
+          {/* Email change verification — public, clicked from verification email */}
+          <Route path="/verify-email"  element={<VerifyEmailPage />} />
 
           {/* ── Protected app shell ───────────────────────── */}
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -61,14 +69,18 @@ export default function App() {
             {/* Generate — admins + generator + approver */}
             <Route path="/generate"  element={<Guard roles={[SA,SYS,GEN,APP]}><GenerateDocPage /></Guard>} />
 
-            {/* Documents — all roles */}
+            {/* Documents — admins + generator + approver (not recipient — they use /my-documents) */}
             <Route path="/documents" element={<Guard roles={[SA,SYS,GEN,APP,REC]}><DocumentsPage /></Guard>} />
 
             {/* Approvals — admins + approver */}
             <Route path="/approvals" element={<Guard roles={[SA,SYS,APP]}><ApprovalsPage /></Guard>} />
 
-            {/* In-app verify (sidebar nav link /verify-doc) — all roles */}
+            {/* In-app verify — all roles */}
             <Route path="/verify-doc" element={<Guard roles={[SA,SYS,GEN,APP,REC]}><VerifyPage /></Guard>} />
+
+            {/* Recipient inbox + document detail */}
+            <Route path="/my-documents"           element={<Guard roles={[REC,SA,SYS]}><RecipientInboxPage /></Guard>} />
+            <Route path="/my-documents/:doc_uuid" element={<Guard roles={[REC,SA,SYS]}><RecipientDocPage /></Guard>} />
 
             {/* Settings */}
             <Route path="/settings"          element={<Guard roles={[SA,SYS,GEN,APP,REC]}><SettingsPage /></Guard>} />

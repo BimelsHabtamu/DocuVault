@@ -6,12 +6,43 @@ const fs      = require('fs');
 
 dotenv.config();
 
+// ── Mandatory environment variable check ─────────────────────────────────────
+// Runs before anything else. Crashes loudly on missing critical config so the
+// developer fixes it immediately rather than discovering it at runtime.
+(function checkEnv() {
+  const REQUIRED = [
+    ['JWT_SECRET',            'Used to sign auth tokens. Use a long random string.'],
+    ['DOWNLOAD_TOKEN_SECRET', 'Used to sign delivery download tokens.'],
+    ['MAIL_HOST',             'SMTP host  — e.g. smtp.gmail.com'],
+    ['MAIL_PORT',             'SMTP port  — e.g. 587'],
+    ['MAIL_USER',             'SMTP login — your sending email address'],
+    ['MAIL_PASS',             'SMTP password / App Password for Gmail'],
+    ['CLIENT_URL',            'Frontend URL — e.g. http://localhost:5173'],
+  ];
+
+  const missing = REQUIRED.filter(([key]) => !process.env[key]);
+
+  if (missing.length > 0) {
+    console.error('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('  ✗  DocuVault — Missing required environment variables');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    missing.forEach(([key, hint]) => {
+      console.error(`  ${key}`);
+      console.error(`      → ${hint}\n`);
+    });
+    console.error('  Edit server/.env and add the missing values, then restart.\n');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    process.exit(1);
+  }
+})();
+
 const app = express();
 
 const pdfDir = path.join(__dirname, 'storage/pdfs');
 const uplDir = path.join(__dirname, 'storage/uploads');
 if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
 if (!fs.existsSync(uplDir)) fs.mkdirSync(uplDir, { recursive: true });
+if (!fs.existsSync(path.join(uplDir, 'signatures'))) fs.mkdirSync(path.join(uplDir, 'signatures'), { recursive: true });
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -68,6 +99,8 @@ app.use('/api/delivery',      require('./routes/deliveryRoutes'));
 app.use('/api/verify',        require('./routes/verifyRoutes'));
 app.use('/api/audit',         require('./routes/auditRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/upload',        require('./routes/uploadRoutes'));
+app.use('/api/recipient',     require('./routes/recipientRoutes'));
 
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
@@ -79,7 +112,33 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, async () => {
+  console.log(`\n  ✓  DocuVault server running on http://localhost:${PORT}`);
+
+  // ── Verify SMTP connection on startup ──────────────────────────────────
+  // If mail credentials are wrong, log a clear error immediately so the
+  // developer knows emails will fail before they run any workflow.
+  try {
+    const nodemailer = require('nodemailer');
+    const testTransport = nodemailer.createTransport({
+      host:   process.env.MAIL_HOST,
+      port:   Number(process.env.MAIL_PORT) || 587,
+      secure: false,
+      auth: {
+        user: process.env.MAIL_USER,
+        pass: process.env.MAIL_PASS,
+      },
+    });
+    await testTransport.verify();
+    console.log(`  ✓  SMTP connected — emails ready (${process.env.MAIL_USER})`);
+  } catch (smtpErr) {
+    console.error(`\n  ✗  SMTP connection FAILED: ${smtpErr.message}`);
+    console.error(`     Host: ${process.env.MAIL_HOST}:${process.env.MAIL_PORT}`);
+    console.error(`     User: ${process.env.MAIL_USER}`);
+    console.error(`     Fix your MAIL_* credentials in server/.env\n`);
+    // Do NOT exit — server still works but emails will throw at send time
+  }
+
   require('./services/escalationService').startEscalationJob();
+  console.log(`  ✓  Escalation job started\n`);
 });

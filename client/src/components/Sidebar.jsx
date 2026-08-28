@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { navGroups } from '../config/navConfig.js';
+import { navGroups, recipientNavGroups } from '../config/navConfig.js';
 import { useTranslation } from 'react-i18next';
 
 const ICONS = {
@@ -68,7 +68,7 @@ export default function Sidebar({ collapsed, setCollapsed, onClose }) {
     navigate('/login');
   };
 
-  const visibleGroups = navGroups
+  const visibleGroups = (user?.role === 'recipient' ? recipientNavGroups : navGroups)
     .map(g => ({
       ...g,
       items: g.items.filter(i => i.roles.includes(user?.role)),

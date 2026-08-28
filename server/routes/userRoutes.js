@@ -20,6 +20,10 @@ const imageUpload = (prefix) => multer({
     cb(null, /^image\/(jpeg|png|webp)$/.test(file.mimetype)),
 });
 
+// Public — called when user clicks the verification link in their email
+// Must be registered BEFORE /:id routes to avoid param collision
+router.get('/verify-email',   ctrl.verifyEmailChange);
+
 router.get('/me/settings',    auth, ctrl.getMySettings);
 router.put('/me/settings',    auth, ctrl.updateMySettings);
 router.post('/me/avatar',     auth, imageUpload('avatar').single('avatar'),        ctrl.updateMyAvatar);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -12,9 +12,11 @@ const RULES = {
 };
 
 export default function LoginPage() {
-  const { login }   = useAuth();
-  const navigate    = useNavigate();
-  const toast       = useToast();
+  const { login }         = useAuth();
+  const navigate          = useNavigate();
+  const [searchParams]    = useSearchParams();
+  const redirectTo        = searchParams.get('redirect') || '/dashboard';
+  const toast             = useToast();
   const [loading,  setLoading]  = useState(false);
   const [showPass, setShowPass] = useState(false);
 
@@ -30,7 +32,8 @@ export default function LoginPage() {
       const res = await axiosInstance.post('/auth/login', values);
       login(res.data.user, res.data.token);
       toast.success(`Welcome, ${res.data.user.full_name}`);
-      navigate('/dashboard');
+      // Redirect to the ?redirect= param if present, otherwise /dashboard
+      navigate(redirectTo, { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid credentials.');
     } finally {

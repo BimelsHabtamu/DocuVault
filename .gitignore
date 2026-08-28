@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment variables — never commit secrets
+server/.env
+client/.env
+client/.env.local
+
+# Build output
+client/dist/
+client/.vite/
+
+# Storage — generated PDFs and uploads
+server/storage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

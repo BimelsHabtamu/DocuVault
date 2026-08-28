@@ -1,7 +1,9 @@
 const db         = require('../config/db');
 const path       = require('path');
+const fs         = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { generatePDF } = require('../services/pdfService');
+const { sendAdminDownloadNotificationEmail } = require('../services/emailService');
 
 const PDF_DIR = path.join(__dirname, '../storage/pdfs');
 
@@ -22,28 +24,31 @@ exports.generateDocument = async (req, res) => {
   const [rows] = await db.query('SELECT * FROM templates WHERE id = ? AND is_active = 1', [template_id]);
   if (rows.length === 0) return res.status(404).json({ message: 'Template not found or archived' });
 
-  const template = rows[0];
-  const dateStr  = new Date().toISOString().slice(0,10).replace(/-/g,'');
-  const safeName = template.name.replace(/[^a-zA-Z0-9]/g,'_').slice(0,30);
-  const docUuid  = `DOC-${dateStr}-${uuidv4().slice(0,6).toUpperCase()}`;
-  const fileName = `${safeName}_${record_identifier||'NOREF'}_${dateStr}.pdf`;
+  const template   = rows[0];
+  const dateStr    = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const safeName   = template.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+  const docUuid    = `DOC-${dateStr}-${uuidv4().slice(0, 6).toUpperCase()}`;
+  const fileName   = `${safeName}_${record_identifier || 'NOREF'}_${dateStr}.pdf`;
   const verifyBase = process.env.CLIENT_URL || 'http://localhost:5174';
 
   try {
     const { filePath, hash } = await generatePDF(template, data || {}, docUuid, verifyBase, PDF_DIR, 'draft', { db });
-    const relativePath = path.relative(path.join(__dirname, '..'), filePath);
-    const namedPath    = path.join(PDF_DIR, fileName);
-    require('fs').renameSync(filePath, namedPath);
+    const namedPath     = path.join(PDF_DIR, fileName);
+    fs.renameSync(filePath, namedPath);
     const relativeNamed = path.relative(path.join(__dirname, '..'), namedPath);
 
     const [result] = await db.query(
-      'INSERT INTO generated_docs (doc_uuid, template_id, generated_by, record_identifier, file_path, file_hash, status, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [docUuid, template_id, req.user.id, record_identifier || null, relativeNamed, hash, 'draft', JSON.stringify(data || {})]
+      `INSERT INTO generated_docs
+         (doc_uuid, template_id, generated_by, record_identifier, file_path, file_hash, status, metadata)
+       VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)`,
+      [docUuid, template_id, req.user.id, record_identifier || null, relativeNamed, hash, JSON.stringify(data || {})]
     );
 
     await db.query(
-      'INSERT INTO audit_logs (user_id, doc_id, action, action_details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)',
-      [req.user.id, result.insertId, 'GENERATE', JSON.stringify({ template_id, record_identifier }), req.ip, req.headers['user-agent']]
+      `INSERT INTO audit_logs
+         (user_id, doc_id, action, action_details, ip_address, user_agent)
+       VALUES (?, ?, 'GENERATE', ?, ?, ?)`,
+      [req.user.id, result.insertId, JSON.stringify({ template_id, record_identifier }), req.ip, req.headers['user-agent']]
     );
 
     res.status(201).json({ message: 'Document generated', doc_uuid: docUuid, id: result.insertId });
@@ -54,10 +59,9 @@ exports.generateDocument = async (req, res) => {
 
 exports.getDocuments = async (req, res) => {
   const { role, id: userId } = req.user;
-  // Role-scoped query: admins see all, others see only their own docs
-  const isAdmin = role === 'super_admin' || role === 'system_admin';
+  const isAdmin    = role === 'super_admin' || role === 'system_admin';
   const whereClause = isAdmin ? '' : 'WHERE gd.generated_by = ?';
-  const params = isAdmin ? [] : [userId];
+  const params      = isAdmin ? [] : [userId];
 
   const [rows] = await db.query(
     `SELECT gd.*, t.name AS template_name, u.full_name AS generated_by_name
@@ -84,22 +88,100 @@ exports.getDocumentById = async (req, res) => {
   res.json(rows[0]);
 };
 
+// ── GET /api/documents/:id/download ──────────────────────────────────────────
+// When the downloader is a recipient, notify all super_admins + system_admins:
+//   - Bell notification inserted into `notifications` table
+//   - Email sent to each admin
+//   - Audit log with action DOWNLOAD
+//   - delivery_logs.downloaded_at updated
 exports.downloadDocument = async (req, res) => {
   const [rows] = await db.query('SELECT * FROM generated_docs WHERE id = ?', [req.params.id]);
   if (rows.length === 0) return res.status(404).json({ message: 'Document not found' });
+
   const doc      = rows[0];
   const fullPath = path.join(__dirname, '..', doc.file_path);
-  if (!require('fs').existsSync(fullPath)) {
+  if (!fs.existsSync(fullPath)) {
     return res.status(404).json({ message: 'PDF file not found on server' });
   }
+
+  const downloader     = req.user;
+  const downloadedAt   = new Date();
+  const isRecipient    = downloader.role === 'recipient';
+
+  // Audit log — use DOWNLOAD action for recipients, DELIVER for others (backward compat)
+  const auditAction = isRecipient ? 'DOWNLOAD' : 'DELIVER';
   await db.query(
-    'INSERT INTO audit_logs (user_id, doc_id, action, action_details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)',
-    [req.user.id, doc.id, 'DELIVER', JSON.stringify({ event: 'manual_download' }), req.ip, req.headers['user-agent']]
+    `INSERT INTO audit_logs
+       (user_id, doc_id, action, action_details, ip_address, user_agent)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      downloader.id, doc.id, auditAction,
+      JSON.stringify({ event: 'manual_download', role: downloader.role }),
+      req.ip, req.headers['user-agent'],
+    ]
   );
+
+  // Update delivery_logs.downloaded_at for this recipient + doc
+  if (isRecipient) {
+    await db.query(
+      `UPDATE delivery_logs
+       SET downloaded_at = NOW(), downloaded_ip = ?
+       WHERE doc_id = ? AND recipient_user_id = ?
+         AND downloaded_at IS NULL
+       ORDER BY id DESC
+       LIMIT 1`,
+      [req.ip, doc.id, downloader.id]
+    );
+
+    // Fetch full downloader info for notification content
+    const [downloaderRows] = await db.query(
+      'SELECT full_name, email FROM users WHERE id = ?',
+      [downloader.id]
+    );
+    const recipientName  = downloaderRows[0]?.full_name || downloader.email;
+    const recipientEmail = downloaderRows[0]?.email     || '';
+
+    const notifTitle = 'Recipient Downloaded a Document';
+    const notifBody  = `${recipientName} downloaded document ${doc.doc_uuid} at ${downloadedAt.toLocaleString()}`;
+    const notifLink  = '/delivery-logs';
+
+    // Notify all super_admins and system_admins
+    const [admins] = await db.query(
+      `SELECT id, full_name, email
+       FROM users
+       WHERE role IN ('super_admin', 'system_admin') AND is_active = 1`
+    );
+
+    // Fire-and-forget — don't block the download response
+    setImmediate(async () => {
+      for (const admin of admins) {
+        try {
+          // Bell notification
+          await db.query(
+            `INSERT INTO notifications
+               (user_id, type, title, body, link, doc_uuid)
+             VALUES (?, 'download', ?, ?, ?, ?)`,
+            [admin.id, notifTitle, notifBody, notifLink, doc.doc_uuid]
+          );
+          // Email notification
+          await sendAdminDownloadNotificationEmail(
+            admin.email, admin.full_name,
+            recipientName, recipientEmail,
+            doc.doc_uuid, downloadedAt
+          );
+        } catch (e) {
+          console.error(`[Download Notify] Failed for admin ${admin.id}:`, e.message);
+        }
+      }
+    });
+  }
+
+  // Stream the PDF file
   res.download(fullPath, `${doc.doc_uuid}.pdf`);
 };
 
-// FR-031: Admin can mark a signed doc as hand-delivered
+// ── PATCH /api/documents/:id/hand-delivered ───────────────────────────────────
+// FR-031: Admin marks a signed/delivered doc as hand-delivered
 exports.markHandDelivered = async (req, res) => {
   const { id } = req.params;
   const [rows] = await db.query('SELECT * FROM generated_docs WHERE id = ?', [id]);
@@ -112,8 +194,10 @@ exports.markHandDelivered = async (req, res) => {
 
   await db.query('UPDATE generated_docs SET status = ? WHERE id = ?', ['hand_delivered', id]);
   await db.query(
-    'INSERT INTO audit_logs (user_id, doc_id, action, action_details, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)',
-    [req.user.id, id, 'DELIVER', JSON.stringify({ event: 'hand_delivered' }), req.ip, req.headers['user-agent']]
+    `INSERT INTO audit_logs
+       (user_id, doc_id, action, action_details, ip_address, user_agent)
+     VALUES (?, ?, 'DELIVER', ?, ?, ?)`,
+    [req.user.id, id, JSON.stringify({ event: 'hand_delivered' }), req.ip, req.headers['user-agent']]
   );
 
   res.json({ message: 'Document marked as hand-delivered' });

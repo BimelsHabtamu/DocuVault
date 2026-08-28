@@ -10,7 +10,8 @@
     "users": "Users", "audit": "Audit Logs", "delivery": "Delivery Logs",
     "systemConfiguration": "System Configuration", "mySettings": "My Settings",
     "home": "Home", "features": "Features", "howItWorks": "How It Works",
-    "security": "Security", "verification": "Verification", "about": "About"
+    "security": "Security", "verification": "Verification", "about": "About",
+    "myDocuments": "My Documents"
   },
 
   "actions": {
@@ -193,6 +194,14 @@
     "clear": "Clear",
     "authentic": "Authentic",
     "invalid": "Invalid",
-    "backHome": "Back to Home"
+    "backHome": "Back to Home",
+    "scanQrLabel": "Scan QR Code",
+    "scanQrDesc": "Point your camera at the QR code printed on the document",
+    "startCamera": "Start Camera",
+    "stopCamera": "Stop Camera",
+    "scanningFor": "Scanning for QR code…",
+    "cameraPermDenied": "Camera permission denied. Please allow camera access in your browser settings.",
+    "cameraNotFound": "No camera found on this device.",
+    "cameraError": "Could not start camera. Please check permissions and try again."
   }
 }

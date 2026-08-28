@@ -5,6 +5,176 @@ import { useToast } from '../context/ToastContext';
 import axiosInstance from '../api/axiosInstance';
 import { SkeletonCard } from '../components/ui/Skeleton';
 
+// ── Recipient Dashboard ───────────────────────────────────────────────────────
+function RecipientDashboard({ user }) {
+  const navigate = useNavigate();
+  const [stats,    setStats]    = useState(null);
+  const [loading,  setLoading]  = useState(true);
+
+  useEffect(() => {
+    axiosInstance.get('/recipient/stats')
+      .then(r => setStats(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Dashboard</h1>
+        <p className="text-sm text-[var(--color-text-secondary)] mt-0.5">
+          Welcome back, <span className="font-semibold text-[var(--color-text-primary)]">{user?.full_name}</span>
+          <span className="mx-2 text-[var(--color-border)]">·</span>
+          {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })}
+        </p>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {loading
+          ? [1,2,3].map(i => <SkeletonCard key={i}/>)
+          : [
+              { label: 'Total Delivered',  value: stats?.total_delivered ?? 0,     border: 'border-indigo-500', iconBg: 'bg-indigo-50',  color: 'text-[#3b5bdb]' },
+              { label: 'Downloaded',       value: stats?.total_downloaded ?? 0,    border: 'border-emerald-500', iconBg: 'bg-emerald-50', color: 'text-emerald-600' },
+              { label: 'This Week',        value: stats?.delivered_this_week ?? 0, border: 'border-amber-500',   iconBg: 'bg-amber-50',   color: 'text-amber-600' },
+            ].map(s => (
+              <div key={s.label}
+                className={`bg-[var(--color-surface)] rounded-2xl border-l-4 ${s.border}
+                  shadow-sm p-5 hover:shadow-md transition-shadow`}>
+                <p className="text-[10px] font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                  {s.label}
+                </p>
+                <p className={`text-3xl font-bold mt-1 ${s.color}`}>{s.value}</p>
+              </div>
+            ))
+        }
+      </div>
+
+      {/* Quick actions */}
+      <div>
+        <h2 className="text-sm font-bold text-[var(--color-text-primary)] mb-3">Quick Actions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {[
+            {
+              label: 'My Documents',
+              desc: 'View all documents delivered to you',
+              to: '/my-documents',
+              bg: 'bg-indigo-100',
+              iconColor: 'text-[#3b5bdb]',
+              path: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
+            },
+            {
+              label: 'Verify Document',
+              desc: 'Check a document\'s authenticity',
+              to: '/verify-doc',
+              bg: 'bg-emerald-100',
+              iconColor: 'text-emerald-600',
+              path: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+            },
+          ].map(action => (
+            <button key={action.to} onClick={() => navigate(action.to)}
+              className="flex items-center gap-3.5 p-4 bg-[var(--color-surface)] rounded-xl
+                border border-[var(--color-border)] shadow-sm
+                hover:shadow-md hover:border-indigo-200 transition-all text-left w-full group">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center
+                flex-shrink-0 group-hover:scale-105 transition-transform ${action.bg}`}>
+                <svg className={`w-4.5 h-4.5 ${action.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={action.path}/>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-[var(--color-text-primary)]">{action.label}</p>
+                <p className="text-[11px] text-[var(--color-text-secondary)] truncate mt-0.5">{action.desc}</p>
+              </div>
+              <svg className="w-4 h-4 text-[var(--color-border)] group-hover:text-[#3b5bdb]
+                group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Recent documents */}
+      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
+          <p className="text-sm font-bold text-[var(--color-text-primary)]">Recent Documents</p>
+          <button onClick={() => navigate('/my-documents')}
+            className="text-xs text-[#3b5bdb] font-semibold hover:text-[#2f4ac4] flex items-center gap-1">
+            View all
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+        {loading ? (
+          <div className="px-6 py-4 space-y-3">
+            {[1,2,3].map(i => (
+              <div key={i} className="animate-pulse flex items-center gap-3">
+                <div className="w-9 h-9 bg-[var(--color-border)] rounded-xl flex-shrink-0"/>
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 bg-[var(--color-border)] rounded w-3/4"/>
+                  <div className="h-2.5 bg-[var(--color-border)] rounded w-1/2"/>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : !stats?.recent_documents?.length ? (
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <p className="text-sm text-[var(--color-text-secondary)]">No documents yet</p>
+            <p className="text-xs text-[var(--color-text-secondary)] mt-1 opacity-60">
+              Documents will appear here when delivered to you
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[var(--color-border)]">
+            {stats.recent_documents.map((doc, i) => (
+              <button key={i}
+                onClick={() => navigate(`/my-documents/${doc.doc_uuid}`)}
+                className="w-full flex items-center gap-4 px-6 py-4
+                  hover:bg-[var(--color-bg)] transition-colors text-left group">
+                <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center
+                  justify-center flex-shrink-0 group-hover:bg-indigo-100 transition-colors">
+                  <svg className="w-4.5 h-4.5 text-[#3b5bdb]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)] truncate">
+                    {doc.template_name}
+                  </p>
+                  <p className="text-[11px] text-[var(--color-text-secondary)] mt-0.5 font-mono">
+                    {doc.doc_uuid}
+                  </p>
+                </div>
+                <div className="flex-shrink-0 text-right">
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    doc.downloaded_at
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {doc.downloaded_at ? 'Downloaded' : 'Delivered'}
+                  </span>
+                  <p className="text-[10px] text-[var(--color-text-secondary)] mt-1">
+                    {fmtDate(doc.delivered_at)}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 const ACTION_COLORS = {
   GENERATE: { bg: 'bg-blue-100', text: 'text-blue-700' },
   SIGN:     { bg: 'bg-purple-100', text: 'text-purple-700' },
@@ -75,10 +245,13 @@ export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const role = user?.role;
+  const role    = user?.role;
   const isAdmin = role === 'super_admin' || role === 'system_admin';
 
+  // Always call hooks before any conditional renders (Rules of Hooks)
   useEffect(() => {
+    // Skip dashboard data fetch for recipients — they use /recipient/stats instead
+    if (role === 'recipient') { setLoading(false); return; }
     axiosInstance
       .get('/audit/dashboard')
       .then((r) => setData(r.data))
@@ -87,7 +260,12 @@ export default function DashboardPage() {
   }, []);
 
   const statusTotal = data?.status_breakdown?.reduce((s, r) => s + Number(r.count), 0) || 0;
-  const delivTotal = data?.delivery_stats?.reduce((s, r) => s + Number(r.count), 0) || 0;
+  const delivTotal  = data?.delivery_stats?.reduce((s, r) => s + Number(r.count), 0) || 0;
+
+  // Recipient gets their own focused dashboard (after all hooks)
+  if (role === 'recipient') {
+    return <RecipientDashboard user={user} />;
+  }
 
   // Quick Actions based on role
   const quickActions = [
