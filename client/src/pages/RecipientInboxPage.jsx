@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
@@ -52,16 +52,21 @@ export default function RecipientInboxPage() {
 
   const [docs,    setDocs]    = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
   const [search,  setSearch]  = useState('');
 
   const highlightRef = useRef(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setError(null);
     axiosInstance.get('/recipient/documents')
       .then(r => setDocs(r.data))
-      .catch(() => {})
+      .catch(e => setError(e.response?.data?.message || 'Failed to load your documents. Please try again.'))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   // Auto-scroll to highlighted card after docs load
   useEffect(() => {
@@ -144,6 +149,28 @@ export default function RecipientInboxPage() {
               <div className="h-3 bg-[var(--color-border)] rounded w-2/3"/>
             </div>
           ))}
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-[var(--color-text-primary)]">Something went wrong</p>
+          <p className="text-xs text-[var(--color-text-secondary)] mt-1 max-w-xs">{error}</p>
+          <button
+            onClick={load}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold
+              px-4 py-2 rounded-lg bg-[#3b5bdb] text-white hover:bg-[#2f4ac4] transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Retry
+          </button>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">

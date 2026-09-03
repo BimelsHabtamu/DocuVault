@@ -2,7 +2,7 @@ const db         = require('../config/db');
 const path       = require('path');
 const fs         = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { generatePDF } = require('../services/pdfService');
+const { generatePDF, MAX_PDF_BYTES } = require('../services/pdfService');
 const { sendAdminDownloadNotificationEmail } = require('../services/emailService');
 
 const PDF_DIR = path.join(__dirname, '../storage/pdfs');
@@ -32,16 +32,25 @@ exports.generateDocument = async (req, res) => {
   const verifyBase = process.env.CLIENT_URL || 'http://localhost:5174';
 
   try {
-    const { filePath, hash } = await generatePDF(template, data || {}, docUuid, verifyBase, PDF_DIR, 'draft', { db });
+    const { filePath, hash, buffer } = await generatePDF(template, data || {}, docUuid, verifyBase, PDF_DIR, 'draft', { db });
+
+    // BR-002: Reject PDFs that exceed 5 MB — clean up the file before returning.
+    if (buffer.length > MAX_PDF_BYTES) {
+      try { fs.unlinkSync(filePath); } catch { /* best-effort cleanup */ }
+      return res.status(413).json({
+        message: `Generated PDF is ${(buffer.length / 1024 / 1024).toFixed(2)} MB, which exceeds the 5 MB limit (BR-002). Reduce the template content or data and try again.`,
+      });
+    }
+
     const namedPath     = path.join(PDF_DIR, fileName);
     fs.renameSync(filePath, namedPath);
     const relativeNamed = path.relative(path.join(__dirname, '..'), namedPath);
 
     const [result] = await db.query(
       `INSERT INTO generated_docs
-         (doc_uuid, template_id, generated_by, record_identifier, file_path, file_hash, status, metadata)
-       VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)`,
-      [docUuid, template_id, req.user.id, record_identifier || null, relativeNamed, hash, JSON.stringify(data || {})]
+         (doc_uuid, template_id, template_version, generated_by, record_identifier, file_path, file_hash, status, metadata)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+      [docUuid, template_id, template.version, req.user.id, record_identifier || null, relativeNamed, hash, JSON.stringify(data || {})]
     );
 
     await db.query(
@@ -51,7 +60,18 @@ exports.generateDocument = async (req, res) => {
       [req.user.id, result.insertId, JSON.stringify({ template_id, record_identifier }), req.ip, req.headers['user-agent']]
     );
 
-    res.status(201).json({ message: 'Document generated', doc_uuid: docUuid, id: result.insertId });
+    res.status(201).json({
+      message:          'Document generated',
+      id:               result.insertId,
+      doc_uuid:         docUuid,
+      template_id:      template.id,
+      template_name:    template.name,
+      template_category: template.category,
+      record_identifier: record_identifier || null,
+      status:           'draft',
+      file_hash:        hash,
+      generated_at:     new Date().toISOString(),
+    });
   } catch (err) {
     res.status(500).json({ message: 'PDF generation failed', error: err.message });
   }
@@ -98,15 +118,58 @@ exports.downloadDocument = async (req, res) => {
   const [rows] = await db.query('SELECT * FROM generated_docs WHERE id = ?', [req.params.id]);
   if (rows.length === 0) return res.status(404).json({ message: 'Document not found' });
 
-  const doc      = rows[0];
+  const doc        = rows[0];
+  const downloader = req.user;
+  const isRecipient = downloader.role === 'recipient';
+  const isAdmin     = downloader.role === 'super_admin' || downloader.role === 'system_admin';
+
+  // ── Ownership gate for non-admin, non-recipient users (generators, approvers) ─
+  // Generators may only download documents they generated themselves.
+  // Approvers may download documents they generated OR documents assigned to them
+  // for review (i.e. there is a signature_request where approver_id = their id).
+  if (!isAdmin && !isRecipient) {
+    const isApprover = downloader.role === 'approver';
+    let allowed = doc.generated_by === downloader.id;
+
+    if (!allowed && isApprover) {
+      // Check whether this document has been assigned to this approver
+      const [assignedRows] = await db.query(
+        'SELECT id FROM signature_requests WHERE doc_id = ? AND approver_id = ? LIMIT 1',
+        [doc.id, downloader.id]
+      );
+      allowed = assignedRows.length > 0;
+    }
+
+    if (!allowed) {
+      return res.status(403).json({
+        message: 'Access denied. You can only download documents you generated or are assigned to review.',
+      });
+    }
+  }
+
+  // ── Ownership gate for recipients ─────────────────────────────────────────
+  // A recipient may only download a document that was explicitly delivered to
+  // their account. We verify this against delivery_logs before touching the FS.
+  if (isRecipient) {
+    const [deliveryCheck] = await db.query(
+      `SELECT id FROM delivery_logs
+       WHERE doc_id = ? AND recipient_user_id = ?
+       LIMIT 1`,
+      [doc.id, downloader.id]
+    );
+    if (deliveryCheck.length === 0) {
+      return res.status(403).json({
+        message: 'Access denied. This document was not delivered to your account.',
+      });
+    }
+  }
+
   const fullPath = path.join(__dirname, '..', doc.file_path);
   if (!fs.existsSync(fullPath)) {
     return res.status(404).json({ message: 'PDF file not found on server' });
   }
 
-  const downloader     = req.user;
-  const downloadedAt   = new Date();
-  const isRecipient    = downloader.role === 'recipient';
+  const downloadedAt = new Date();
 
   // Audit log — use DOWNLOAD action for recipients, DELIVER for others (backward compat)
   const auditAction = isRecipient ? 'DOWNLOAD' : 'DELIVER';

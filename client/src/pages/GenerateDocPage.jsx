@@ -1,6 +1,14 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
+
+// Maps template data_type → HTML input type
+const TYPE_INPUT = {
+  string: 'text',
+  number: 'number',
+  date:   'date',
+};
 
 const CATEGORY_COLORS = {
   HR: 'bg-blue-100 text-blue-700', Finance: 'bg-green-100 text-green-700',
@@ -61,6 +69,60 @@ function detectUserDatePlaceholders(templateHtml) {
     }
   }
   return found;
+}
+
+/**
+ * Extract all {{key}} placeholder keys from template HTML.
+ * Used as a fallback when template_placeholders rows are not registered.
+ * Ignores server-auto-filled keys and block syntax ({{#if}}, {{#each}}, etc.).
+ */
+function extractPlaceholderKeys(template) {
+  // First use registered placeholders if available
+  if (template?.placeholders?.length) {
+    return template.placeholders.map(p => p.field_path);
+  }
+
+  const combined = [
+    template?.header_html || '',
+    template?.body_html   || '',
+    template?.footer_html || '',
+  ].join(' ');
+
+  const found = new Set();
+  const matches = combined.match(/\{\{([^#/][^}]*)\}\}/g) || [];
+  for (const m of matches) {
+    const key = m.replace(/[{}]/g, '').trim();
+    // Skip block helpers, auto-dates, and image keys
+    if (!key || key.startsWith('#') || key.startsWith('/') || key.startsWith('else')) continue;
+    if (SERVER_AUTO_DATES.has(key)) continue;
+    if (['system.logo_url','system.company_seal','approver.signature_image',
+         'system.company_name','system.department','system.address',
+         'system.contact_email','system.contact_phone'].includes(key)) continue;
+    found.add(key);
+  }
+  return [...found];
+}
+
+/**
+ * Validate CSV headers against template placeholders.
+ * Returns { requiredKeys, csvKeys, missing, extra, valid }
+ *   missing — required template keys absent from CSV headers (BLOCKS generation)
+ *   extra   — CSV columns not in template (informational warning only)
+ *   valid   — true when missing is empty
+ */
+function validateBulkCsv(template, csvHeaders) {
+  if (!template || !csvHeaders?.length) return null;
+
+  // record_identifier is a structural column, not a template field
+  const STRUCTURAL = new Set(['record_identifier', 'id']);
+
+  const requiredKeys = extractPlaceholderKeys(template).filter(k => !STRUCTURAL.has(k));
+  const csvKeys      = csvHeaders.filter(h => !STRUCTURAL.has(h));
+
+  const missing = requiredKeys.filter(k => !csvHeaders.includes(k));
+  const extra   = csvKeys.filter(k => !requiredKeys.includes(k));
+
+  return { requiredKeys, csvKeys, missing, extra, valid: missing.length === 0 };
 }
 
 function StepBadge({ step, label, active, done }) {
@@ -140,7 +202,8 @@ function BulkJobCard({ job, onDownload }) {
 }
 
 export default function GenerateDocPage() {
-  const toast = useToast();
+  const toast     = useToast();
+  const navigate  = useNavigate();
   const [activeTab, setActiveTab] = useState('single'); // 'single' | 'bulk'
 
   // ── Single generation state ───────────────────────────────────────────────
@@ -152,16 +215,29 @@ export default function GenerateDocPage() {
   const [recordId, setRecordId]     = useState('');
   const [preview, setPreview]       = useState('');
   const [previewing, setPreviewing] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated]   = useState(null);
+  const [generating, setGenerating]     = useState(false);
+  const [generated, setGenerated]       = useState(null);
+  const [downloading, setDownloading]   = useState(false);
+  const [loadingDocId, setLoadingDocId] = useState(null);
   const [recentDocs, setRecentDocs] = useState([]);
   const [search, setSearch]         = useState('');
   const [error, setError]           = useState('');
 
+  // ── Datasource state (FR-009) — only active when template.data_source='users'
+  const [dsQuery,      setDsQuery]      = useState('');   // search input
+  const [dsResults,    setDsResults]    = useState([]);   // search results
+  const [dsSearching,  setDsSearching]  = useState(false);
+  const [dsSelected,   setDsSelected]   = useState(null); // { id, display_label, email, dept }
+  const [dsMappedKeys, setDsMappedKeys] = useState([]);   // placeholder keys that are auto-filled
+  const [dsFetching,   setDsFetching]   = useState(false);
+  const dsSearchTimeout = useRef(null);
+
   // ── Bulk generation state ─────────────────────────────────────────────────
   const [bulkTemplateId, setBulkTemplate]   = useState('');
+  const [bulkTemplate,   setBulkTemplateObj]= useState(null); // full template with placeholders
   const [bulkRecords, setBulkRecords]       = useState('');   // raw CSV text
   const [bulkParsed, setBulkParsed]         = useState(null); // parsed preview
+  const [bulkValidation, setBulkValidation] = useState(null); // { missing, extra, requiredKeys }
   const [bulkJobs, setBulkJobs]             = useState([]);
   const [bulkSubmitting, setBulkSubmitting] = useState(false);
   const [bulkError, setBulkError]           = useState('');
@@ -172,15 +248,43 @@ export default function GenerateDocPage() {
     axiosInstance.get('/documents').then(r => setRecentDocs(r.data.slice(0, 8))).catch(() => {});
   }, []);
 
+  // ── Bulk: fetch full template (with placeholders) when selection changes ──
+  const selectBulkTemplate = async (id) => {
+    setBulkTemplate(id);
+    setBulkValidation(null);
+    setBulkError('');
+    if (!id) { setBulkTemplateObj(null); return; }
+    try {
+      const res = await axiosInstance.get(`/templates/${id}`);
+      setBulkTemplateObj(res.data);
+      // Re-run validation if CSV already pasted
+      if (bulkParsed?.headers) {
+        setBulkValidation(validateBulkCsv(res.data, bulkParsed.headers));
+      }
+    } catch {
+      setBulkTemplateObj(null);
+    }
+  };
+
   const selectTemplate = async (id) => {
     setSelected(id);
     setPreview(''); setError(''); setGenerated(null);
+    // Reset datasource state whenever template changes
+    setDsQuery(''); setDsResults([]); setDsSelected(null); setDsMappedKeys([]);
     const res  = await axiosInstance.get(`/templates/${id}`);
     const tmpl = res.data;
     setTemplate(tmpl);
     const init = {};
     (tmpl.placeholders || []).forEach(p => { init[p.field_path] = p.default_value || ''; });
     setValues(init);
+    // If template has a data source, load the field mappings so we know which
+    // placeholders will be auto-populated vs which stay manual
+    if (tmpl.data_source) {
+      try {
+        const mRes = await axiosInstance.get(`/datasource/${id}/mappings`);
+        setDsMappedKeys(mRes.data.map(m => m.static_field_key));
+      } catch { setDsMappedKeys([]); }
+    }
   };
 
   const allFilled = useMemo(() => {
@@ -188,8 +292,41 @@ export default function GenerateDocPage() {
     return template.placeholders.every(p => values[p.field_path]?.trim());
   }, [template, values, selectedId]);
 
+  // ── Datasource: debounced search ─────────────────────────────────────────
+  const dsSearch = (q) => {
+    setDsQuery(q);
+    setDsSelected(null);
+    if (dsSearchTimeout.current) clearTimeout(dsSearchTimeout.current);
+    if (!q || q.length < 2) { setDsResults([]); return; }
+    dsSearchTimeout.current = setTimeout(async () => {
+      setDsSearching(true);
+      try {
+        const r = await axiosInstance.get(
+          `/datasource/${selectedId}/search?q=${encodeURIComponent(q)}`
+        );
+        setDsResults(r.data);
+      } catch { setDsResults([]); }
+      finally { setDsSearching(false); }
+    }, 300);
+  };
+
+  // ── Datasource: pick a result and auto-populate mapped fields ────────────
+  const dsPickUser = async (user) => {
+    setDsSelected(user);
+    setDsResults([]);
+    setDsQuery(user.display_label);
+    setDsFetching(true);
+    setError('');
+    try {
+      const r = await axiosInstance.get(`/datasource/${selectedId}/fetch/${user.id}`);
+      setValues(prev => ({ ...prev, ...r.data.populated }));
+      setRecordId(prev => prev || String(user.id));
+    } catch (e) {
+      setError(e.response?.data?.message || 'Could not fetch user record.');
+    } finally { setDsFetching(false); }
+  };
+
   const doPreview = async () => {
-    setPreviewing(true); setError('');
     try {
       const res = await axiosInstance.post('/documents/preview', {
         template_id: Number(selectedId), data: values,
@@ -209,12 +346,15 @@ export default function GenerateDocPage() {
       });
       setGenerated(res.data);
       setStep(3);
+      toast.success('PDF generated successfully!');
       axiosInstance.get('/documents').then(r => setRecentDocs(r.data.slice(0, 8))).catch(() => {});
     } catch (e) { setError(e.response?.data?.message || 'Generation failed'); }
     finally { setGenerating(false); }
   };
 
   const handleDownload = async (docId, docUuid) => {
+    setDownloading(true);
+    setLoadingDocId(docId);
     try {
       const response = await axiosInstance.get(`/documents/${docId}/download`, {
         responseType: 'blob',
@@ -237,6 +377,7 @@ export default function GenerateDocPage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      toast.success('PDF downloaded successfully!');
     } catch (err) {
       let message = 'Failed to download PDF';
 
@@ -253,12 +394,16 @@ export default function GenerateDocPage() {
       }
 
       toast.error(message);
+    } finally {
+      setDownloading(false);
+      setLoadingDocId(null);
     }
   };
 
   const reset = () => {
     setStep(1); setSelected(null); setTemplate(null);
-    setValues({}); setRecordId(''); setPreview(''); setGenerated(null); setError('');
+    setValues({}); setRecordId(''); setPreview(''); setGenerated(null);
+    setError(''); setDownloading(false);
   };
 
   // ── Bulk: parse CSV ───────────────────────────────────────────────────────
@@ -281,11 +426,16 @@ export default function GenerateDocPage() {
   const handleCsvChange = (text) => {
     setBulkRecords(text);
     setBulkError('');
+    setBulkValidation(null);
     if (!text.trim()) { setBulkParsed(null); return; }
     const parsed = parseCsv(text);
     if (!parsed) { setBulkError('CSV must have at least a header row and one data row'); setBulkParsed(null); return; }
     if (parsed.rows.length > 500) { setBulkError('Maximum 500 records per bulk job'); return; }
     setBulkParsed(parsed);
+    // Run field validation against the selected template (use full template object)
+    if (bulkTemplateObj) {
+      setBulkValidation(validateBulkCsv(bulkTemplateObj, parsed.headers));
+    }
   };
 
   const handleCsvFile = (e) => {
@@ -300,6 +450,11 @@ export default function GenerateDocPage() {
   const submitBulkJob = async () => {
     if (!bulkTemplateId) { setBulkError('Select a template first'); return; }
     if (!bulkParsed?.rows?.length) { setBulkError('No valid records to process'); return; }
+    // FR-012: Block generation when required fields are missing from CSV
+    if (bulkValidation && !bulkValidation.valid) {
+      setBulkError(`Cannot generate: ${bulkValidation.missing.length} required field${bulkValidation.missing.length === 1 ? '' : 's'} missing from CSV. See the validation report above.`);
+      return;
+    }
     setBulkSubmitting(true); setBulkError('');
     try {
       const res = await axiosInstance.post('/documents/bulk', {
@@ -309,7 +464,7 @@ export default function GenerateDocPage() {
       const jobUuid = res.data.job_uuid;
       const newJob  = { jobUuid, status: 'queued', total: bulkParsed.rows.length, completed: 0, failed: 0, percent: 0, template: templates.find(t => t.id === Number(bulkTemplateId))?.name || '' };
       setBulkJobs(prev => [newJob, ...prev]);
-      setBulkRecords(''); setBulkParsed(null);
+      setBulkRecords(''); setBulkParsed(null); setBulkValidation(null);
       // Start polling
       startPolling(jobUuid);
     } catch (e) { setBulkError(e.response?.data?.message || 'Failed to start bulk job'); }
@@ -439,6 +594,7 @@ export default function GenerateDocPage() {
                           <p className={`text-sm font-semibold ${selectedId === t.id ? 'text-blue-700' : 'text-gray-800'}`}>{t.name}</p>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[t.category] || 'bg-gray-100 text-gray-500'}`}>{t.category}</span>
                         </div>
+                        {t.description && <p className="text-[11px] text-gray-500 mt-0.5 line-clamp-1">{t.description}</p>}
                         <p className="text-[10px] text-gray-400 mt-0.5">v{t.version} · {t.watermark_text || 'No watermark'}</p>
                       </div>
                       {selectedId === t.id && <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center"><svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></div>}
@@ -469,6 +625,122 @@ export default function GenerateDocPage() {
               </div>
               {step === 2 && template && (
                 <div className="p-5 space-y-4">
+                  {/* ── Datasource auto-fetch panel (FR-009) ──────────────────
+                      Only shown when template.data_source === 'users'.
+                      Manual templates skip this entire block.              */}
+                  {template.data_source === 'users' && (
+                    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-indigo-600 flex-shrink-0" fill="none"
+                          stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <p className="text-xs font-bold text-indigo-700">
+                          Auto-fill from User Record
+                        </p>
+                        <span className="ml-auto text-[10px] text-indigo-500 bg-indigo-100
+                          px-2 py-0.5 rounded-full font-semibold">
+                          {dsMappedKeys.length} fields auto-filled
+                        </span>
+                      </div>
+                      <p className="text-xs text-indigo-600">
+                        Search by name or email to auto-populate:{' '}
+                        <span className="font-mono font-semibold">
+                          {dsMappedKeys.join(', ') || '—'}
+                        </span>
+                      </p>
+                      {/* Search input */}
+                      <div className="relative">
+                        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5
+                          text-indigo-400 pointer-events-none"
+                          fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                        <input
+                          value={dsQuery}
+                          onChange={e => dsSearch(e.target.value)}
+                          placeholder="Search name or email…"
+                          className="w-full pl-9 pr-4 py-2 text-sm border border-indigo-200
+                            rounded-lg bg-white focus:outline-none focus:ring-2
+                            focus:ring-indigo-300 focus:border-indigo-400"
+                        />
+                        {dsSearching && (
+                          <svg className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin
+                            w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10"
+                              stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                        )}
+                      </div>
+                      {/* Dropdown results */}
+                      {dsResults.length > 0 && (
+                        <div className="bg-white border border-indigo-100 rounded-xl
+                          overflow-hidden shadow-md max-h-48 overflow-y-auto">
+                          {dsResults.map(u => (
+                            <button key={u.id} type="button"
+                              onClick={() => dsPickUser(u)}
+                              className="w-full text-left px-4 py-2.5 hover:bg-indigo-50
+                                transition-colors border-b border-indigo-50 last:border-0">
+                              <p className="text-sm font-semibold text-gray-800">{u.display_label}</p>
+                              <p className="text-xs text-gray-500">
+                                {u.email}
+                                {u.department ? ` · ${u.department}` : ''}
+                                {` · ${u.role.replace(/_/g,' ')}`}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {/* Selected user badge */}
+                      {dsSelected && !dsFetching && (
+                        <div className="flex items-center gap-2 bg-emerald-50 border
+                          border-emerald-200 rounded-lg px-3 py-2">
+                          <svg className="w-4 h-4 text-emerald-600 flex-shrink-0"
+                            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
+                              d="M5 13l4 4L19 7"/>
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-emerald-700 truncate">
+                              {dsSelected.display_label}
+                            </p>
+                            <p className="text-[10px] text-emerald-600 truncate">
+                              {dsSelected.email} — {dsMappedKeys.length} fields populated
+                            </p>
+                          </div>
+                          <button type="button"
+                            onClick={() => {
+                              setDsSelected(null); setDsQuery(''); setDsResults([]);
+                              const init = {};
+                              (template.placeholders || []).forEach(p => {
+                                init[p.field_path] = p.default_value || '';
+                              });
+                              setValues(init);
+                            }}
+                            className="text-emerald-500 hover:text-red-500 text-xs
+                              font-semibold transition-colors flex-shrink-0">
+                            Clear
+                          </button>
+                        </div>
+                      )}
+                      {dsFetching && (
+                        <p className="text-xs text-indigo-500 flex items-center gap-1.5">
+                          <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10"
+                              stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                          </svg>
+                          Fetching record…
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Record Identifier (optional)</label>
                     <input value={recordId} onChange={e => setRecordId(e.target.value)} placeholder="e.g. EMP-001, STU-2024-042"
@@ -479,18 +751,30 @@ export default function GenerateDocPage() {
                     <div className="border-t border-gray-100 pt-4">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Template Fields</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {template.placeholders.map(p => (
+                        {template.placeholders.map(p => {
+                          const isAutoFilled = dsMappedKeys.includes(p.field_path);
+                          return (
                           <div key={p.field_path}>
                             <label className="block text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1.5">
                               <code className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px]">{`{{${p.field_path}}}`}</code>
                               <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${p.data_type === 'number' ? 'bg-blue-50 text-blue-500' : p.data_type === 'date' ? 'bg-purple-50 text-purple-500' : 'bg-gray-50 text-gray-400'}`}>{p.data_type}</span>
+                              {isAutoFilled && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-indigo-50 text-indigo-500 border border-indigo-100">auto</span>
+                              )}
                             </label>
                             <input type={TYPE_INPUT[p.data_type] || 'text'} value={values[p.field_path] || ''}
                               onChange={e => setValues(v => ({ ...v, [p.field_path]: e.target.value }))}
                               placeholder={p.default_value || `Enter ${p.field_path.replace(/_/g, ' ')}`}
-                              className={`w-full border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition ${values[p.field_path]?.trim() ? 'border-emerald-200 bg-emerald-50/30' : 'border-gray-200'}`} />
+                              className={`w-full border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition ${
+                                isAutoFilled && values[p.field_path]?.trim()
+                                  ? 'border-indigo-200 bg-indigo-50/30'
+                                  : values[p.field_path]?.trim()
+                                  ? 'border-emerald-200 bg-emerald-50/30'
+                                  : 'border-gray-200'
+                              }`} />
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -530,34 +814,66 @@ export default function GenerateDocPage() {
                 <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center">
                   <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                 </div>
-                <p className="text-sm font-bold text-emerald-700">PDF Generated Successfully</p>
+                <div>
+                  <p className="text-sm font-bold text-emerald-700">PDF Generated Successfully</p>
+                  <p className="text-xs text-emerald-600 mt-0.5">{generated.template_name} · {generated.template_category}</p>
+                </div>
               </div>
               <div className="p-6 space-y-4">
-                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-2">
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-2.5">
                   {[
-                    { label: 'Document ID', value: <span className="font-mono text-sm font-semibold text-gray-800 bg-white border border-gray-200 px-3 py-1 rounded-lg">{generated.doc_uuid}</span> },
-                    { label: 'Status',      value: <span className="text-xs font-semibold bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">Draft</span> },
-                    { label: 'DB Record',   value: <span className="text-sm text-gray-700">ID #{generated.id} — saved to generated_docs</span> },
-                    { label: 'Hash',        value: <span className="font-mono text-[10px] text-gray-500">Stored in file_hash column</span> },
+                    {
+                      label: 'Document ID',
+                      value: <span className="font-mono text-sm font-semibold text-gray-800 bg-white border border-gray-200 px-3 py-1 rounded-lg select-all">{generated.doc_uuid}</span>
+                    },
+                    {
+                      label: 'Template',
+                      value: <span className="text-sm text-gray-700">{generated.template_name}
+                        <span className={`ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${CATEGORY_COLORS[generated.template_category] || 'bg-gray-100 text-gray-500'}`}>{generated.template_category}</span>
+                      </span>
+                    },
+                    {
+                      label: 'Status',
+                      value: <span className="text-xs font-semibold bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full capitalize">{generated.status || 'draft'}</span>
+                    },
+                    ...(generated.record_identifier ? [{
+                      label: 'Record ID',
+                      value: <span className="font-mono text-sm text-gray-700">{generated.record_identifier}</span>
+                    }] : []),
+                    {
+                      label: 'Generated',
+                      value: <span className="text-sm text-gray-700">{generated.generated_at ? new Date(generated.generated_at).toLocaleString() : 'Just now'}</span>
+                    },
+                    {
+                      label: 'Integrity Hash',
+                      value: <span className="font-mono text-[10px] text-gray-500 bg-gray-50 border border-gray-200 px-2 py-1 rounded break-all">{generated.file_hash ? `SHA-256: ${generated.file_hash.slice(0, 16)}…` : 'Stored'}</span>
+                    },
+                    {
+                      label: 'DB Record',
+                      value: <span className="text-sm text-gray-700">ID #{generated.id} · saved to generated_docs</span>
+                    },
                   ].map(r => (
-                    <div key={r.label} className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">{r.label}</span>
-                      <div>{r.value}</div>
+                    <div key={r.label} className="flex justify-between items-center gap-4 min-h-[28px]">
+                      <span className="text-xs text-gray-500 flex-shrink-0 w-28">{r.label}</span>
+                      <div className="text-right">{r.value}</div>
                     </div>
                   ))}
                 </div>
                 <div className="flex gap-3">
                   <button type="button" onClick={() => handleDownload(generated.id, generated.doc_uuid)}
-                    className="flex-1 bg-emerald-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-emerald-700 transition-colors text-center flex items-center justify-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                    Download PDF
+                    disabled={downloading}
+                    className="flex-1 bg-emerald-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-center flex items-center justify-center gap-2">
+                    {downloading
+                      ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Downloading…</>
+                      : <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>Download PDF</>}
                   </button>
                   <button onClick={reset} className="flex-1 bg-blue-600 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-blue-700 transition-colors">
                     Generate Another
                   </button>
-                  <a href="/documents" className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-center">
+                  <button onClick={() => navigate('/documents')}
+                    className="flex-1 border border-gray-200 text-gray-700 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors text-center">
                     View Documents
-                  </a>
+                  </button>
                 </div>
               </div>
             </div>
@@ -597,21 +913,55 @@ export default function GenerateDocPage() {
               <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded font-medium">{recentDocs.length}</span>
             </div>
             <div className="px-4 py-2.5 border-b border-gray-100">
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by UUID or template…"
                 className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30" />
             </div>
-            <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
-              {filteredDocs.length === 0 && <p className="text-xs text-gray-400 text-center py-6">No documents yet</p>}
+            <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+              {filteredDocs.length === 0 && (
+                <div className="text-center py-8">
+                  <svg className="w-8 h-8 text-gray-200 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                  </svg>
+                  <p className="text-xs text-gray-400">No documents yet</p>
+                  <p className="text-[10px] text-gray-300 mt-1">Generate your first document above</p>
+                </div>
+              )}
               {filteredDocs.map(d => (
-                <div key={d.id} className="px-5 py-3 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-[11px] text-gray-600 truncate">{d.doc_uuid}</span>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_COLORS[d.status] || 'bg-gray-100 text-gray-500'}`}>{d.status}</span>
+                <div key={d.id} className="px-4 py-3 hover:bg-gray-50 transition-colors group">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-[10px] font-semibold text-gray-700 truncate">{d.doc_uuid}</span>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 capitalize ${STATUS_COLORS[d.status] || 'bg-gray-100 text-gray-500'}`}>{d.status}</span>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5 truncate font-medium">{d.template_name || '—'}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {d.generated_at ? new Date(d.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                        {d.record_identifier ? ` · ${d.record_identifier}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleDownload(d.id, d.doc_uuid)}
+                      disabled={loadingDocId === d.id}
+                      title="Download PDF"
+                      className="flex-shrink-0 w-7 h-7 rounded-lg bg-gray-100 hover:bg-blue-100 hover:text-blue-600 text-gray-400 flex items-center justify-center transition-colors disabled:opacity-50">
+                      {loadingDocId === d.id
+                        ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        : <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                      }
+                    </button>
                   </div>
-                  <p className="text-[11px] text-gray-400 mt-0.5 truncate">{d.template_name}</p>
                 </div>
               ))}
             </div>
+            {recentDocs.length > 0 && (
+              <div className="px-4 py-2.5 border-t border-gray-100">
+                <button onClick={() => navigate('/documents')}
+                  className="w-full text-xs text-blue-600 hover:text-blue-700 font-medium text-center py-1 transition-colors">
+                  View all documents →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -632,7 +982,7 @@ export default function GenerateDocPage() {
                   All records in the CSV will use this template
                 </p>
               </div>
-              <select value={bulkTemplateId} onChange={e => setBulkTemplate(e.target.value)}
+              <select value={bulkTemplateId} onChange={e => selectBulkTemplate(e.target.value)}
                 className="w-full border border-[var(--color-border)] rounded-xl px-3.5 py-2.5 text-sm
                   bg-[var(--color-bg)] text-[var(--color-text-primary)]
                   focus:outline-none focus:ring-2 focus:ring-indigo-500/20">
@@ -734,8 +1084,104 @@ export default function GenerateDocPage() {
                 </div>
               )}
 
+              {/* ── FR-012: Field validation report ─────────────────────── */}
+              {bulkValidation && (
+                <div className={`rounded-xl border overflow-hidden
+                  ${bulkValidation.valid
+                    ? 'border-emerald-200 bg-emerald-50'
+                    : 'border-red-200 bg-red-50'}`}>
+                  {/* Header */}
+                  <div className={`px-4 py-2.5 flex items-center justify-between border-b
+                    ${bulkValidation.valid ? 'border-emerald-200 bg-emerald-100/60' : 'border-red-200 bg-red-100/60'}`}>
+                    <div className="flex items-center gap-2">
+                      {bulkValidation.valid
+                        ? <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                          </svg>
+                        : <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                          </svg>
+                      }
+                      <p className={`text-xs font-bold
+                        ${bulkValidation.valid ? 'text-emerald-700' : 'text-red-700'}`}>
+                        {bulkValidation.valid
+                          ? 'All required fields present — ready to generate'
+                          : `${bulkValidation.missing.length} required field${bulkValidation.missing.length === 1 ? '' : 's'} missing from CSV`}
+                      </p>
+                    </div>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full
+                      ${bulkValidation.valid
+                        ? 'bg-emerald-200 text-emerald-700'
+                        : 'bg-red-200 text-red-700'}`}>
+                      {bulkValidation.requiredKeys.length} required
+                    </span>
+                  </div>
+
+                  {/* Missing fields — blocks generation */}
+                  {bulkValidation.missing.length > 0 && (
+                    <div className="px-4 py-3 space-y-1.5">
+                      <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wide">
+                        Missing required columns (must add to CSV):
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {bulkValidation.missing.map(k => (
+                          <span key={k}
+                            className="inline-flex items-center gap-1 bg-red-100 border border-red-300
+                              text-red-700 text-[11px] font-semibold px-2 py-0.5 rounded-md font-mono">
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"/>
+                            </svg>
+                            {k}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* All matched — show green confirmed list */}
+                  {bulkValidation.valid && bulkValidation.requiredKeys.length > 0 && (
+                    <div className="px-4 py-3 space-y-1.5">
+                      <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wide">
+                        Matched fields:
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {bulkValidation.requiredKeys.map(k => (
+                          <span key={k}
+                            className="inline-flex items-center gap-1 bg-emerald-100 border border-emerald-300
+                              text-emerald-700 text-[11px] font-semibold px-2 py-0.5 rounded-md font-mono">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
+                            </svg>
+                            {k}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Extra columns — warning only, does not block */}
+                  {bulkValidation.extra.length > 0 && (
+                    <div className={`px-4 py-2.5 space-y-1.5 border-t
+                      ${bulkValidation.valid ? 'border-emerald-200' : 'border-red-200'}`}>
+                      <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide">
+                        Extra columns (will be ignored):
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {bulkValidation.extra.map(k => (
+                          <span key={k}
+                            className="inline-flex items-center gap-1 bg-amber-50 border border-amber-200
+                              text-amber-600 text-[11px] font-semibold px-2 py-0.5 rounded-md font-mono">
+                            {k}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button onClick={submitBulkJob}
-                disabled={!bulkTemplateId || !bulkParsed || bulkSubmitting}
+                disabled={!bulkTemplateId || !bulkParsed || bulkSubmitting || (bulkValidation && !bulkValidation.valid)}
                 className="w-full flex items-center justify-center gap-2
                   bg-[#3b5bdb] hover:bg-[#2f4ac4] text-white text-sm font-bold
                   py-3 rounded-xl disabled:opacity-40 disabled:cursor-not-allowed
@@ -785,6 +1231,8 @@ export default function GenerateDocPage() {
               <p className="text-xs font-bold text-[#3b5bdb] uppercase tracking-wide">How bulk works</p>
               {[
                 'Upload a CSV with one record per row',
+                'Headers must match template placeholder names exactly',
+                'Missing required fields are shown before generation is allowed',
                 'Each row generates one PDF in the background',
                 'Progress updates every 2 seconds automatically',
                 'Download all PDFs as a single .zip when done',

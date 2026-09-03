@@ -4,64 +4,162 @@ const GEN = 'generator';
 const APP = 'approver';
 const REC = 'recipient';
 
-// ── Recipient-only navigation ────────────────────────────────────────────────
-// Shown to 'recipient' role only. Completely separate from the admin/generator nav.
-const recipientNavGroups = [
+// ── Recipient navigation ─────────────────────────────────────────────────────
+export const recipientNavGroups = [
   {
     group: 'Main', translationKey: 'main',
     items: [
-      { to: '/dashboard',    label: 'Dashboard',       translationKey: 'dashboard',    roles: [REC], icon: 'home' },
-      { to: '/my-documents', label: 'My Documents',    translationKey: 'myDocuments',  roles: [REC], icon: 'doc' },
-      { to: '/verify-doc',   label: 'Verify Document', translationKey: 'verify',       roles: [REC], icon: 'shield' },
-    ],
-  },
-  {
-    group: 'Account', translationKey: 'account',
-    items: [
-      { to: '/settings', label: 'My Settings', translationKey: 'mySettings', roles: [REC], icon: 'cog' },
+      { to: '/dashboard',    translationKey: 'dashboard',   roles: [REC], icon: 'home' },
+      { to: '/my-documents', translationKey: 'myDocuments', roles: [REC], icon: 'doc' },
+      { to: '/verify-doc',   translationKey: 'verify',      roles: [REC], icon: 'shield' },
     ],
   },
 ];
 
-// ── Admin / Generator / Approver navigation ───────────────────────────────────
-const navGroups = [
+// ── Approver navigation ───────────────────────────────────────────────────────
+export const approverNavGroups = [
   {
     group: 'Main', translationKey: 'main',
     items: [
-      { to: '/dashboard', label: 'Dashboard', translationKey: 'dashboard', roles: [SA, SYS, GEN, APP, REC], icon: 'home' },
+      { to: '/approver', translationKey: 'dashboard', roles: [APP], icon: 'home' },
     ],
   },
   {
     group: 'Documents', translationKey: 'documents',
     items: [
-      { to: '/templates', label: 'Templates',         translationKey: 'templates',     roles: [SA, SYS],           icon: 'template' },
-      { to: '/generate',  label: 'Generate Document', translationKey: 'generate',      roles: [SA, SYS, GEN, APP], icon: 'plus-doc' },
-      { to: '/documents', label: 'Documents',         translationKey: 'documentsPage', roles: [SA, SYS, GEN, APP], icon: 'doc' },
+      { to: '/documents', translationKey: 'documentsPage', roles: [APP], icon: 'doc' },
     ],
   },
   {
-    group: 'Workflow', translationKey: 'workflow',
+    group: 'Approval', translationKey: 'approvalGroup',
     items: [
-      { to: '/approvals',  label: 'Approvals',        translationKey: 'approvals', roles: [SA, SYS, APP],           icon: 'check-circle' },
-      { to: '/verify-doc', label: 'Verify Document',  translationKey: 'verify',    roles: [SA, SYS, GEN, APP],      icon: 'shield' },
+      { to: '/approvals', translationKey: 'approvals', roles: [APP], icon: 'approval' },
     ],
   },
   {
-    group: 'Administration', translationKey: 'administration',
+    group: 'Verification', translationKey: 'verification',
     items: [
-      { to: '/users',          label: 'Users',          translationKey: 'users',    roles: [SA, SYS], icon: 'users' },
-      { to: '/audit',          label: 'Audit Logs',     translationKey: 'audit',    roles: [SA, SYS], icon: 'clipboard' },
-      { to: '/delivery-logs',  label: 'Delivery Logs',  translationKey: 'delivery', roles: [SA, SYS], icon: 'mail' },
+      { to: '/verify-doc', translationKey: 'verify', roles: [APP], icon: 'shield' },
     ],
   },
   {
     group: 'Account', translationKey: 'account',
     items: [
-      { to: '/settings/system', label: 'System Configuration', translationKey: 'systemConfiguration', roles: [SA],      icon: 'server' },
-      { to: '/settings',        label: 'My Settings',          translationKey: 'mySettings',          roles: [SA, SYS, GEN, APP], icon: 'cog' },
+      { to: '/settings', translationKey: 'mySettings', roles: [APP], icon: 'user' },
     ],
   },
 ];
 
-export { navGroups, recipientNavGroups };
+// ── Generator navigation ──────────────────────────────────────────────────────
+export const generatorNavGroups = [
+  {
+    group: 'Main', translationKey: 'main',
+    items: [
+      { to: '/dashboard', translationKey: 'dashboard', roles: [GEN], icon: 'home' },
+    ],
+  },
+
+  {
+    group: 'Documents', translationKey: 'documents',
+    items: [
+      { to: '/documents', translationKey: 'documents', roles: [GEN], icon: 'doc' },
+      { to: '/generate',  translationKey: 'generate',  roles: [GEN], icon: 'plus-doc' },
+    ],
+  },
+
+  {
+    group: 'Verification', translationKey: 'verification',
+    items: [
+      { to: '/verify-doc', translationKey: 'verify', roles: [GEN], icon: 'shield' },
+    ],
+  },
+
+  {
+    group: 'Account', translationKey: 'account',
+    items: [
+      { to: '/settings', translationKey: 'mySettings', roles: [GEN], icon: 'user' },
+    ],
+  },
+];
+
+// ── Main navigation (all non-recipient roles) ────────────────────────────────
+export const navGroups = [
+
+  // ── MAIN ────────────────────────────────────────────────────────────────────
+  {
+    group: 'Main', translationKey: 'main',
+    items: [
+      { to: '/dashboard', translationKey: 'dashboard', roles: [SA, SYS, GEN, APP], icon: 'home' },
+    ],
+  },
+
+  // ── USER & ACCESS ───────────────────────────────────────────────────────────
+  {
+    group: 'User & Access', translationKey: 'userAccess',
+    items: [
+      { to: '/users', translationKey: 'users', roles: [SA, SYS], icon: 'users' },
+      { to: '/roles',  translationKey: 'rolesPermissions', roles: [SA], icon: 'lock' },
+    ],
+  },
+
+  // ── TEMPLATES ───────────────────────────────────────────────────────────────
+  {
+    group: 'Templates', translationKey: 'templates',
+    items: [
+      { to: '/templates',     translationKey: 'templates',    roles: [SA, SYS],      icon: 'template' },
+      { to: '/data-sources',  translationKey: 'dataSources',  roles: [SA, SYS],      icon: 'database' },
+      { to: '/field-mapping', translationKey: 'fieldMapping', roles: [SA],            icon: 'map' },
+    ],
+  },
+
+  // ── DOCUMENTS ───────────────────────────────────────────────────────────────
+  {
+    group: 'Documents', translationKey: 'documents',
+    items: [
+      { to: '/generate',  translationKey: 'generate',      roles: [SA, SYS, GEN],      icon: 'plus-doc' },
+      { to: '/documents', translationKey: 'allDocuments',  roles: [SA, SYS, GEN],      icon: 'doc' },
+      { to: '/documents', translationKey: 'documents',     roles: [APP],               icon: 'doc' },
+    ],
+  },
+
+  // ── WORKFLOW ─────────────────────────────────────────────────────────────────
+  {
+    group: 'Workflow', translationKey: 'workflow',
+    items: [
+      { to: '/signature-requests', translationKey: 'signatureRequests', roles: [SA, SYS, GEN],      icon: 'pen' },
+      { to: '/approvals',          translationKey: 'pendingApprovals',  roles: [APP],               icon: 'check-circle' },
+      { to: '/approval-history',   translationKey: 'approvalHistory',   roles: [APP],               icon: 'history' },
+      { to: '/approvals',          translationKey: 'approvals',         roles: [SA, SYS],            icon: 'check-circle' },
+      { to: '/delivery-logs',      translationKey: 'deliveryLogs',      roles: [SA, SYS],            icon: 'mail' },
+    ],
+  },
+
+  // ── VERIFICATION ─────────────────────────────────────────────────────────────
+  {
+    group: 'Verification', translationKey: 'verification',
+    items: [
+      { to: '/verify-doc', translationKey: 'verify', roles: [SA, SYS, GEN, APP], icon: 'shield' },
+    ],
+  },
+
+  // ── AUDIT & REPORTS ──────────────────────────────────────────────────────────
+  {
+    group: 'Audit & Reports', translationKey: 'auditReports',
+    items: [
+      { to: '/audit',   translationKey: 'auditLogs',         roles: [SA, SYS], icon: 'clipboard' },
+      { to: '/reports', translationKey: 'reportsAnalytics',  roles: [SA, SYS], icon: 'chart' },
+    ],
+  },
+
+  // ── SYSTEM ──────────────────────────────────────────────────────────────────
+  {
+    group: 'System', translationKey: 'system',
+    items: [
+      { to: '/settings/system',      translationKey: 'systemSettings',     roles: [SA],  icon: 'cog' },
+      { to: '/settings/connections', translationKey: 'externalConnections', roles: [SA],  icon: 'server' },
+      { to: '/settings/notifications', translationKey: 'notificationSettings', roles: [SA], icon: 'bell' },
+    ],
+  },
+];
+
 export default navGroups;

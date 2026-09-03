@@ -11,11 +11,32 @@ import axiosInstance from '../api/axiosInstance';
 const CATEGORIES = ['HR', 'Finance', 'Academic', 'Procurement', 'General'];
 const WATERMARK_PRESETS = ['', 'DRAFT', 'CONFIDENTIAL', 'FINAL', 'OFFICIAL'];
 
-const AVAILABLE_FIELDS = [
-  { group: 'Employee', fields: ['employee.full_name', 'employee.id', 'employee.position', 'employee.salary', 'employee.join_date', 'employee.department'] },
-  { group: 'Finance', fields: ['finance.basic', 'finance.allowances', 'finance.deductions', 'finance.net'] },
-  { group: 'Student', fields: ['student.full_name', 'student.id', 'student.program', 'student.cgpa'] },
-  { group: 'System', fields: ['generation_date', 'effective_date', 'doc_id', 'org_name'] },
+// ── Internal DocuVault tables — never shown in the field picker ───────────────
+// These are system tables the template editor should not expose to admins.
+const INTERNAL_TABLES = new Set([
+  'audit_logs', 'bulk_jobs', 'delivery_logs', 'digital_signatures',
+  'email_verifications', 'generated_docs', 'notifications',
+  'password_reset_tokens', 'recipient_access_sessions',
+  'signature_requests', 'system_settings', 'template_placeholders',
+  'templates',
+]);
+
+// ── System / auto-date placeholders injected by the server at generation time ─
+// These are not DB columns — they are always available regardless of data source.
+const SYSTEM_FIELDS = [
+  { field: 'generation_date',     placeholder: '{{generation_date}}'     },
+  { field: 'generation_time',     placeholder: '{{generation_time}}'     },
+  { field: 'generation_datetime', placeholder: '{{generation_datetime}}' },
+  { field: 'generation_year',     placeholder: '{{generation_year}}'     },
+  { field: 'generation_month',    placeholder: '{{generation_month}}'    },
+  { field: 'generation_day',      placeholder: '{{generation_day}}'      },
+  { field: 'effective_date',      placeholder: '{{effective_date}}'      },
+  { field: 'expiry_date',         placeholder: '{{expiry_date}}'         },
+  { field: 'issue_date',          placeholder: '{{issue_date}}'          },
+  { field: 'system.company_name', placeholder: '{{system.company_name}}' },
+  { field: 'system.department',   placeholder: '{{system.department}}'   },
+  { field: 'system.logo_url',     placeholder: '{{system.logo_url}}'     },
+  { field: 'system.company_seal', placeholder: '{{system.company_seal}}' },
 ];
 
 // ── Toolbar Button ───────────────────────────────────────────
@@ -565,6 +586,8 @@ export default function TemplateFormPage() {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [schema, setSchema] = useState(null);   // live DB schema from GET /templates/schema
+  const [schemaLoading, setSchemaLoading] = useState(true);
   const [selectedField, setSelectedField] = useState('');
   const [showSignature, setShowSignature] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -584,6 +607,14 @@ export default function TemplateFormPage() {
     body_html: '',
     footer_html: '',
   });
+
+  // Fetch live DB schema for the field picker (FR-003)
+  useEffect(() => {
+    axiosInstance.get('/templates/schema')
+      .then(r => setSchema(r.data))
+      .catch(() => setSchema({}))
+      .finally(() => setSchemaLoading(false));
+  }, []);
 
   useEffect(() => {
     if (isEdit) {
@@ -929,18 +960,35 @@ export default function TemplateFormPage() {
               <select
                 value={selectedField}
                 onChange={(e) => setSelectedField(e.target.value)}
-                className="flex-1 px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl outline-none"
+                disabled={schemaLoading}
+                className="flex-1 px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl outline-none disabled:opacity-50"
               >
-                <option value="">-- Select Field --</option>
-                {AVAILABLE_FIELDS.map((group) => (
-                  <optgroup key={group.group} label={group.group}>
-                    {group.fields.map((field) => (
-                      <option key={field} value={field}>
-                        {`{{${field}}}`}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
+                <option value="">
+                  {schemaLoading ? 'Loading fields…' : '-- Select Field --'}
+                </option>
+
+                {/* ── Live DB table groups ─────────────────────────────── */}
+                {schema && Object.entries(schema)
+                  .filter(([table]) => !INTERNAL_TABLES.has(table))
+                  .map(([table, cols]) => (
+                    <optgroup key={table} label={table}>
+                      {cols.map(col => (
+                        <option key={col.field} value={col.field}>
+                          {col.placeholder}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))
+                }
+
+                {/* ── System / auto-date fields (always available) ─────── */}
+                <optgroup label="System (auto-filled)">
+                  {SYSTEM_FIELDS.map(f => (
+                    <option key={f.field} value={f.field}>
+                      {f.placeholder}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
               <button
                 type="button"
@@ -951,6 +999,11 @@ export default function TemplateFormPage() {
                 Insert
               </button>
             </div>
+            {schema && Object.keys(schema).filter(t => !INTERNAL_TABLES.has(t)).length === 0 && !schemaLoading && (
+              <p className="text-xs text-amber-600 mt-2">
+                No domain tables found in database. Only system fields are available.
+              </p>
+            )}
           </div>
         </div>
 

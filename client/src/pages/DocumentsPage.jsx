@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
 import { useToast } from '../context/ToastContext';
 import { useAuth }  from '../context/AuthContext';
@@ -46,6 +47,7 @@ export default function DocumentsPage() {
 
   const [selectedApprover, setApprover]    = useState('');
   const [recipientEmail,   setEmail]       = useState('');
+  const [recipientName,    setRecipName]   = useState('');
   const [handModal,        setHandModal]   = useState(null); // doc id for hand-deliver confirm
 
   const load = () => {
@@ -61,7 +63,7 @@ export default function DocumentsPage() {
   }, []);
 
   const isAdmin    = user?.role === 'super_admin' || user?.role === 'system_admin';
-  const canSign    = isAdmin || user?.role === 'generator';
+  const canSign    = isAdmin || user?.role === 'generator'; // only these roles can POST /esign/request
   const canDeliver = isAdmin || user?.role === 'generator';
 
   const counts = useMemo(() => ({
@@ -103,10 +105,10 @@ export default function DocumentsPage() {
     setWorking(true);
     try {
       await axiosInstance.post('/delivery/deliver', {
-        doc_id: deliverModal, recipient_email: recipientEmail,
+        doc_id: deliverModal, recipient_email: recipientEmail, recipient_name: recipientName,
       });
       toast.success('Document delivered successfully');
-      setDeliverModal(null); setEmail('');
+      setDeliverModal(null); setEmail(''); setRecipName('');
       load();
     } catch (e) { toast.error(e.response?.data?.message || 'Delivery failed'); }
     finally { setWorking(false); }
@@ -192,14 +194,14 @@ export default function DocumentsPage() {
             </button>
           ))}
         </div>
-        <a href="/generate"
+        <Link to="/generate"
           className="flex items-center gap-1.5 bg-[#3b5bdb] hover:bg-[#2f4ac4]
             text-white text-xs font-bold px-4 py-2 rounded-xl transition-colors ml-auto">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
           </svg>
           Generate New
-        </a>
+        </Link>
       </div>
 
       {/* Table */}
@@ -233,10 +235,10 @@ export default function DocumentsPage() {
                       d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                   </svg>
                   <p className="text-sm text-[var(--color-text-secondary)]">No documents found</p>
-                  <a href="/generate" className="inline-block mt-3 text-xs font-semibold text-[#3b5bdb]
+                  <Link to="/generate" className="inline-block mt-3 text-xs font-semibold text-[#3b5bdb]
                     hover:text-[#2f4ac4] bg-indigo-50 px-4 py-2 rounded-lg">
                     Generate your first document →
-                  </a>
+                  </Link>
                 </td></tr>
               )}
               {!loading && filtered.map(doc => (
@@ -287,7 +289,7 @@ export default function DocumentsPage() {
                       )}
                       {/* Deliver */}
                       {canDeliver && doc.status === 'signed' && (
-                        <button onClick={() => { setDeliverModal(doc.id); setEmail(''); }}
+                        <button onClick={() => { setDeliverModal(doc.id); setEmail(''); setRecipName(''); }}
                           title="Deliver to recipient"
                           className="w-8 h-8 rounded-lg flex items-center justify-center
                             text-[var(--color-text-secondary)] hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
@@ -374,7 +376,7 @@ export default function DocumentsPage() {
                 </button>
               )}
               {canDeliver && detailDoc.status === 'signed' && (
-                <button onClick={() => { setDetail(null); setDeliverModal(detailDoc.id); setEmail(''); }}
+                <button onClick={() => { setDetail(null); setDeliverModal(detailDoc.id); setEmail(''); setRecipName(''); }}
                   className="flex-1 bg-indigo-600 text-white text-sm font-semibold
                     py-2.5 rounded-xl hover:bg-indigo-700 transition-colors">
                   Deliver
@@ -434,12 +436,22 @@ export default function DocumentsPage() {
       {/* ── Deliver Modal ──────────────────────────────────────────────────── */}
       {deliverModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDeliverModal(null)}/>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => { setDeliverModal(null); setEmail(''); setRecipName(''); }}/>
           <div className="relative bg-[var(--color-surface)] rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 animate-in">
             <h3 className="font-bold text-[var(--color-text-primary)]">Deliver Document</h3>
             <p className="text-xs text-[var(--color-text-secondary)]">
               A branded email with the signed PDF and a 7-day secure download link will be sent.
             </p>
+            <div>
+              <label className="block text-xs font-semibold text-[var(--color-text-secondary)]
+                uppercase tracking-wide mb-1.5">Recipient Name</label>
+              <input type="text" value={recipientName} onChange={e => setRecipName(e.target.value)}
+                placeholder="e.g. John Doe"
+                className="w-full border border-[var(--color-border)] rounded-xl px-3.5 py-2.5 text-sm
+                  bg-[var(--color-bg)] text-[var(--color-text-primary)]
+                  placeholder-[var(--color-text-secondary)]
+                  focus:outline-none focus:ring-2 focus:ring-indigo-500/20"/>
+            </div>
             <div>
               <label className="block text-xs font-semibold text-[var(--color-text-secondary)]
                 uppercase tracking-wide mb-1.5">Recipient Email</label>
@@ -456,7 +468,7 @@ export default function DocumentsPage() {
                   py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors">
                 {working ? 'Delivering…' : 'Send & Deliver'}
               </button>
-              <button onClick={() => setDeliverModal(null)}
+              <button onClick={() => { setDeliverModal(null); setEmail(''); setRecipName(''); }}
                 className="flex-1 bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)]
                   text-sm py-2.5 rounded-xl hover:text-[var(--color-text-primary)] transition-colors">
                 Cancel

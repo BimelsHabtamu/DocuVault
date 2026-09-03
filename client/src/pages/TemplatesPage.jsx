@@ -64,7 +64,7 @@ export default function TemplatesPage() {
 
   const toggleStatus = async (template) => {
     try {
-      await axiosInstance.patch(`/templates/${template.id}`, {
+      await axiosInstance.patch(`/templates/${template.id}/status`, {
         is_active: !template.is_active,
       });
       toast.success(`Template ${template.is_active ? 'archived' : 'activated'}`);
@@ -203,7 +203,18 @@ export default function TemplatesPage() {
                         {template.category}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">v{template.version}</td>
+                    <td className="px-6 py-4 text-gray-600">
+                      <div className="flex items-center gap-1.5">
+                        <span>v{template.version}</span>
+                        {template.version_count > 0 && (
+                          <span className="text-[10px] text-indigo-500 font-semibold
+                            bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded-full"
+                            title={`${template.version_count} version snapshot${template.version_count !== 1 ? 's' : ''} stored`}>
+                            {template.version_count}v
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-gray-600">{template.data_source || '—'}</td>
                     <td className="px-6 py-4 text-gray-600">{template.watermark_text || '—'}</td>
                     <td className="px-6 py-4">

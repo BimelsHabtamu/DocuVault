@@ -132,3 +132,39 @@ exports.uploadSeal = async (req, res) => {
     res.status(500).json({ message: 'Failed to upload seal', error: err.message });
   }
 };
+
+// ── GET /settings/db-connection ──────────────────────────────────────────────
+// Returns the current database connection configuration.
+// PASSWORD IS ALWAYS REDACTED — never returned to the client.
+exports.getDbConnection = (req, res) => {
+  res.json({
+    host:     process.env.DB_HOST || '',
+    port:     process.env.DB_PORT || '3306',
+    database: process.env.DB_NAME || '',
+    username: process.env.DB_USER || '',
+    password: '',   // intentionally empty — never sent to client
+    ssl:      process.env.DB_SSL === 'true',
+    type:     'MySQL',
+  });
+};
+
+// ── POST /settings/db-connection/test ────────────────────────────────────────
+// Tests the LIVE database connection using the existing pool (SELECT 1).
+// No credentials are accepted from or sent to the client.
+exports.testDbConnection = async (req, res) => {
+  const start = Date.now();
+  try {
+    const [[row]] = await db.query('SELECT 1 AS ok');
+    const latency = Date.now() - start;
+    if (row?.ok === 1) {
+      return res.json({ connected: true,  message: 'Connection successful', latency_ms: latency });
+    }
+    res.json({ connected: false, message: 'Unexpected response from database', latency_ms: null });
+  } catch (err) {
+    res.status(200).json({
+      connected: false,
+      message:   err.message || 'Connection failed',
+      latency_ms: null,
+    });
+  }
+};

@@ -6,6 +6,7 @@ const path    = require('path');
 const {
   sendSetPasswordEmail,
   sendDocumentAccessEmail,
+  sendRecipientDeliveryEmail,
 } = require('../services/emailService');
 
 // ── Helper: generate a cryptographically random token ────────────────────────
@@ -47,10 +48,12 @@ exports.getDeliveryLogs = async (req, res) => {
 };
 
 // ── POST /api/delivery/deliver ────────────────────────────────────────────────
-// Option C Hybrid:
-//   - If recipient_email already in users → send login + doc link
-//   - If not → auto-create recipient account (is_active=0, password_set=0),
-//              generate 48h set-password token, send set-password email
+// Delivers a signed document to a recipient.
+// Creates:
+//   1. delivery_logs row (existing system — keeps recipient inbox working)
+//   2. recipient_access_sessions row (new no-login token-based access flow)
+// Sends the new branded delivery email with a secure one-time access link.
+// Does NOT require the recipient to have a DocuVault account.
 exports.deliverDocument = async (req, res) => {
   const { doc_id, recipient_email, recipient_name } = req.body;
 
@@ -58,8 +61,22 @@ exports.deliverDocument = async (req, res) => {
     return res.status(400).json({ message: 'doc_id and recipient_email are required' });
   }
 
+  // Basic email format validation
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient_email.trim())) {
+    return res.status(400).json({ message: 'Please enter a valid email address' });
+  }
+
+  const trimmedEmail = recipient_email.trim().toLowerCase();
+  const finalName    = (recipient_name || '').trim() || trimmedEmail;
+
   // ── 1. Validate document ──────────────────────────────────────────────────
-  const [docs] = await db.query('SELECT * FROM generated_docs WHERE id = ?', [doc_id]);
+  const [docs] = await db.query(
+    `SELECT gd.*, t.name AS template_name
+     FROM generated_docs gd
+     JOIN templates t ON t.id = gd.template_id
+     WHERE gd.id = ?`,
+    [doc_id]
+  );
   if (docs.length === 0) return res.status(404).json({ message: 'Document not found' });
 
   const doc = docs[0];
@@ -69,78 +86,70 @@ exports.deliverDocument = async (req, res) => {
 
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
-  // ── 2. Option C: Check if recipient email exists ──────────────────────────
+  // ── 2. Insert delivery_logs row ───────────────────────────────────────────
+  // Keep the legacy delivery_logs row so the existing recipient inbox and
+  // admin delivery-logs page continue to work unchanged.
+  const downloadToken = generateSecureToken(); // kept for legacy column (NOT NULL)
+
+  // Option C: also try to link to existing user account if the email matches
   const [existingUsers] = await db.query(
-    'SELECT * FROM users WHERE email = ?',
-    [recipient_email]
+    'SELECT id, full_name FROM users WHERE email = ?',
+    [trimmedEmail]
   );
+  const recipientUserId  = existingUsers.length > 0 ? existingUsers[0].id : null;
+  const resolvedName     = existingUsers.length > 0
+    ? (existingUsers[0].full_name || finalName)
+    : finalName;
 
-  let recipientUserId = null;
-  let finalRecipientName = recipient_name || recipient_email;
-  let emailLink;
-  let isNewUser = false;
-
-  if (existingUsers.length > 0) {
-    // ── Existing user: send login + document link ─────────────────────────
-    const existingUser    = existingUsers[0];
-    recipientUserId       = existingUser.id;
-    finalRecipientName    = existingUser.full_name || recipient_name || recipient_email;
-    // Redirect to /my-documents with the specific doc highlighted
-    emailLink = `${clientUrl}/login?redirect=/my-documents/${doc.doc_uuid}`;
-
-  } else {
-    // ── New user: auto-create recipient account ───────────────────────────
-    isNewUser = true;
-    const dummyHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
-    const [newUser] = await db.query(
-      `INSERT INTO users
-         (email, password_hash, full_name, role, is_active, password_set)
-       VALUES (?, ?, ?, 'recipient', 0, 0)`,
-      [recipient_email, dummyHash, finalRecipientName]
-    );
-    recipientUserId = newUser.insertId;
-
-    // Generate 48-hour set-password token
-    const rawToken  = generateSecureToken();
-    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
-
-    await db.query(
-      `INSERT INTO password_reset_tokens
-         (user_id, token_hash, doc_uuid, expires_at)
-       VALUES (?, ?, ?, ?)`,
-      [recipientUserId, tokenHash, doc.doc_uuid, expiresAt]
-    );
-
-    // Link goes to set-password page; after setting password → auto-redirect to doc
-    emailLink = `${clientUrl}/set-password?token=${rawToken}`;
-  }
-
-  // ── 3. Insert delivery log ────────────────────────────────────────────────
   await db.query(
     `INSERT INTO delivery_logs
        (doc_id, recipient_email, recipient_name, recipient_user_id,
         doc_uuid, sent_at, download_token, token_expiry, email_status)
-     VALUES (?, ?, ?, ?, ?, NOW(), '', DATE_ADD(NOW(), INTERVAL 30 DAY), 'queued')`,
-    [doc_id, recipient_email, finalRecipientName, recipientUserId, doc.doc_uuid]
+     VALUES (?, ?, ?, ?, ?, NOW(), ?, DATE_ADD(NOW(), INTERVAL 7 DAY), 'queued')`,
+    [doc_id, trimmedEmail, resolvedName, recipientUserId, doc.doc_uuid, downloadToken]
   );
 
   const [logRows] = await db.query(
     'SELECT id FROM delivery_logs WHERE doc_id = ? AND recipient_email = ? ORDER BY id DESC LIMIT 1',
-    [doc_id, recipient_email]
+    [doc_id, trimmedEmail]
   );
   const logId = logRows[0].id;
 
-  // ── 4. Send the correct email & update log ────────────────────────────────
-  try {
-    if (isNewUser) {
-      await sendSetPasswordEmail(recipient_email, finalRecipientName, emailLink, doc.doc_uuid);
-    } else {
-      await sendDocumentAccessEmail(recipient_email, finalRecipientName, emailLink, doc.doc_uuid);
-    }
+  // ── 3. Generate secure access token for the new no-login flow ─────────────
+  // Raw token goes in the email link.  Only the SHA-256 hash is stored.
+  const rawAccessToken  = generateSecureToken(); // 64-char hex
+  const accessTokenHash = crypto.createHash('sha256').update(rawAccessToken).digest('hex');
+  const expiresAt       = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days (FR-028)
 
-    await db.query('UPDATE delivery_logs SET email_status = ? WHERE id = ?', ['sent', logId]);
-    await db.query('UPDATE generated_docs SET status = ? WHERE id = ?', ['delivered', doc_id]);
+  await db.query(
+    `INSERT INTO recipient_access_sessions
+       (delivery_log_id, doc_id, doc_uuid,
+        recipient_name, recipient_email,
+        token_hash, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [logId, doc_id, doc.doc_uuid, resolvedName, trimmedEmail, accessTokenHash, expiresAt]
+  );
+
+  // ── 4. Send delivery email ─────────────────────────────────────────────────
+  const accessLink = `${clientUrl}/doc/${rawAccessToken}`;
+
+  try {
+    await sendRecipientDeliveryEmail(
+      trimmedEmail,
+      resolvedName,
+      doc.template_name,
+      doc.doc_uuid,
+      accessLink
+    );
+
+    await db.query(
+      'UPDATE delivery_logs SET email_status = ? WHERE id = ?',
+      ['sent', logId]
+    );
+    await db.query(
+      'UPDATE generated_docs SET status = ? WHERE id = ?',
+      ['delivered', doc_id]
+    );
 
     // Audit log
     await db.query(
@@ -150,24 +159,35 @@ exports.deliverDocument = async (req, res) => {
       [
         req.user.id, doc_id,
         JSON.stringify({
-          recipient_email,
+          recipient_email:  trimmedEmail,
+          recipient_name:   resolvedName,
           recipient_user_id: recipientUserId,
-          is_new_user: isNewUser,
-          email_type: isNewUser ? 'set_password' : 'login_link',
+          access_link_sent: true,
         }),
         req.ip, req.headers['user-agent'],
       ]
     );
 
     res.json({
-      message:      'Document delivered successfully',
-      is_new_user:  isNewUser,
-      recipient_user_id: recipientUserId,
+      message:      `Document delivered. Verification email sent to ${trimmedEmail}.`,
+      doc_uuid:     doc.doc_uuid,
+      recipient:    resolvedName,
     });
 
   } catch (err) {
-    await db.query('UPDATE delivery_logs SET email_status = ? WHERE id = ?', ['failed', logId]);
-    res.status(500).json({ message: 'Email delivery failed', error: err.message });
+    // Email failed — mark log as failed but don't leave a dangling access session
+    await db.query(
+      'UPDATE delivery_logs SET email_status = ? WHERE id = ?',
+      ['failed', logId]
+    );
+    await db.query(
+      'DELETE FROM recipient_access_sessions WHERE delivery_log_id = ?',
+      [logId]
+    );
+    console.error('[DELIVERY] Email failed for', trimmedEmail, ':', err.message);
+    res.status(502).json({
+      message: `Failed to send delivery email to "${trimmedEmail}". Document not marked as delivered. Please try again.`,
+    });
   }
 };
 

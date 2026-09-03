@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import axiosInstance from '../api/axiosInstance';
+import { useAuth } from '../context/AuthContext';
 
-// ── States: loading | success | invalid | expired | conflict ─────────────────
+// ── States: loading | success | invalid | expired | used | conflict ──────────
 
 export default function VerifyEmailPage() {
   const [searchParams]    = useSearchParams();
+  const navigate          = useNavigate();
+  const { updateUser }    = useAuth();
   const token             = searchParams.get('token') || '';
-  const [status, setStatus] = useState('loading'); // loading|success|invalid|expired|conflict
+
+  const [status,   setStatus]   = useState('loading');
   const [newEmail, setNewEmail] = useState('');
-  const [message, setMessage]   = useState('');
+  const [message,  setMessage]  = useState('');
 
   useEffect(() => {
     if (!token) { setStatus('invalid'); return; }
@@ -18,17 +22,27 @@ export default function VerifyEmailPage() {
       .then(res => {
         setNewEmail(res.data.new_email || '');
         setStatus('success');
+
+        // Refresh the auth context so the displayed email updates immediately
+        // everywhere in the app — user does not need to re-login.
+        axiosInstance.get('/auth/me')
+          .then(meRes => {
+            const freshUser = meRes.data.user ?? meRes.data;
+            updateUser(freshUser);
+          })
+          .catch(() => {
+            // Non-fatal — user can re-login to get the updated email in context
+          });
       })
       .catch(err => {
         const code = err.response?.status;
         setMessage(err.response?.data?.message || 'Something went wrong.');
-        if (code === 410)      setStatus('expired');
+        if (code === 410)      setStatus(err.response?.data?.message?.includes('already been used') ? 'used' : 'expired');
         else if (code === 409) setStatus('conflict');
         else                   setStatus('invalid');
       });
-  }, [token]);
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Icon helper ─────────────────────────────────────────────────────────────
   const icons = {
     loading: (
       <svg className="animate-spin w-8 h-8 text-[#3b5bdb]" fill="none" viewBox="0 0 24 24">
@@ -48,6 +62,14 @@ export default function VerifyEmailPage() {
         <svg className="w-8 h-8 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+    ),
+    used: (
+      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </div>
     ),
@@ -75,12 +97,16 @@ export default function VerifyEmailPage() {
       body:  'Please wait while we confirm your new email address.',
     },
     success: {
-      title: 'Email Updated Successfully',
-      body:  `Your email address has been changed to ${newEmail}. Use this email to log in from now on.`,
+      title: '✓ Email Updated Successfully',
+      body:  `Your email address has been changed to ${newEmail}. You can now sign in with your new email.`,
     },
     expired: {
       title: 'Verification Link Expired',
-      body:  message || 'This link has expired (24-hour limit). Go to Settings and request an email change again.',
+      body:  message || 'This link has expired (24-hour limit). Go to Settings and request a new email change.',
+    },
+    used: {
+      title: 'Link Already Used',
+      body:  'This verification link has already been used. Your email was previously updated.',
     },
     invalid: {
       title: 'Invalid Verification Link',
@@ -125,15 +151,33 @@ export default function VerifyEmailPage() {
 
           {/* Actions */}
           {status === 'success' && (
-            <Link to="/login"
+            <div className="space-y-2">
+              <button
+                onClick={() => navigate('/settings')}
+                className="inline-flex items-center justify-center gap-2 w-full
+                  bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold
+                  py-3 rounded-xl transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+                Go to My Settings
+              </button>
+              <Link to="/login"
+                className="inline-flex items-center justify-center gap-2 w-full
+                  border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50
+                  text-gray-600 text-sm font-semibold py-3 rounded-xl transition-colors">
+                Sign in with new email
+              </Link>
+            </div>
+          )}
+
+          {status === 'used' && (
+            <Link to="/settings"
               className="inline-flex items-center justify-center gap-2 w-full
                 bg-[#3b5bdb] hover:bg-[#2f4ac4] text-white text-sm font-bold
                 py-3 rounded-xl transition-colors">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
-                  d="M11 16l-4-4m0 0l4-4m-4 4h14"/>
-              </svg>
-              Sign in with new email
+              Go to Settings
             </Link>
           )}
 

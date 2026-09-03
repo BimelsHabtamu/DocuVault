@@ -38,6 +38,29 @@ dotenv.config();
 
 const app = express();
 
+// ── FR-026: Clock consistency check ──────────────────────────────────────────
+// Compares Node.js process clock against the MySQL server clock at startup.
+// Warns if drift > 5 seconds. All security-critical timestamps (approved_at,
+// audit_logs.timestamp, otp_expiry, otp_locked_until) use MySQL NOW() so they
+// are mutually consistent. True NTP sync must be done at OS level:
+//   Windows: w32tm /resync   Linux: timedatectl set-ntp true
+async function checkClockDrift(db) {
+  try {
+    const [[row]] = await db.query('SELECT UTC_TIMESTAMP() AS db_utc');
+    const nodeUtc  = new Date();
+    const dbUtc    = new Date(row.db_utc);
+    const driftSec = Math.round(Math.abs(nodeUtc - dbUtc) / 1000);
+    if (driftSec > 5) {
+      console.error(`\n  ⚠  CLOCK DRIFT: Node=${nodeUtc.toISOString()} DB=${dbUtc.toISOString()} diff=${driftSec}s`);
+      console.error(`     Fix: sync OS clock with NTP (Windows: w32tm /resync | Linux: timedatectl set-ntp true)\n`);
+    } else {
+      console.log(`  ✓  Clock check — Node↔MySQL drift: ${driftSec}s (UTC)`);
+    }
+  } catch (err) {
+    console.warn(`  ⚠  Clock check skipped: ${err.message}`);
+  }
+}
+
 const pdfDir = path.join(__dirname, 'storage/pdfs');
 const uplDir = path.join(__dirname, 'storage/uploads');
 if (!fs.existsSync(pdfDir)) fs.mkdirSync(pdfDir, { recursive: true });
@@ -54,8 +77,8 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/uploads', express.static(uplDir));
 
 app.get('/', (req, res) => {
@@ -66,6 +89,15 @@ app.get('/', (req, res) => {
     routes: [
       'POST   /api/auth/login',
       'GET    /api/auth/me',
+      'GET    /api/users/me/settings',
+      'PUT    /api/users/me/settings',
+      'POST   /api/users/me/change-email',
+      'GET    /api/users/verify-email',
+      'POST   /api/users/me/cancel-email-change',
+      'POST   /api/users/me/resend-email-verification',
+      'POST   /api/users/me/avatar',
+      'POST   /api/users/me/signature',
+      'POST   /api/users/change-password',
       'GET    /api/users',
       'POST   /api/users',
       'GET    /api/templates',
@@ -101,12 +133,30 @@ app.use('/api/audit',         require('./routes/auditRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/upload',        require('./routes/uploadRoutes'));
 app.use('/api/recipient',     require('./routes/recipientRoutes'));
+app.use('/api/access',        require('./routes/recipientAccessRoutes'));
+app.use('/api/datasource',    require('./routes/datasourceRoutes'));
 
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.url} not found` });
 });
 
+// ── Global error handler ───────────────────────────────────────────────────
+// Must have 4 parameters so Express recognises it as an error handler.
+// Maps multer LIMIT_FILE_SIZE errors to HTTP 413 (BR-002) so the client
+// receives a clear response instead of a generic 500.
 app.use((err, req, res, next) => {
+  // Multer file-size limit exceeded (BR-002)
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({
+      message: `File too large. Maximum allowed size is 5 MB (BR-002).`,
+    });
+  }
+  // Multer unexpected field or other multer error
+  if (err && err.name === 'MulterError') {
+    return res.status(400).json({
+      message: `Upload error: ${err.message}`,
+    });
+  }
   console.error(err.stack);
   res.status(500).json({ message: 'Internal server error', error: err.message });
 });
@@ -140,5 +190,12 @@ app.listen(PORT, async () => {
   }
 
   require('./services/escalationService').startEscalationJob();
-  console.log(`  ✓  Escalation job started\n`);
+  console.log(`  ✓  Escalation job started`);
+
+  require('./services/archiveService').startArchiveJob();
+  console.log(`  ✓  Archive job started (FR-040)\n`);
+
+  // FR-026: Check Node↔MySQL clock drift on startup
+  const db = require('./config/db');
+  await checkClockDrift(db);
 });

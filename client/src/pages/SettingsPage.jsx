@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import axiosInstance from '../api/axiosInstance';
@@ -59,6 +59,10 @@ export default function SettingsPage() {
   });
   const [pendingEmail,    setPendingEmail]    = useState(null);  // new email awaiting verification
   const [emailVerifySent, setEmailVerifySent] = useState(false); // just sent this session
+  const [newEmailInput,   setNewEmailInput]   = useState('');    // typed in the change-email field
+  const [emailChanging,   setEmailChanging]   = useState(false); // loading state for email change
+  const [emailCancelling, setEmailCancelling] = useState(false); // loading state for cancel
+  const [emailResending,  setEmailResending]  = useState(false); // loading state for resend
   const [password, setPassword] = useState({
     current_password: '', new_password: '', confirm_password: '',
   });
@@ -66,6 +70,8 @@ export default function SettingsPage() {
   const [loading,        setLoading]        = useState(true);
   const [saving,         setSaving]         = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  // Guard: prevent double-fire from double-click or React StrictMode
+  const savingRef = useRef(false);
 
   // ── Load settings ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -90,35 +96,79 @@ export default function SettingsPage() {
     setForm(cur => ({ ...cur, [name]: type === 'checkbox' ? checked : value }));
     if (name === 'language') i18n.changeLanguage(value);
     if (name === 'theme')    setTheme(value);
-    // Reset verification banner if the user edits the email field again
-    if (name === 'email') { setPendingEmail(null); setEmailVerifySent(false); }
   };
 
-  // ── Save profile ───────────────────────────────────────────────────────────
+  // ── Save profile (name, phone, prefs ONLY — never touches email) ───────────
   const saveProfile = async e => {
     e.preventDefault();
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     try {
+      // Deliberately exclude email — email has its own dedicated endpoint
       const { data } = await axiosInstance.put('/users/me/settings', {
-        ...form,
+        full_name:               form.full_name,
+        phone:                   form.phone,
+        language:                form.language,
+        theme:                   form.theme,
+        notification_email:      form.notification_email,
         session_timeout_minutes: Number(form.session_timeout_minutes),
       });
-
-      if (data.email_verify_sent) {
-        // Email changed — verification sent to new address
-        setPendingEmail(data.pending_email);
-        setEmailVerifySent(true);
-        // Keep form email as current (unverified) email
-        setForm(cur => ({ ...cur, email: user?.email || cur.email }));
-        toast.success(`Verification email sent to ${data.pending_email}`);
-      } else {
-        updateUser(data);
-        toast.success(t('messages.settingsSaved'));
-      }
+      updateUser(data);
+      toast.success(t('messages.settingsSaved'));
     } catch (err) {
       toast.error(err.response?.data?.message || 'Could not save your settings');
     } finally {
       setSaving(false);
+      savingRef.current = false;
+    }
+  };
+
+  // ── Submit email change (dedicated endpoint, separate from profile save) ───
+  const submitEmailChange = async () => {
+    const trimmed = newEmailInput.trim();
+    if (!trimmed) { toast.error('Please enter a new email address'); return; }
+    if (trimmed === form.email) { toast.error('That is already your current email address'); return; }
+    setEmailChanging(true);
+    try {
+      const { data } = await axiosInstance.post('/users/me/change-email', { email: trimmed });
+      setPendingEmail(data.pending_email);
+      setEmailVerifySent(true);
+      setNewEmailInput('');
+      toast.success(`Verification email sent to ${data.pending_email}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not request email change');
+    } finally {
+      setEmailChanging(false);
+    }
+  };
+
+  // ── Cancel pending email change ────────────────────────────────────────────
+  const cancelEmailChange = async () => {
+    setEmailCancelling(true);
+    try {
+      await axiosInstance.post('/users/me/cancel-email-change');
+      setPendingEmail(null);
+      setEmailVerifySent(false);
+      setNewEmailInput('');
+      toast.success('Email change cancelled. Your current email remains active.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not cancel email change');
+    } finally {
+      setEmailCancelling(false);
+    }
+  };
+
+  // ── Resend verification email ──────────────────────────────────────────────
+  const resendEmailVerification = async () => {
+    setEmailResending(true);
+    try {
+      const { data } = await axiosInstance.post('/users/me/resend-email-verification');
+      toast.success(`New verification email sent to ${data.pending_email}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not resend verification email');
+    } finally {
+      setEmailResending(false);
     }
   };
 
@@ -187,42 +237,75 @@ export default function SettingsPage() {
 
       {/* ── Pending email verification banner ─────────────────────────────── */}
       {pendingEmail && (
-        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200
-          rounded-2xl px-5 py-4">
-          <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center
-            flex-shrink-0 mt-0.5">
-            <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor"
-              viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-            </svg>
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 space-y-3">
+          {/* Header row */}
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center
+              flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-800">
+                Verification email sent
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                A verification link was sent to{' '}
+                <span className="font-bold font-mono">{pendingEmail}</span>.
+                Your email only changes after you click that link.
+                Link expires in 24 hours.
+              </p>
+              <p className="text-[11px] text-amber-600 mt-1">
+                Current login email{' '}
+                <span className="font-mono font-semibold">{form.email}</span>{' '}
+                remains active until verified.
+              </p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-amber-800">
-              {emailVerifySent ? 'Verification email sent' : 'Email change pending verification'}
-            </p>
-            <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
-              A verification link was sent to{' '}
-              <span className="font-bold font-mono">{pendingEmail}</span>.
-              Your email address will only change after you click that link.
-              The link expires in 24 hours.
-            </p>
-            <p className="text-[11px] text-amber-600 mt-1.5">
-              Your current login email{' '}
-              <span className="font-mono font-semibold">{form.email}</span>{' '}
-              remains active until verified.
-            </p>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 pl-11">
+            <button
+              type="button"
+              onClick={resendEmailVerification}
+              disabled={emailResending || emailCancelling}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold
+                px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700
+                bg-white hover:bg-amber-50 disabled:opacity-50 transition-colors">
+              {emailResending
+                ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                : <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+              }
+              {emailResending ? 'Sending…' : 'Resend Email'}
+            </button>
+
+            <button
+              type="button"
+              onClick={cancelEmailChange}
+              disabled={emailCancelling || emailResending}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold
+                px-3 py-1.5 rounded-lg border border-red-200 text-red-600
+                bg-white hover:bg-red-50 disabled:opacity-50 transition-colors">
+              {emailCancelling
+                ? <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                  </svg>
+                : <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+              }
+              {emailCancelling ? 'Cancelling…' : 'Cancel Change'}
+            </button>
           </div>
-          <button
-            onClick={() => { setPendingEmail(null); setEmailVerifySent(false); }}
-            className="text-amber-400 hover:text-amber-600 flex-shrink-0 mt-0.5"
-            title="Dismiss"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
         </div>
       )}
 
@@ -278,32 +361,81 @@ export default function SettingsPage() {
                 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"/>
           </label>
 
-          {/* Email — special treatment */}
-          <div className="text-sm font-medium text-[var(--color-text-primary)]">
+          {/* Email — dedicated change-email section, NOT part of profile save */}
+          <div className="text-sm font-medium text-[var(--color-text-primary)] sm:col-span-2">
             <label className="block mb-1.5">{t('settings.email')}</label>
-            <div className="relative">
-              <input
-                type="email" name="email" value={form.email} onChange={change}
-                className="w-full h-10 pl-3.5 pr-10 text-sm rounded-lg
-                  border bg-[var(--color-bg)] text-[var(--color-text-primary)]
-                  focus:outline-none focus:ring-2 transition
-                  border-[var(--color-border)] focus:ring-indigo-200 focus:border-indigo-400"/>
-              {/* Lock icon when pending */}
-              {pendingEmail && (
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center
-                  pointer-events-none">
-                  <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor"
-                    viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                  </svg>
-                </div>
-              )}
+
+            {/* Current email — read-only display */}
+            <div className="flex items-center gap-2 h-10 px-3.5 rounded-lg border
+              border-[var(--color-border)] bg-[var(--color-surface-raised)]
+              text-[var(--color-text-secondary)] text-sm mb-2">
+              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              <span className="font-medium text-[var(--color-text-primary)]">{form.email}</span>
+              <span className="ml-auto text-[10px] text-emerald-600 font-semibold
+                bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Current
+              </span>
             </div>
-            {/* Hint below email field */}
-            <p className="text-[11px] text-[var(--color-text-secondary)] mt-1">
-              Changing email requires verification via a link sent to the new address.
-              The domain must be a real mail server.
+
+            {/* Change email input + button */}
+            {!pendingEmail ? (
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={newEmailInput}
+                  onChange={e => setNewEmailInput(e.target.value)}
+                  placeholder="Enter new email address…"
+                  onKeyDown={e => e.key === 'Enter' && submitEmailChange()}
+                  className="flex-1 h-10 px-3.5 text-sm rounded-lg border
+                    border-[var(--color-border)] bg-[var(--color-bg)]
+                    text-[var(--color-text-primary)]
+                    placeholder-[var(--color-text-secondary)]
+                    focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
+                    transition"
+                />
+                <button
+                  type="button"
+                  onClick={submitEmailChange}
+                  disabled={emailChanging || !newEmailInput.trim()}
+                  className="h-10 px-4 rounded-lg bg-[#3b5bdb] hover:bg-[#2f4ac4]
+                    text-white text-xs font-bold disabled:opacity-40 transition
+                    flex items-center gap-1.5 whitespace-nowrap flex-shrink-0">
+                  {emailChanging
+                    ? <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                    : <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                      </svg>
+                  }
+                  {emailChanging ? 'Sending…' : 'Change Email'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between bg-amber-50 border
+                border-amber-200 rounded-lg px-3.5 py-2.5">
+                <p className="text-xs text-amber-700">
+                  Awaiting verification of{' '}
+                  <span className="font-mono font-bold">{pendingEmail}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={cancelEmailChange}
+                  disabled={emailCancelling}
+                  className="text-xs text-red-600 hover:text-red-800 font-semibold
+                    underline ml-3 flex-shrink-0 disabled:opacity-50">
+                  {emailCancelling ? 'Cancelling…' : 'Cancel'}
+                </button>
+              </div>
+            )}
+            <p className="text-[11px] text-[var(--color-text-secondary)] mt-1.5">
+              The system validates that the new email domain is real before sending the link.
+              Your current email remains active until you click the verification link.
             </p>
           </div>
 

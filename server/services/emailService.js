@@ -67,6 +67,41 @@ async function sendDocReadyEmail(toEmail, approverName, docUuid, generatorName) 
   );
 }
 
+// ── FR-022 + FR-023 combined: signature request email with review link + OTP ──
+// reviewLink = /review/:raw_token  — opens the PDF review page directly.
+// otp = 6-digit code the approver enters on that page to confirm identity.
+async function sendSignatureRequestWithOtpEmail(toEmail, approverName, docUuid, generatorName, otp, reviewLink) {
+  const actionUrl = reviewLink || `${baseUrl}/approvals`;
+  await send(toEmail, `Action Required: Review & Sign Document ${docUuid}`,
+    brand('Signature Request + OTP',
+      h('Document Ready for Your Signature') +
+      p(`Hello <strong>${approverName}</strong>,`) +
+      p(`<strong>${generatorName}</strong> has requested your e-signature on the following document:`) +
+      docBadge(docUuid) +
+      `<div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:10px;
+        padding:16px 20px;margin:16px 0">
+        <p style="margin:0 0 8px;font-size:13px;color:#374151;font-weight:600">
+          Your One-Time Password (OTP)
+        </p>
+        <div style="font-size:34px;font-weight:900;letter-spacing:10px;color:#1d4ed8;
+          margin:8px 0">${otp}</div>
+        <p style="margin:8px 0 0;font-size:12px;color:#6b7280">
+          ⏱ Valid for <strong>24 hours</strong>. Do not share this code with anyone.
+        </p>
+      </div>` +
+      p('How to sign this document:') +
+      `<ol style="font-size:13px;color:#374151;line-height:1.8;padding-left:20px;margin:0 0 16px">
+        <li>Click <strong>"Review &amp; Sign Document"</strong> below.</li>
+        <li>Read the PDF carefully in the browser.</li>
+        <li>Enter the <strong>6-digit OTP</strong> shown above to confirm your identity.</li>
+        <li>Click <strong>Approve &amp; Sign</strong> — or <strong>Reject</strong> with a reason.</li>
+      </ol>` +
+      btn('Review &amp; Sign Document →', actionUrl) +
+      p('<span style="font-size:11px;color:#9ca3af">This link is personal and expires in 24 hours. If you did not expect this request, please contact your system administrator.</span>')
+    )
+  );
+}
+
 async function sendDocSignedEmail(toEmail, generatorName, docUuid, approverName) {
   await send(toEmail, `Document ${docUuid} has been signed`,
     brand('Document Signed',
@@ -245,7 +280,57 @@ async function sendEmailVerificationEmail(toNewEmail, userName, verifyLink, oldE
   );
 }
 
-// ── PASSWORD CHANGED NOTIFICATION ─────────────────────────────────────────────
+// ── RECIPIENT DELIVERY EMAIL (no-login token-based access) ───────────────────
+// Sent to ANY recipient email when a generator delivers a document.
+// The recipient does NOT need a DocuVault account.
+// The link opens /doc/:rawToken — a public page that gates access behind
+// QR verification + explicit ON toggle before revealing View/Download.
+async function sendRecipientDeliveryEmail(toEmail, recipientName, docName, docUuid, accessLink) {
+  await send(
+    toEmail,
+    `You have received a document — DocuVault`,
+    brand('Document Delivery',
+      h('You Have Received a Document') +
+      p(`Hello <strong>${recipientName || toEmail}</strong>,`) +
+      p('A document has been securely prepared and delivered to you through DocuVault.') +
+      `<div style="background:#f8faff;border:1px solid #c7d2fe;border-radius:10px;
+        padding:16px 20px;margin:16px 0">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <tr>
+            <td style="padding:5px 0;color:#6b7280;width:130px;vertical-align:top">Document</td>
+            <td style="padding:5px 0;color:#111827;font-weight:600">${docName}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;color:#6b7280;vertical-align:top">Document ID</td>
+            <td style="padding:5px 0;font-family:monospace;font-size:12px;color:#1d4ed8">${docUuid}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;color:#6b7280;vertical-align:top">Recipient</td>
+            <td style="padding:5px 0;color:#111827">${recipientName || toEmail}</td>
+          </tr>
+        </table>
+      </div>` +
+      p('Click the button below to securely access your document. You will be asked to verify your identity using your phone\'s camera before the document becomes available.') +
+      `<div style="text-align:center;margin:24px 0">
+        <a href="${accessLink}"
+          style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;
+            padding:13px 32px;border-radius:10px;font-size:14px;font-weight:700;
+            letter-spacing:0.01em">
+          Open Document →
+        </a>
+      </div>` +
+      `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;
+        padding:12px 16px;margin:16px 0">
+        <p style="margin:0;font-size:12px;color:#92400e">
+          🔒 <strong>Secure Access:</strong> This link is unique to you.
+          You will need to scan a QR code with your phone to verify the document before downloading.
+          This link expires in <strong>7 days</strong>.
+        </p>
+      </div>` +
+      p('<span style="font-size:11px;color:#9ca3af">If you were not expecting this document, you can safely ignore this email.</span>')
+    )
+  );
+}
 // Sent to the user's current email after a successful password change.
 // Security alert — lets them know if someone else changed it.
 async function sendPasswordChangedEmail(toEmail, userName) {
@@ -275,6 +360,7 @@ async function sendPasswordChangedEmail(toEmail, userName) {
 module.exports = {
   sendOtpEmail,
   sendDocReadyEmail,
+  sendSignatureRequestWithOtpEmail,
   sendDocSignedEmail,
   sendDocRejectedEmail,
   sendDeliveryEmail,
@@ -286,4 +372,5 @@ module.exports = {
   sendAdminDownloadNotificationEmail,
   sendEmailVerificationEmail,
   sendPasswordChangedEmail,
+  sendRecipientDeliveryEmail,
 };

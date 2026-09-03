@@ -6,9 +6,10 @@
     "administration": "አስተዳደር", "account": "መለያ",
     "dashboard": "ዳሽቦርድ", "templates": "ቴምፕሌቶች",
     "generate": "ሰነድ አመንጭ", "documentsPage": "ሰነዶች",
-    "approvals": "ማጽደቂያዎች", "verify": "ሰነድ አረጋግጥ",
+    "approvals": "ማጽደቂያዎች", "approvalGroup": "ማጽደቂያ", "verify": "ሰነድ አረጋግጥ",
     "users": "ተጠቃሚዎች", "audit": "የኦዲት መዝገቦች",
     "delivery": "የማድረሻ መዝገቦች",
+    "account": "መለያ",
     "systemConfiguration": "የስርዓት ውቅር", "mySettings": "የእኔ ቅንብሮች",
     "home": "መነሻ", "features": "ባህሪያት", "howItWorks": "እንዴት ይሰራል",
     "security": "ደህንነት", "verification": "ማረጋገጫ", "about": "ስለ ስርዓቱ"

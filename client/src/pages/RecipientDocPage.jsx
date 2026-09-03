@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import axiosInstance from '../api/axiosInstance';
@@ -35,6 +35,12 @@ export default function RecipientDocPage() {
   const [doc,        setDoc]        = useState(null);
   const [loading,    setLoading]    = useState(true);
   const [notFound,   setNotFound]   = useState(false);
+  const [error,      setError]      = useState(null);
+
+  // Stable session ID for this page load — sent as X-Poll-Session so the
+  // backend can bind phone QR audit events to this exact browser session.
+  // useMemo with no deps generates it once per component mount.
+  const pollSessionId = useMemo(() => crypto.randomUUID(), []);
 
   // Cross-device QR polling
   const [verifyStatus, setVerifyStatus] = useState(null); // null | { verified, authentic, verified_at }
@@ -48,20 +54,25 @@ export default function RecipientDocPage() {
     axiosInstance.get(`/recipient/documents/${doc_uuid}`)
       .then(r => { setDoc(r.data); })
       .catch(err => {
-        if (err.response?.status === 404) setNotFound(true);
+        if (err.response?.status === 404) {
+          setNotFound(true);
+        } else {
+          setError(err.response?.data?.message || 'Failed to load document. Please try again.');
+        }
       })
       .finally(() => setLoading(false));
   }, [doc_uuid]);
 
   // ── Start polling once doc is loaded ─────────────────────────────────────
   // Polls /api/verify/status/:doc_uuid every 2 seconds.
-  // When phone scans QR → hits /api/verify/:doc_uuid → server logs VERIFY audit entry.
-  // Poll picks it up → shows live "✓ Verified" on PC.
+  // Sends X-Poll-Session so the server scopes the result to this session.
   const startPolling = useCallback(() => {
     if (pollRef.current) return; // already polling
     pollRef.current = setInterval(async () => {
       try {
-        const res = await axiosInstance.get(`/verify/status/${doc_uuid}`);
+        const res = await axiosInstance.get(`/verify/status/${doc_uuid}`, {
+          headers: { 'X-Poll-Session': pollSessionId },
+        });
         if (res.data.verified) {
           setVerifyStatus(res.data);
           clearInterval(pollRef.current);
@@ -71,7 +82,7 @@ export default function RecipientDocPage() {
         // silent — polling continues
       }
     }, 2000);
-  }, [doc_uuid]);
+  }, [doc_uuid, pollSessionId]);
 
   useEffect(() => {
     if (doc && !verifyStatus) {
@@ -86,9 +97,14 @@ export default function RecipientDocPage() {
   }, [doc, verifyStatus, startPolling]);
 
   // ── Manual "Verify on this screen" ───────────────────────────────────────
+  // Sends X-Poll-Session so the audit log is bound to this session and the
+  // polling query can match it. The authenticated axiosInstance also sends
+  // the JWT so user_id is recorded in the audit log (task 5).
   const verifyNow = async () => {
     try {
-      const res = await axiosInstance.get(`/verify/${doc_uuid}`);
+      const res = await axiosInstance.get(`/verify/${doc_uuid}`, {
+        headers: { 'X-Poll-Session': pollSessionId },
+      });
       setVerifyStatus({
         verified:    true,
         authentic:   res.data.authentic,
@@ -135,6 +151,50 @@ export default function RecipientDocPage() {
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
         </svg>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+        <div className="w-14 h-14 bg-red-100 rounded-2xl flex items-center justify-center">
+          <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-bold text-[var(--color-text-primary)]">Failed to load document</p>
+          <p className="text-xs text-[var(--color-text-secondary)] mt-1 max-w-xs mx-auto">{error}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              axiosInstance.get(`/recipient/documents/${doc_uuid}`)
+                .then(r => setDoc(r.data))
+                .catch(err => {
+                  if (err.response?.status === 404) setNotFound(true);
+                  else setError(err.response?.data?.message || 'Failed to load document. Please try again.');
+                })
+                .finally(() => setLoading(false));
+            }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold
+              px-4 py-2 rounded-lg bg-[#3b5bdb] text-white hover:bg-[#2f4ac4] transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Retry
+          </button>
+          <button onClick={() => navigate('/my-documents')}
+            className="text-xs text-[var(--color-text-secondary)] font-semibold hover:text-[#3b5bdb] transition-colors">
+            ← Back to My Documents
+          </button>
+        </div>
       </div>
     );
   }

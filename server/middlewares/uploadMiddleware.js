@@ -12,7 +12,7 @@ const imageStorage = multer.diskStorage({
 
 const signatureUpload = multer({
 	storage: imageStorage,
-	limits: { fileSize: 2 * 1024 * 1024 },
+	limits: { fileSize: 2 * 1024 * 1024 + 1 }, // 2 MB (+1 for busboy exact-match behaviour)
 	fileFilter: (req, file, callback) => {
 		if (file.mimetype.startsWith('image/')) {
 			callback(null, true);

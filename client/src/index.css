@@ -40,6 +40,38 @@ body {
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* ── Admin white/blue enterprise theme tokens ───────────────────────────── */
+:root {
+  --admin-sidebar-bg:        #ffffff;
+  --admin-sidebar-border:    #e5e7eb;
+  --admin-sidebar-hover:     #f3f4f6;
+  --admin-sidebar-active-bg: #eff6ff;
+  --admin-sidebar-active-border: #3b82f6;
+  --admin-sidebar-text:      #374151;
+  --admin-sidebar-muted:     #9ca3af;
+  --admin-sidebar-logo-bg:   #f9fafb;
+  --admin-accent:            #2563eb;   /* blue-600  */
+  --admin-accent-light:      #3b82f6;   /* blue-500  */
+  --admin-accent-pale:       #eff6ff;   /* blue-50   */
+  --admin-navbar-bg:         #ffffff;
+  --admin-navbar-border:     #e5e7eb;
+}
+[data-theme="dark"] {
+  --admin-sidebar-bg:        #111827;
+  --admin-sidebar-border:    #1f2937;
+  --admin-sidebar-hover:     #1f2937;
+  --admin-sidebar-active-bg: #1e3a5f;
+  --admin-sidebar-active-border: #3b82f6;
+  --admin-sidebar-text:      #d1d5db;
+  --admin-sidebar-muted:     #6b7280;
+  --admin-sidebar-logo-bg:   #1f2937;
+  --admin-accent:            #3b82f6;
+  --admin-accent-light:      #60a5fa;
+  --admin-accent-pale:       #1e3a5f;
+  --admin-navbar-bg:         #111827;
+  --admin-navbar-border:     #1f2937;
+}
+
 /* Thin modern scrollbar for the sidebar */
 .sidebar-scroll {
   scrollbar-width: thin;

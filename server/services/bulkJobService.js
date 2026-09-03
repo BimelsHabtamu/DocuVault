@@ -13,7 +13,7 @@ const fs    = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const archiver = require('archiver');
 const db    = require('../config/db');
-const { generatePDF, renderTemplate } = require('./pdfService');
+const { generatePDF, renderTemplate, MAX_PDF_BYTES } = require('./pdfService');
 
 const PDF_DIR = path.join(__dirname, '../storage/pdfs');
 const ZIP_DIR = path.join(__dirname, '../storage/zips');
@@ -67,7 +67,13 @@ async function processBulkJob(jobId, jobUuid, template, records, generatedBy, ve
     const fileName  = `${safeName}_${recordId}_${dateStr}.pdf`;
 
     try {
-      const { filePath, hash } = await generatePDF(template, data, docUuid, verifyBaseUrl, PDF_DIR, 'draft', { db });
+      const { filePath, hash, buffer } = await generatePDF(template, data, docUuid, verifyBaseUrl, PDF_DIR, 'draft', { db });
+
+      // BR-002: Skip this document if the generated PDF exceeds 5 MB
+      if (buffer.length > MAX_PDF_BYTES) {
+        try { fs.unlinkSync(filePath); } catch { /* best-effort */ }
+        throw new Error(`PDF size ${(buffer.length / 1024 / 1024).toFixed(2)} MB exceeds 5 MB limit (BR-002)`);
+      }
 
       // Rename to human-readable filename
       const namedPath = path.join(PDF_DIR, fileName);
@@ -78,9 +84,9 @@ async function processBulkJob(jobId, jobUuid, template, records, generatedBy, ve
       // Insert into generated_docs
       const [docResult] = await db.query(
         `INSERT INTO generated_docs
-           (doc_uuid, template_id, generated_by, record_identifier, file_path, file_hash, status, metadata)
-         VALUES (?, ?, ?, ?, ?, ?, 'draft', ?)`,
-        [docUuid, template.id, generatedBy, recordId, relativePath, hash, JSON.stringify(data)]
+           (doc_uuid, template_id, template_version, generated_by, record_identifier, file_path, file_hash, status, metadata)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'draft', ?)`,
+        [docUuid, template.id, template.version, generatedBy, recordId, relativePath, hash, JSON.stringify(data)]
       );
 
       await db.query(

@@ -1,0 +1,23 @@
+Noto Fonts — SIL Open Font License 1.1
+======================================
+
+Fonts included in this directory:
+  NotoSansEthiopic-Regular.ttf  — Covers Ethiopic script (Amharic, Tigrinya, Ge'ez)
+  NotoSansEthiopic-Bold.ttf     — Ethiopic bold
+  NotoNaskhArabic-Regular.ttf   — Covers Arabic script
+  NotoNaskhArabic-Bold.ttf      — Arabic bold
+  NotoSansSC-Regular.ttf        — Covers Simplified Chinese (CJK Unified Ideographs)
+
+Source: Google Fonts / notofonts GitHub organization
+  https://github.com/notofonts
+  https://fonts.google.com/noto
+
+License: SIL Open Font License, Version 1.1
+  https://scripts.sil.org/OFL
+  Full text: https://github.com/notofonts/arabic/blob/main/OFL.txt
+
+Copyright: Copyright 2022 The Noto Project Authors
+
+These fonts are free to use in commercial and non-commercial projects, products,
+and documents. They may be embedded in PDFs without restriction.
+They may NOT be sold by themselves.

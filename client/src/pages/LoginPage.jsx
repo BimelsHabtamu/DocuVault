@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -11,18 +11,38 @@ const RULES = {
   password: [required('Please enter your password')],
 };
 
+/** Map each role to its own unambiguous entry-point path */
+const ROLE_HOME = {
+  super_admin:   '/dashboard',
+  system_admin:  '/dashboard',
+  generator:     '/dashboard',
+  approver:      '/approver',
+  recipient:     '/my-documents',
+};
+
+function homeForUser(user) {
+  return (user && ROLE_HOME[user.role]) || '/dashboard';
+}
+
 export default function LoginPage() {
-  const { login }         = useAuth();
-  const navigate          = useNavigate();
-  const [searchParams]    = useSearchParams();
-  const redirectTo        = searchParams.get('redirect') || '/dashboard';
-  const toast             = useToast();
+  const { login, isAuthenticated, user, authLoading } = useAuth();
+  const navigate = useNavigate();
+  const toast    = useToast();
   const [loading,  setLoading]  = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const { values, errors, touched, handleChange, handleBlur, validateAll } = useForm(
     { email: '', password: '' }, RULES
   );
+
+  // Wait for session restore before deciding to redirect
+  if (authLoading) return null;
+
+  // Already logged in — send straight to this user's shell so no redirect loop occurs
+  if (isAuthenticated && user) {
+    return <Navigate to={homeForUser(user)} replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,8 +52,8 @@ export default function LoginPage() {
       const res = await axiosInstance.post('/auth/login', values);
       login(res.data.user, res.data.token);
       toast.success(`Welcome, ${res.data.user.full_name}`);
-      // Redirect to the ?redirect= param if present, otherwise /dashboard
-      navigate(redirectTo, { replace: true });
+      // Navigate to the correct shell for this user's role
+      navigate(homeForUser(res.data.user), { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid credentials.');
     } finally {
@@ -156,6 +176,40 @@ export default function LoginPage() {
               {hasError('password') && (
                 <p className="text-xs text-red-500 mt-1.5">{errors.password}</p>
               )}
+            </div>
+
+            {/* Remember me + Forgot password */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer select-none group">
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={e => setRememberMe(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-4 h-4 rounded border border-[var(--color-border)]
+                    bg-[var(--color-bg)]
+                    peer-checked:bg-[#3b5bdb] peer-checked:border-[#3b5bdb]
+                    transition-colors flex items-center justify-center">
+                    {rememberMe && (
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <span className="text-sm text-[var(--color-text-secondary)] group-hover:text-[var(--color-text-primary)] transition-colors">
+                  Remember me
+                </span>
+              </label>
+
+              <Link
+                to="/forgot-password"
+                className="text-sm text-[#3b5bdb] hover:text-[#2f4ac4] font-medium transition-colors"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             {/* Submit */}

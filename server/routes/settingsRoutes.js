@@ -17,13 +17,15 @@ const brandingUpload = multer({
       cb(null, `seal_${Date.now()}${ext}`);
     },
   }),
-  limits:     { fileSize: 2 * 1024 * 1024 },          // 2 MB
+  limits:     { fileSize: 2 * 1024 * 1024 + 1 },          // 2 MB (+1 for busboy exact-match behaviour)
   fileFilter: (req, file, cb) =>
     cb(null, /^image\/(jpeg|png|webp|svg\+xml)$/.test(file.mimetype)),
 });
 
-router.get('/system',      auth, superAdmin, ctrl.getSystemConfiguration);
-router.put('/system',      auth, superAdmin, ctrl.updateSystemConfiguration);
-router.post('/seal',       auth, superAdmin, brandingUpload.single('seal'), ctrl.uploadSeal);
+router.get('/system',           auth, superAdmin, ctrl.getSystemConfiguration);
+router.put('/system',           auth, superAdmin, ctrl.updateSystemConfiguration);
+router.post('/seal',            auth, superAdmin, brandingUpload.single('seal'), ctrl.uploadSeal);
+router.get('/db-connection',    auth, superAdmin, ctrl.getDbConnection);
+router.post('/db-connection/test', auth, superAdmin, ctrl.testDbConnection);
 
 module.exports = router;

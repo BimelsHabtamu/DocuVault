@@ -37,21 +37,37 @@ exports.getNotifications = async (req, res) => {
   // Fix: was checking role === 'admin' which never matched; now covers all admin roles
   const isApproverOrAdmin = ['approver', 'super_admin', 'system_admin'].includes(role);
   if (isApproverOrAdmin) {
-    const [pending] = await db.query(
-      `SELECT sr.id, gd.doc_uuid, u.full_name AS generator_name, sr.created_at
-       FROM signature_requests sr
-       JOIN generated_docs gd ON gd.id = sr.doc_id
-       JOIN users u ON u.id = gd.generated_by
-       WHERE sr.approver_id = ? AND sr.status = 'pending'
-       ORDER BY sr.created_at DESC
-       LIMIT 5`,
-      [userId]
-    );
+    // Approvers only see requests assigned to them.
+    // Admins see ALL pending requests (they can approve any document).
+    const isAdmin = role === 'super_admin' || role === 'system_admin';
+    const [pending] = isAdmin
+      ? await db.query(
+          `SELECT sr.id, gd.doc_uuid, u.full_name AS generator_name,
+                  a.full_name AS approver_name, sr.created_at
+           FROM signature_requests sr
+           JOIN generated_docs gd ON gd.id = sr.doc_id
+           JOIN users u ON u.id = gd.generated_by
+           JOIN users a ON a.id = sr.approver_id
+           WHERE sr.status = 'pending'
+           ORDER BY sr.created_at DESC
+           LIMIT 5`
+        )
+      : await db.query(
+          `SELECT sr.id, gd.doc_uuid, u.full_name AS generator_name, sr.created_at
+           FROM signature_requests sr
+           JOIN generated_docs gd ON gd.id = sr.doc_id
+           JOIN users u ON u.id = gd.generated_by
+           WHERE sr.approver_id = ? AND sr.status = 'pending'
+           ORDER BY sr.created_at DESC
+           LIMIT 5`,
+          [userId]
+        );
     pending.forEach(r => {
+      const label = r.approver_name ? ` (assigned to ${r.approver_name})` : '';
       items.push({
         id:     `sign-${r.id}`,
         type:   'approval',
-        text:   `${r.generator_name} requested your signature on ${r.doc_uuid}`,
+        text:   `${r.generator_name} requested signature on ${r.doc_uuid}${label}`,
         time:   r.created_at,
         unread: true,
         link:   '/approvals',

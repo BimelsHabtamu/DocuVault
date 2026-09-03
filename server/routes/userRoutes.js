@@ -9,13 +9,17 @@ const ctrl    = require('../controllers/userController');
 const admins = role('super_admin', 'system_admin');
 
 // Shared image upload config
+// BR-002: busboy fires LIMIT_FILE_SIZE at === limit, so use limit+1 to accept
+// files of exactly 2 MB while rejecting anything strictly over 2 MB.
+const IMAGE_LIMIT = 2 * 1024 * 1024 + 1; // allows exactly 2 MB
+
 const imageUpload = (prefix) => multer({
   storage: multer.diskStorage({
     destination: path.join(__dirname, '../storage/uploads'),
     filename: (req, file, cb) =>
       cb(null, `${prefix}_${req.user.id}_${Date.now()}${path.extname(file.originalname).toLowerCase()}`),
   }),
-  limits:     { fileSize: 2 * 1024 * 1024 },
+  limits:     { fileSize: IMAGE_LIMIT },
   fileFilter: (req, file, cb) =>
     cb(null, /^image\/(jpeg|png|webp)$/.test(file.mimetype)),
 });
@@ -24,8 +28,11 @@ const imageUpload = (prefix) => multer({
 // Must be registered BEFORE /:id routes to avoid param collision
 router.get('/verify-email',   ctrl.verifyEmailChange);
 
-router.get('/me/settings',    auth, ctrl.getMySettings);
-router.put('/me/settings',    auth, ctrl.updateMySettings);
+router.get('/me/settings',          auth, ctrl.getMySettings);
+router.put('/me/settings',          auth, ctrl.updateMySettings);
+router.post('/me/change-email',     auth, ctrl.changeEmail);
+router.post('/me/cancel-email-change',      auth, ctrl.cancelEmailChange);
+router.post('/me/resend-email-verification', auth, ctrl.resendEmailVerification);
 router.post('/me/avatar',     auth, imageUpload('avatar').single('avatar'),        ctrl.updateMyAvatar);
 router.post('/me/signature',  auth, imageUpload('signature').single('signature'),  ctrl.uploadSignature);
 
