@@ -552,43 +552,6 @@ export default function Login() {
         }
         @keyframes lp-spin { to { transform: rotate(360deg); } }
 
-        /* ── Back to Home — top-left of right panel ── */
-        .lp-back-top {
-          position: absolute;
-          top: 24px; left: 32px;
-          display: inline-flex; align-items: center; gap: 6px;
-          font-size: 0.775rem; font-weight: 600;
-          color: #64748B; text-decoration: none;
-          padding: 6px 12px;
-          border-radius: 8px;
-          background: rgba(255,255,255,0.70);
-          border: 1px solid rgba(0,0,0,0.07);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-          transition: color 0.15s, background 0.15s, border-color 0.15s;
-          z-index: 2;
-        }
-        .lp-back-top:hover {
-          color: #0F766E;
-          background: rgba(255,255,255,0.92);
-          border-color: rgba(15,118,110,0.18);
-        }
-        .lp-back-top:focus-visible {
-          outline: 2px solid #0F766E; outline-offset: 2px; border-radius: 8px;
-        }
-        html.dark .lp-back-top {
-          background: rgba(12,25,41,0.70);
-          border-color: rgba(255,255,255,0.07);
-          color: #5A7A80;
-        }
-        html.dark .lp-back-top:hover {
-          color: #14B8A6;
-          background: rgba(12,25,41,0.90);
-          border-color: rgba(20,184,166,0.20);
-        }
-        html.dark .lp-back-top:focus-visible { outline-color: #14B8A6; }
-
-      
         @media (max-width: 960px) {
           .lp { flex-direction: column; min-height: 100vh; }
 
@@ -604,7 +567,6 @@ export default function Login() {
             padding: 64px 20px 32px;
             align-items: flex-start;
           }
-          .lp-back-top { top: 18px; left: 20px; }
           .lp-card {
             max-width: 520px;
             margin: 0 auto;
@@ -619,7 +581,6 @@ export default function Login() {
           }
           .lp-card-title { font-size: 1.4rem; }
           .lp-right { padding: 60px 14px 28px; }
-          .lp-back-top { top: 16px; left: 14px; font-size: 0.72rem; padding: 5px 10px; }
         }
 
         @media (max-width: 400px) {
@@ -661,14 +622,6 @@ export default function Login() {
   }
         <main className="lp-right">
 
-          {/* Back to Home — top-left of right panel */}
-          <Link to="/landing" className="lp-back-top">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            {t('login.backToHome')}
-          </Link>
           <div className="lp-card">
 
             {/* Card header: logo + brand name */}
