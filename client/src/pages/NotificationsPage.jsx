@@ -1,29 +1,11 @@
-/**
- * NotificationsPage — /notifications
- * All-roles page: shows the current user's notifications with All/Read/Unread tabs.
- * Reuses notificationService (same data as the navbar bell — no duplicate logic).
- */
+/** NotificationsPage — /notifications */
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { notificationService } from '../services/notificationService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
-
-const TYPE_LABELS = {
-  awaiting_your_signature:  'Awaiting your signature',
-  your_document_approved:   'Your document was approved',
-  your_document_rejected:   'Your document was rejected',
-  ownership_rejected_notify:'Recipient rejected your document',
-  delivery_confirmed_notify:'Recipient confirmed ownership',
-};
-
-function labelFor(n, userId) {
-  if (n.notification_type === 'your_document_rejected' && n.generated_by !== userId) {
-    return 'A document was rejected';
-  }
-  return TYPE_LABELS[n.notification_type] || n.notification_type.replace(/_/g, ' ');
-}
 
 function relativeTime(ts) {
   const diff = Date.now() - new Date(ts).getTime();
@@ -35,30 +17,49 @@ function relativeTime(ts) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-const TABS = ['All', 'Unread', 'Read'];
-
 export default function NotificationsPage() {
   const { user }      = useAuth();
   const { showToast } = useToast();
   const navigate      = useNavigate();
+  const { t }         = useTranslation('layout');
 
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
-  const [tab, setTab]                     = useState('All');
+  const [tab, setTab]                     = useState('all');
   const [markingAll, setMarkingAll]       = useState(false);
+
+  const TABS = [
+    { key: 'all',    label: t('notificationsPage.tabAll') },
+    { key: 'unread', label: t('notificationsPage.tabUnread') },
+    { key: 'read',   label: t('notificationsPage.tabRead') },
+  ];
+
+  // Map notification_type → translated label
+  const labelFor = (n) => {
+    const TYPE_MAP = {
+      awaiting_your_signature:   t('notifications.awaitingYourSignature'),
+      your_document_approved:    t('notifications.yourDocumentApproved'),
+      your_document_rejected:    n.generated_by !== user?.id
+                                   ? t('notifications.aDocumentWasRejected')
+                                   : t('notifications.yourDocumentRejected'),
+      ownership_rejected_notify: t('notifications.recipientRejectedDocument'),
+      delivery_confirmed_notify: t('notifications.recipientConfirmedOwnership'),
+    };
+    return TYPE_MAP[n.notification_type] || n.notification_type.replace(/_/g, ' ');
+  };
 
   const load = () => {
     notificationService.getAll()
       .then((res) => setNotifications(res.data || []))
-      .catch(() => showToast('Failed to load notifications.', 'error'))
+      .catch(() => showToast(t('notificationsPage.loadFailed'), 'error'))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filtered = notifications.filter((n) => {
-    if (tab === 'Unread') return !n.is_read;
-    if (tab === 'Read')   return !!n.is_read;
+    if (tab === 'unread') return !n.is_read;
+    if (tab === 'read')   return !!n.is_read;
     return true;
   });
 
@@ -70,7 +71,6 @@ export default function NotificationsPage() {
     try {
       await notificationService.markRead(n.notification_type, n.id);
     } catch {
-      // roll back
       setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: false } : x));
       showToast('Could not mark as read.', 'error');
     }
@@ -85,7 +85,7 @@ export default function NotificationsPage() {
       await Promise.all(unread.map((n) => notificationService.markRead(n.notification_type, n.id)));
     } catch {
       showToast('Some notifications could not be marked as read.', 'error');
-      load(); // re-fetch to get accurate state
+      load();
     } finally {
       setMarkingAll(false);
     }
@@ -105,9 +105,9 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="notif-page-header">
         <div>
-          <h1 className="notif-page-title">Notifications</h1>
+          <h1 className="notif-page-title">{t('notificationsPage.title')}</h1>
           {unreadCount > 0 && (
-            <span className="notif-page-badge">{unreadCount} unread</span>
+            <span className="notif-page-badge">{unreadCount} {t('notifications.titleUnread', { count: unreadCount }).replace(/.*\(/, '').replace(/\)$/, '')}</span>
           )}
         </div>
         {unreadCount > 0 && (
@@ -117,24 +117,24 @@ export default function NotificationsPage() {
             onClick={markAllRead}
             disabled={markingAll}
           >
-            {markingAll ? 'Marking…' : 'Mark all as read'}
+            {markingAll ? '…' : t('notificationsPage.markAllRead')}
           </button>
         )}
       </div>
 
       {/* Tabs */}
       <div className="notif-page-tabs" role="tablist">
-        {TABS.map((t) => (
+        {TABS.map(({ key, label }) => (
           <button
-            key={t}
+            key={key}
             type="button"
             role="tab"
-            aria-selected={tab === t}
-            className={`notif-page-tab${tab === t ? ' notif-page-tab-active' : ''}`}
-            onClick={() => setTab(t)}
+            aria-selected={tab === key}
+            className={`notif-page-tab${tab === key ? ' notif-page-tab-active' : ''}`}
+            onClick={() => setTab(key)}
           >
-            {t}
-            {t === 'Unread' && unreadCount > 0 && (
+            {label}
+            {key === 'unread' && unreadCount > 0 && (
               <span className="notif-page-tab-count">{unreadCount}</span>
             )}
           </button>
@@ -143,11 +143,9 @@ export default function NotificationsPage() {
 
       {/* List */}
       {loading ? (
-        <div className="notif-page-empty">Loading notifications…</div>
+        <div className="notif-page-empty">{t('notificationsPage.loading')}</div>
       ) : filtered.length === 0 ? (
-        <div className="notif-page-empty">
-          {tab === 'Unread' ? 'No unread notifications.' : tab === 'Read' ? 'No read notifications yet.' : 'No notifications yet.'}
-        </div>
+        <div className="notif-page-empty">{t('notificationsPage.empty')}</div>
       ) : (
         <div className="notif-page-list">
           {filtered.map((n) => (
@@ -161,15 +159,21 @@ export default function NotificationsPage() {
                 {!n.is_read && <span className="notif-page-dot" aria-hidden="true" />}
               </div>
               <div className="notif-page-item-body">
-                <div className="notif-page-item-label">{labelFor(n, user?.id)}</div>
+                <div className="notif-page-item-label">{labelFor(n)}</div>
                 {n.doc_uuid && (
-                  <div className="notif-page-item-doc">Doc: <code>{n.doc_uuid}</code></div>
+                  <div className="notif-page-item-doc">
+                    {t('notifications.document')}: <code>{n.doc_uuid}</code>
+                  </div>
                 )}
                 {n.notification_type === 'ownership_rejected_notify' && (() => {
                   try {
-                    const d = typeof n.action_details === 'string' ? JSON.parse(n.action_details) : n.action_details;
+                    const d = typeof n.action_details === 'string'
+                      ? JSON.parse(n.action_details)
+                      : n.action_details;
                     return d?.reason ? (
-                      <div className="notif-page-item-reason">Reason: {d.reason}</div>
+                      <div className="notif-page-item-reason">
+                        {t('notifications.reason')} {d.reason}
+                      </div>
                     ) : null;
                   } catch { return null; }
                 })()}
@@ -179,7 +183,7 @@ export default function NotificationsPage() {
                 <button
                   type="button"
                   className="notif-page-item-markread"
-                  title="Mark as read"
+                  title={t('notifications.title')}
                   onClick={(e) => { e.stopPropagation(); markOne(n); }}
                 >
                   ✓

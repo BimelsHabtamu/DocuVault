@@ -1,23 +1,28 @@
 /**
  * M-2: Authenticated Recipient area — "My Documents".
- *
  * Shows every document delivered to this recipient's email address.
- * Allows:
- *   - Download (ownership-confirmed documents only)
- *   - Verify integrity (any confirmed delivery)
- * Does NOT grant any generator, approver, or admin capabilities.
+ * Allows Download (ownership-confirmed) and Verify integrity (any confirmed delivery).
  */
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { recipientService } from '../services/recipientService';
+import { useTranslation, Trans } from 'react-i18next';
+
+const STATUS_LABEL_KEYS = ['confirmed', 'rejected', 'pending', 'submitted', 'approved', 'returned', 'delivered', 'revoked', 'sent', 'opened'];
+
+function statusLabel(t, raw) {
+  const key = String(raw || '').toLowerCase();
+  return STATUS_LABEL_KEYS.includes(key) ? t(`delivery:status.${key}`) : raw;
+}
 
 function StatusBadge({ status }) {
+  const { t } = useTranslation(['translation', 'delivery']);
   const map = {
-    CONFIRMED: { label: 'Ownership Confirmed', color: '#16a34a' },
-    REJECTED:  { label: 'Ownership Rejected',  color: '#dc2626' },
-    PENDING:   { label: 'Pending',              color: '#d97706' },
+    CONFIRMED: { label: t('delivery:status.confirmed'), color: '#16a34a' },
+    REJECTED:  { label: t('delivery:status.rejected'),  color: '#dc2626' },
+    PENDING:   { label: t('delivery:status.pending'),   color: '#d97706' },
   };
   const s = map[status] || map.PENDING;
   return (
@@ -37,6 +42,7 @@ function StatusBadge({ status }) {
 }
 
 function VerifyResultBadge({ result }) {
+  const { t } = useTranslation('layout');
   if (!result) return null;
   const ok = result.verified;
   return (
@@ -49,7 +55,7 @@ function VerifyResultBadge({ result }) {
       fontSize: 13,
       border: `1px solid ${ok ? '#86efac' : '#fca5a5'}`,
     }}>
-      <strong>{ok ? '✓ Authentic' : '✗ Integrity check failed'}</strong>
+      <strong>{ok ? t('recipient.authentic') : t('recipient.integrityFailed')}</strong>
       <span style={{ marginLeft: 8 }}>{result.message}</span>
       {result.docId && (
         <div style={{ marginTop: 4, fontSize: 11, opacity: 0.75 }}>
@@ -61,19 +67,20 @@ function VerifyResultBadge({ result }) {
 }
 
 export default function RecipientDocumentsPage() {
-  const { user } = useAuth();
+  const { user }      = useAuth();
   const { showToast } = useToast();
+  const { t }         = useTranslation(['translation', 'layout', 'delivery']);
 
-  const [deliveries, setDeliveries] = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [downloading, setDownloading] = useState(null); // deliveryId being downloaded
-  const [verifying, setVerifying]     = useState(null); // deliveryId being verified
-  const [verifyResults, setVerifyResults] = useState({}); // deliveryId → result object
+  const [deliveries, setDeliveries]       = useState([]);
+  const [loading, setLoading]             = useState(true);
+  const [downloading, setDownloading]     = useState(null);
+  const [verifying, setVerifying]         = useState(null);
+  const [verifyResults, setVerifyResults] = useState({});
 
   useEffect(() => {
     recipientService.listMyDeliveries()
       .then((res) => setDeliveries(res.data || []))
-      .catch((err) => showToast(err.message || 'Failed to load your documents.', 'error'))
+      .catch((err) => showToast(err.message || t('recipient.loadFailed', { ns: 'layout' }), 'error'))
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,7 +89,7 @@ export default function RecipientDocumentsPage() {
     try {
       await recipientService.download(deliveryId);
     } catch (err) {
-      showToast(err.message || 'Download failed.', 'error');
+      showToast(err.message || t('recipient.downloadFailed', { ns: 'layout' }), 'error');
     } finally {
       setDownloading(null);
     }
@@ -93,9 +100,14 @@ export default function RecipientDocumentsPage() {
     try {
       const res = await recipientService.verify(deliveryId);
       setVerifyResults((prev) => ({ ...prev, [deliveryId]: res.data }));
-      showToast(res.data.verified ? 'Document is authentic.' : 'Hash mismatch — document may be tampered.', res.data.verified ? 'success' : 'error');
+      showToast(
+        res.data.verified
+          ? t('recipient.authentic', { ns: 'layout' })
+          : 'Hash mismatch — document may be tampered.',
+        res.data.verified ? 'success' : 'error'
+      );
     } catch (err) {
-      showToast(err.message || 'Verification failed.', 'error');
+      showToast(err.message || t('recipient.verifyFailed', { ns: 'layout' }), 'error');
     } finally {
       setVerifying(null);
     }
@@ -103,13 +115,25 @@ export default function RecipientDocumentsPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 16px' }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>My Documents</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>
+        {t('recipient.title', { ns: 'layout' })}
+      </h1>
       <p style={{ color: '#6b7280', marginBottom: 24, fontSize: 14 }}>
-        Documents delivered to <strong>{user?.email}</strong>
+        <Trans
+          i18nKey="recipient.subtitle"
+          ns="layout"
+          values={{ email: user?.email }}
+          components={{ strong: <strong /> }}
+        >
+          {t('recipient.subtitle', { ns: 'layout' })}
+        </Trans>
+        {' '}<strong>{user?.email}</strong>
       </p>
 
       {loading && (
-        <div style={{ color: '#6b7280', padding: 32, textAlign: 'center' }}>Loading your documents…</div>
+        <div style={{ color: '#6b7280', padding: 32, textAlign: 'center' }}>
+          {t('recipient.loading', { ns: 'layout' })}
+        </div>
       )}
 
       {!loading && deliveries.length === 0 && (
@@ -118,9 +142,8 @@ export default function RecipientDocumentsPage() {
           background: '#f9fafb', border: '1px dashed #d1d5db', color: '#6b7280',
         }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>📄</div>
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>No documents yet</div>
-          <div style={{ fontSize: 13 }}>
-            Documents sent to your email address will appear here once you receive them.
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>
+            {t('recipient.empty', { ns: 'layout' })}
           </div>
         </div>
       )}
@@ -148,15 +171,25 @@ export default function RecipientDocumentsPage() {
 
               {/* Date info */}
               <div style={{ display: 'flex', gap: 24, marginTop: 12, fontSize: 13, color: '#6b7280', flexWrap: 'wrap' }}>
-                <span>Delivered: {d.delivered_at ? new Date(d.delivered_at).toLocaleDateString() : '—'}</span>
-                {d.downloaded_at && <span>Downloaded: {new Date(d.downloaded_at).toLocaleDateString()}</span>}
-                {d.doc_status && <span>Status: <strong style={{ textTransform: 'capitalize' }}>{d.doc_status}</strong></span>}
+                <span>
+                  {t('recipient.colDeliveredAt', { ns: 'layout' })}: {d.delivered_at ? new Date(d.delivered_at).toLocaleDateString() : '—'}
+                </span>
+                {d.downloaded_at && (
+                  <span>{t('common.download')}: {new Date(d.downloaded_at).toLocaleDateString()}</span>
+                )}
+                {d.doc_status && (
+                  <span>
+                    {t('common.status')}: <strong style={{ textTransform: 'capitalize' }}>
+                      {statusLabel(t, d.doc_status)}
+                    </strong>
+                  </span>
+                )}
               </div>
 
-              {/* Revoked / deleted notice */}
+              {/* Revoked notice */}
               {d.revoked_at && (
                 <div style={{ marginTop: 10, padding: '6px 12px', background: '#fef2f2', color: '#991b1b', borderRadius: 6, fontSize: 13 }}>
-                  ⚠ This document has been revoked by the issuing organisation.
+                  ⚠ {t('verify.revokedSub', { ns: 'layout' })}
                 </div>
               )}
 
@@ -170,10 +203,13 @@ export default function RecipientDocumentsPage() {
                     style={{
                       padding: '7px 18px', borderRadius: 7, border: 'none',
                       background: '#2563eb', color: '#fff', fontWeight: 600,
-                      fontSize: 13, cursor: 'pointer', opacity: downloading === d.delivery_id ? 0.65 : 1,
+                      fontSize: 13, cursor: 'pointer',
+                      opacity: downloading === d.delivery_id ? 0.65 : 1,
                     }}
                   >
-                    {downloading === d.delivery_id ? 'Downloading…' : '⬇ Download'}
+                    {downloading === d.delivery_id
+                      ? t('recipient.downloading', { ns: 'layout' })
+                      : `⬇ ${t('recipient.downloadBtn', { ns: 'layout' })}`}
                   </button>
                 )}
 
@@ -186,10 +222,13 @@ export default function RecipientDocumentsPage() {
                       padding: '7px 18px', borderRadius: 7,
                       border: '1px solid #d1d5db', background: '#f9fafb',
                       color: '#374151', fontWeight: 600, fontSize: 13,
-                      cursor: 'pointer', opacity: verifying === d.delivery_id ? 0.65 : 1,
+                      cursor: 'pointer',
+                      opacity: verifying === d.delivery_id ? 0.65 : 1,
                     }}
                   >
-                    {verifying === d.delivery_id ? 'Verifying…' : '✓ Verify Integrity'}
+                    {verifying === d.delivery_id
+                      ? t('recipient.verifying', { ns: 'layout' })
+                      : `✓ ${t('recipient.verifyBtn', { ns: 'layout' })}`}
                   </button>
                 )}
               </div>

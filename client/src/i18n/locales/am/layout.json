@@ -1,0 +1,664 @@
+{
+  "nav": {
+    "dashboard": "ዳሽቦርድ",
+    "templates": "አብነቶች",
+    "myDocuments": "ሰነዶቼ",
+    "documentTracking": "የሰነድ ክትትል",
+    "pendingApprovals": "በመጠባበቅ ላይ ያሉ ማጽደቂያዎች",
+    "verifyDocument": "ሰነድ ያረጋግጡ",
+    "auditReports": "ኦዲት እና ሪፖርቶች",
+    "administration": "አስተዳደር",
+    "userManagement": "የተጠቃሚ አስተዳደር",
+    "systemSettings": "የስርዓት ቅንብሮች",
+    "databaseConnections": "የውሂብ ጎታ ግንኙነቶች",
+    "externalDataSources": "ውጫዊ የውሂብ ምንጮች",
+    "mySettings": "ቅንብሮቼ",
+    "notifications": "ማሳወቂያዎች",
+    "profile": "መገለጫ",
+    "faqHelpCenter": "ተደጋጋሚ ጥያቄዎች እና የእርዳታ ማዕከል",
+    "supportAndSettings": "ድጋፍ እና ቅንብሮች",
+    "toggleSidebar": "ጎነ-ምናሌ ይቀይሩ",
+    "landing": "ወደ መግቢያ ገፅ ይሂዱ",
+    "logout": "ውጣ"
+  },
+  "sidebar": {
+    "close": "ጎነ-ምናሌውን ዝጋ"
+  },
+  "theme": {
+    "switchToLight": "ወደ ቀላል ሁነታ ይቀይሩ",
+    "switchToDark": "ወደ ጨለማ ሁነታ ይቀይሩ",
+    "lightMode": "ቀላል ሁነታ",
+    "darkMode": "ጨለማ ሁነታ"
+  },
+  "roles": {
+    "superAdmin": "የበላይ አስተዳዳሪ",
+    "systemAdmin": "የስርዓት አስተዳዳሪ",
+    "generator": "ጄኔሬተር",
+    "approver": "አጽዳቂ",
+    "recipient": "ተቀባይ"
+  },
+  "userMenu": {
+    "account": "መለያ",
+    "myProfile": "የእኔ መገለጫ"
+  },
+  "profile": {
+    "closeProfile": "መገለጫውን ዝጋ",
+    "changePhoto": "ፎቶ ይቀይሩ",
+    "clickCameraToChangePhoto": "ፎቶዎን ለመቀየር የካሜራ አዶውን ጠቅ ያድርጉ",
+    "discard": "አስወግድ",
+    "saving": "በማስቀመጥ ላይ…",
+    "savePhoto": "ፎቶ አስቀምጥ",
+    "removing": "በማስወገድ ላይ…",
+    "removeCurrentPhoto": "የአሁኑን ፎቶ ያስወግዱ",
+    "changePassword": "የይለፍ ቃል ይቀይሩ",
+    "currentPassword": "የአሁኑ የይለፍ ቃል",
+    "newPassword": "አዲስ የይለፍ ቃል",
+    "confirmNewPassword": "አዲሱን ይረጋግጡ",
+    "hidePassword": "የይለፍ ቃል ይደብቁ",
+    "showPassword": "የይለፍ ቃል ያሳዩ",
+    "strengthWeak": "ደካማ",
+    "strengthFair": "መካከለኛ",
+    "strengthGood": "ጥሩ",
+    "strengthStrong": "ጠንካራ",
+    "reqMinLength": "ቢያንስ 8 ቁምፊዎች",
+    "reqLetters": "ፊደላት ይዟል",
+    "reqUppercase": "አቢይ ሆሄያት (A–Z)",
+    "reqNumber": "ቁጥር (0–9)",
+    "reqSymbol": "ምልክት (!@#$…)",
+    "passwordsMatch": "የይለፍ ቃላቱ ይጣጣማሉ",
+    "passwordsDoNotMatch": "የይለፍ ቃላቱ አይጣጣሙም",
+    "updatePassword": "የይለፍ ቃል አዘምን",
+    "errCurrentPasswordRequired": "እባክዎ የአሁኑን የይለፍ ቃልዎን ያስገቡ።",
+    "errPasswordTooShort": "አዲስ የይለፍ ቃል ቢያንስ 8 ቁምፊዎች ሊኖሩት ይገባል።",
+    "errPasswordNeedLetter": "የይለፍ ቃሉ ቢያንስ አንድ ፊደል ሊይዝ ይገባል።",
+    "errPasswordsDoNotMatch": "የይለፍ ቃላቱ አይዛመዱም።",
+    "errFailedToUpdatePassword": "የይለፍ ቃልን መቀየር አልተሳካም።"
+  },
+  "notifications": {
+    "title": "ማሳወቂያዎች",
+    "titleUnread": "ማሳወቂያዎች ({{count}} ያልተነበቡ)",
+    "empty": "ምንም አዲስ ማሳወቂያ የለም።",
+    "awaitingYourSignature": "የፊርማዎን ውሳኔ በመጠባበቅ ላይ",
+    "yourDocumentApproved": "ሰነድዎ ጸድቋል",
+    "yourDocumentRejected": "ሰነድዎ ውድቅ ተደርጓል",
+    "aDocumentWasRejected": "አንድ ሰነድ ውድቅ ተደርጓል",
+    "recipientRejectedDocument": "ተቀባዩ ሰነድዎን ውድቅ አድርጓል",
+    "recipientConfirmedOwnership": "ተቀባዩ ባለቤትነቱን አረጋግጧል",
+    "clickToViewDocument": "ሰነዱን ለማየት ጠቅ ያድርጉ",
+    "clickToReviewResubmit": "ለመገምገም እና እንደገና ለማስገባት ጠቅ ያድርጉ",
+    "reason": "ምክንያት፡",
+    "editAndResubmit": "አርትዕ እና እንደገና አስገባ",
+    "opening": "በመክፈት ላይ…",
+    "document": "ሰነድ"
+  },
+  "confirm": {
+    "areYouSure": "እርግጠኛ ነዎት?",
+    "delete": "ሰርዝ",
+    "deleteItem": "ይህን ነገር ይሰርዙ?",
+    "cannotBeUndone": "ይህ እርምጃ መመለስ አይቻልም።",
+    "deleting": "በመሰረዝ ላይ…"
+  },
+  "verify": {
+    "subtitle": "ከስራ ቦታዎ ሳይወጡ ትክክለኛነትን ያረጋግጡ",
+    "methodLabel": "የማረጋገጫ ዘዴ",
+    "byDocId": "በሰነድ መለያ (ID)",
+    "uploadPdf": "ፒዲኤፍ ስቀል",
+    "docIdLabel": "የሰነድ መለያ (ID)",
+    "docIdHint": "ቅርጸት፡ DOC-YYYYMMDD-XXXXX — በሰነዱ ላይ የታተመ",
+    "docIdPlaceholder": "ለምሳሌ DOC-20260817-A1B2C",
+    "uploadPdfHint": "የፋይሉን ሃሽ ከተከማቸው ኦሪጅናል ጋር ለማነጻጸር ሰነዱን ይጫኑ",
+    "verifying": "በመረጋገጥ ላይ…",
+    "errSelectPdf": "እባክዎ የፒዲኤፍ ፋይል ይምረጡ።",
+    "errEnterDocId": "እባክዎ የሰነድ መለያ (ID) ያስገቡ።",
+    "verificationFailed": "ማረጋገጥ አልተሳካም።",
+    "verificationFailedRetry": "ማረጋገጥ አልተሳካም። እባክዎ እንደገና ይሞክሩ።",
+    "sigFailed": "የፊርማ ማረጋገጥ አልተሳካም።",
+    "authenticTitle": "ሰነዱ ትክክለኛ እና ያልተቀየረ ነው",
+    "revokedTitle": "ሰነዱ ተሰርዟል",
+    "notFoundTitle": "ሰነድ አልተገኘም",
+    "corruptTitle": "ሰነዱ የተበላሸ ወይም የተጭበረበረ ነው",
+    "authenticSub": "ከተቀመጠው ዋና መዝገብ ጋር ተመዝኗል።",
+    "revokedSub": "ይህ ሰነድ ከአሁን በኋላ ትክክለኛ አይደለም።",
+    "notFoundSub": "በመዝገቦቻችን ውስጥ በዚህ መለያ ያለ ሰነድ የለም።",
+    "corruptSub": "የሃሽ ተዛማጅነት አልተገኘም — ይዘቱ ተስተካክሎ ሊሆን ይችላል።",
+    "resultDocId": "የሰነድ መለያ (ID)",
+    "recordedAt": "የተመዘገበበት ጊዜ",
+    "revokedAt": "የተሰረዘበት ጊዜ",
+    "tamperWarning": "ሰነዱ ከተፈጠረ በኋላ ተስተካክሎ ሊሆን ይችላል። በይዘቱ ላይ አትመረኮዙ።",
+    "digitalSignature": "ዲጂታል ፊርማ",
+    "verifyDigitalSignature": "ዲጂታል ፊርማ ያረጋግጡ",
+    "verifyingSignature": "ፊርማውን በማረጋገጥ ላይ…",
+    "notYetSigned": "— ገና አልተፈረመም",
+    "signatureValid": "ፊርማው ትክክለኛ ነው",
+    "signatureHmacMismatch": "የፊርማ HMAC ተዛማጅነት የለውም",
+    "approverLabel": "አጽዳቂ፡",
+    "signedLabel": "የተፈረመበት ጊዜ፡"
+  },
+  "toast": {
+    "profilePhotoUpdated": "የመገለጫ ፎቶዎ ተሻሽሏል።",
+    "uploadFailed": "መጫን አልተሳካም።",
+    "photoRemoved": "ፎቶው ተወግዷል።",
+    "failed": "አልተሳካም።",
+    "passwordUpdated": "የይለፍ ቃልዎ ተሻሽሏል።",
+    "failedToOpenDocument": "ሰነዱን መክፈት አልተሳካም።"
+  },
+  "dashboard": {
+    "goodMorning": "እንደምን አደሩ",
+    "goodAfternoon": "ሰላም ይስጥልን",
+    "goodEvening": "ምሽቱ ደስ ይበልዎ",
+    "overview": "የDocuVault የስራ ቦታዎ አጠቃላይ እይታ።",
+    "liveData": "ቀጥታ ውሂብ",
+    "retryBtn": "እንደገና ሞክር",
+    "couldntLoad": "ዳሽቦርዱን መጫን አልተቻለም",
+    "couldntLoadYours": "የእርስዎን ዳሽቦርድ መጫን አልተቻለም",
+    "failedToLoad": "ዳሽቦርዱን መጫን አልተሳካም።",
+    "kpi": {
+      "totalDocuments": "ጠቅላላ ሰነዶች",
+      "allTime": "ሁሉም ጊዜ",
+      "generatedToday": "ዛሬ የተፈጠሩ",
+      "liveCount": "ቀጥታ ቆጠራ",
+      "todaysOutput": "የዛሬ ውጤት",
+      "pendingApprovals": "በጠባቂ ያሉ ማጽደቂያዎች",
+      "awaitingReview": "ለግምገማ በጠባቂ",
+      "awaitingSignOff": "ለፊርማ ማጽደቂያ በጠባቂ",
+      "approvedSigned": "ጸድቋል / ተፈርሟል",
+      "readyForDelivery": "ለአቅርቦት ዝግጁ",
+      "signedOrDelivered": "ተፈርሟል ወይም ቀርቧል",
+      "delivered": "ቀርቧል",
+      "sentToRecipients": "ለተቀባዮች ተልኳል",
+      "myDocuments": "ሰነዶቼ",
+      "pendingToReview": "ለግምገማ የሚጠባበቁ",
+      "inYourQueue": "በምስጋናዎ ወረፋ ውስጥ",
+      "approved": "ጸድቋል",
+      "signedByYou": "በእርስዎ ወይም በወኪልዎ ተፈርሟል",
+      "rejected": "ውድቅ ተደርጓል",
+      "sentBackForCorrection": "ለእርምት ተልኳል",
+      "totalGeneratedByMe": "በእኔ ጠቅላላ ተፈጥሯል",
+      "pendingApproval": "ለማጽደቅ በጠባቂ"
+    },
+    "generationTrend": {
+      "title": "የፍጠርም አዝማሚያ",
+      "subtitle": "ባለፉት 14 ቀናት የተፈጠሩ ሰነዶች",
+      "noActivityTitle": "እስካሁን ምንም እንቅስቃሴ የለም",
+      "noActivityDesc": "የተፈጠሩ ሰነዶች እዚህ ይታያሉ።"
+    },
+    "statusBreakdown": {
+      "title": "የሁኔታ ትንተና",
+      "subtitle": "ሁሉም ሰነዶች በአሁኑ ሁኔታ",
+      "noDocsTitle": "እስካሁን ምንም ሰነድ የለም",
+      "totalDocs": "ጠቅላላ ሰነዶች"
+    },
+    "statusLabels": {
+      "draft": "ረቂቅ",
+      "pending": "ለማጽደቅ በጠባቂ",
+      "signed": "ጸድቋል / ተፈርሟል",
+      "rejected": "ውድቅ ተደርጓል",
+      "delivered": "ቀርቧል"
+    },
+    "docBadge": {
+      "approved": "ጸድቋል",
+      "delivered": "ቀርቧል",
+      "pendingApproval": "ለማጽደቅ በጠባቂ",
+      "rejected": "ውድቅ ተደርጓል",
+      "draft": "ረቂቅ"
+    },
+    "recentActivity": {
+      "title": "የቅርብ ጊዜ እንቅስቃሴ",
+      "subtitleAll": "በሁሉም ሰነዶች ውስጥ የቅርብ ጊዜ ኦዲት ክስተቶች",
+      "subtitleMine": "በሰነዶችዎ ላይ የቅርብ ጊዜ ክስተቶች",
+      "subtitleGenerated": "በፈጠሩዋቸው ሰነዶች ላይ የቅርብ ጊዜ ክስተቶች",
+      "noActivityTitle": "እስካሁን ምንም እንቅስቃሴ የለም",
+      "noActivityDesc": "ሰነዶች ሲፈጠሩ እና ሲሰሩ የኦዲት ክስተቶች እዚህ ይታያሉ።",
+      "noActivityDesc2": "እንደ ማጽደቅ፣ ውድቀት እና አቅርቦቶች ያሉ ክስተቶች እዚህ ይታያሉ።",
+      "viewAll": "ሁሉንም ይመልከቱ →"
+    },
+    "topTemplates": {
+      "title": "ከፍተኛ 5 አብነቶች",
+      "subtitle": "በብዛት ጥቅም ላይ የዋሉ አብነቶች (ሁሉም ጊዜ)",
+      "noDocsTitle": "እስካሁን ምንም ሰነድ አልተፈጠረም",
+      "noDocsDesc": "ሰነዶች ሲፈጠሩ የቴምፕሌት አጠቃቀም ስታቲስቲክስ ይታያሉ።",
+      "manageTemplates": "አብነቶችን ያስተዳድሩ",
+      "manage": "ያስተዳድሩ →"
+    },
+    "approvalPerf": {
+      "title": "የማጽደቂያ አፈጻጸም",
+      "subtitle": "ከማስገቢያ እስከ ፊርማ ማጽደቂያ",
+      "avgTime": "አማካይ የማጽደቂያ ጊዜ"
+    },
+    "secureDelivery": {
+      "title": "አስተማማኝ አቅርቦት",
+      "subtitle": "የባለቤትነት ማረጋገጫ ሁኔታ",
+      "delivered": "ቀርቧል",
+      "confirmed": "ተረጋግጧል",
+      "rate": "መጠን"
+    },
+    "quickActions": {
+      "title": "ፈጣን እርምጃዎች",
+      "generateDocument": "ሰነድ ፍጠር",
+      "generateNew": "አዲስ ሰነድ ፍጠር",
+      "manageTemplates": "አብነቶችን ያስተዳድሩ",
+      "manageUsers": "ተጠቃሚዎችን ያስተዳድሩ",
+      "auditReports": "ኦዲት እና ሪፖርቶች",
+      "myDocuments": "ሰነዶቼ",
+      "verifyDocument": "ሰነድ ያረጋግጡ",
+      "pendingApprovals": "በጠባቂ ያሉ ማጽደቂያዎች",
+      "viewDocuments": "ሰነዶችን ይመልከቱ"
+    },
+    "recentDocs": {
+      "title": "የቅርብ ጊዜ ሰነዶች",
+      "subtitle": "ቅርብ ጊዜ የተፈጠሩ 5 ሰነዶችዎ",
+      "noDocsTitle": "እስካሁን ምንም ሰነድ የለም",
+      "noDocsDesc": "የሚፈጥሯቸው ሰነዶች እዚህ ይታያሉ።",
+      "generateCta": "ሰነድ ፍጠር",
+      "viewAll": "ሁሉንም ይመልከቱ →",
+      "colDocId": "የሰነድ መለያ",
+      "colTemplate": "ቴምፕሌት",
+      "colStatus": "ሁኔታ",
+      "colGenerated": "የተፈጠረበት ጊዜ"
+    },
+    "awaitingApproval": {
+      "title": "ለማጽደቅዎ የሚጠባበቁ ሰነዶች",
+      "subtitleOverflow": "ከ{{count}} 5 ይታያሉ — ሁሉንም ለማየት ወደ ጠባቂ ማጽደቂያዎች ይሂዱ",
+      "subtitleNormal": "ለግምገማ ወደ እርስዎ ተልኮ የቀረቡ ሰነዶች",
+      "allCaughtUp": "ሁሉም ተጠናቋል!",
+      "noPendingDesc": "አሁን ለግምገማዎ የሚጠባበቅ ምንም ሰነድ የለም።",
+      "from": "ከ",
+      "review": "ግምገማ",
+      "viewAll": "ሁሉንም ይመልከቱ →"
+    },
+    "myRecentDocs": {
+      "title": "የቅርብ ጊዜ ሰነዶቼ",
+      "subtitle": "የፈጠሩዋቸው ሰነዶች",
+      "viewAll": "ሁሉንም ይመልከቱ →",
+      "colDocId": "የሰነድ መለያ",
+      "colTemplate": "ቴምፕሌት",
+      "colStatus": "ሁኔታ",
+      "colGenerated": "የተፈጠረበት ጊዜ"
+    },
+    "rejected": {
+      "callout": "{{count}} ውድቅ የተደረገ ሰነድ",
+      "calloutPlural": "{{count}} ውድቅ የተደረጉ ሰነዶች",
+      "needAttention": "ትኩረትዎን ይፈልጋሉ።",
+      "reviewResubmit": "ግምገማ እና እንደገና አስገባ"
+    },
+    "barChart": {
+      "ariaLabel": "ባለፉት 14 ቀናት በቀን የተፈጠሩ ሰነዶች",
+      "tooltip": "{{date}}፡ {{count}} ሰነድ(ዎች)"
+    }
+  },
+  "userManagement": {
+    "title": "የተጠቃሚ አስተዳደር",
+    "subtitleLoading": "መለያዎችን በመጫን ላይ…",
+    "subtitle": "{{total}} መለያ · {{active}} ንቁ",
+    "subtitlePlural": "{{total}} መለያዎች · {{active}} ንቁ",
+    "createUser": "+ ተጠቃሚ ፍጠር",
+    "cancel": "ሰርዝ",
+    "searchPlaceholder": "በስም ወይም ኢሜይል ፈልግ…",
+    "searchAriaLabel": "ተጠቃሚዎችን ፈልግ",
+    "loadingUsers": "ተጠቃሚዎችን በመጫን ላይ…",
+    "noUsersSearch": "ምንም ተጠቃሚ ፍለጋዎን አይዛምዱም።",
+    "noUsersEmpty": "እስካሁን ምንም ተጠቃሚ የለም — ከላይ የመጀመሪያ መለያ ይፍጠሩ።",
+    "colUser": "ተጠቃሚ",
+    "colRole": "ሚና",
+    "colStatus": "ሁኔታ",
+    "colActions": "እርምጃዎች",
+    "active": "ንቁ",
+    "inactive": "ንቁ ያልሆነ",
+    "statusActive": "ንቁ",
+    "statusInactive": "ንቁ ያልሆነ",
+    "viewBtn": "ይመልከቱ",
+    "editBtn": "አርትዕ",
+    "deactivate": "አቦሸምያ",
+    "activate": "አንቁ",
+    "deleteBtn": "ሰርዝ",
+    "working": "በሂደት ላይ…",
+    "form": {
+      "emailLabel": "ኢሜይል",
+      "emailPlaceholder": "name@organization.com",
+      "fullNameLabel": "ሙሉ ስም",
+      "fullNamePlaceholder": "ለምሳሌ ልጅ ግርማ",
+      "orgLabel": "ድርጅት / ኩባንያ / ተቋም",
+      "orgPlaceholder": "ድርጅትዎ በጥሪ ኢሜይሉ ላይ ይታያል",
+      "roleLabel": "ሚና",
+      "phoneLabel": "ስልክ",
+      "phonePlaceholder": "+251 9XX XXX XXX",
+      "welcomeEmailNote": "ከፍ ያለ አድራሻ ወደ አዲሱ ተጠቃሚ የይለፍ ቃል ለማዘጋጀት ማገናኛ ያለው የእንኳን ደህና መጣ ኢሜይል ይላካል። እዚህ የይለፍ ቃል አያስፈልግም።",
+      "setPasswordLink": "የይለፍ ቃል ለማዘጋጀት ማገናኛ",
+      "creating": "በመፍጠር ላይ…",
+      "createBtn": "መለያ ፍጠር እና የእንኳን ደህና ኢሜይል ላክ"
+    },
+    "roleOptions": {
+      "systemAdmin": "የስርዓት አስተዳዳሪ",
+      "generator": "የሰነድ ጄኔሬተር",
+      "approver": "አጽዳቂ"
+    },
+    "roleLabels": {
+      "superAdmin": "ሱፐር አድሚን",
+      "systemAdmin": "የስርዓት አስተዳዳሪ",
+      "generator": "የሰነድ ጄኔሬተር",
+      "approver": "አጽዳቂ",
+      "recipient": "ተቀባይ"
+    },
+    "viewModal": {
+      "title": "የተጠቃሚ ዝርዝር፡ {{name}}",
+      "labelEmail": "ኢሜይል",
+      "labelRole": "ሚና",
+      "labelStatus": "ሁኔታ",
+      "labelPhone": "ስልክ",
+      "labelOrg": "ድርጅት",
+      "labelMemberSince": "አባልነት ጀምሯል",
+      "closeBtn": "ዝጋ",
+      "closeAriaLabel": "ዝጋ"
+    },
+    "editModal": {
+      "title": "ተጠቃሚ አርትዕ",
+      "fullNameLabel": "ሙሉ ስም",
+      "roleLabel": "ሚና",
+      "phoneLabel": "ስልክ",
+      "fullNameRequired": "ሙሉ ስም አስፈላጊ ነው።",
+      "cancel": "ሰርዝ",
+      "update": "በማዘምን ላይ…",
+      "updateChanges": "ለውጦችን አዘምን",
+      "successMsg": "ተጠቃሚ በተሳካ ሁኔታ ተዘምኗል።",
+      "failedMsg": "ተጠቃሚን ማዘምን አልተሳካም።"
+    },
+    "deleteModal": {
+      "title": "ተጠቃሚ ይሰርዙ?",
+      "message": "{{name}} ({{email}}) ይሰርዙ?",
+      "cancelLabel": "ሰርዝ",
+      "confirmLabel": "ሰርዝ"
+    },
+    "toasts": {
+      "loadFailed": "ተጠቃሚዎችን መጫን አልተሳካም።",
+      "created": "ተጠቃሚ ተፈጥሯል።",
+      "createFailed": "ተጠቃሚ መፍጠር አልተሳካም።",
+      "updated": "ተዘምኗል።",
+      "updateStatusFailed": "ሁኔታን ማዘምን አልተሳካም።",
+      "deleted": "ተጠቃሚ ተሰርዟል።",
+      "deleteFailed": "ተጠቃሚን መሰረዝ አልተሳካም።"
+    }
+  },
+  "approvals": {
+    "title": "በጠባቂ ያሉ ማጽደቂያዎች",
+    "subtitle": "ለግምገማ፣ OTP-ተረጋጋጭ ማጽደቂያ ወይም ውድቀት ወደ እርስዎ የተላለፉ ሰነዶች።",
+    "loading": "በጠባቂ ያሉ ማጽደቂያዎችን በመጫን ላይ…",
+    "stats": {
+      "awaitingYou": "እርስዎን ጠብቋቸዋል",
+      "templates": "አብነቶች"
+    },
+    "toolbar": {
+      "searchPlaceholder": "በሰነድ መለያ፣ ቴምፕሌት ወይም ጄኔሬተር ፈልግ…",
+      "allTemplates": "ሁሉም አብነቶች",
+      "clearFilters": "ማጣሪያዎችን አጽዳ"
+    },
+    "dateFilter": {
+      "allTime": "ሁሉም ጊዜ",
+      "today": "ዛሬ",
+      "last7Days": "ባለፉት 7 ቀናት",
+      "last30Days": "ባለፉት 30 ቀናት"
+    },
+    "empty": {
+      "noPending": "አሁን ፊርማዎን የሚጠባበቅ ምንም ነገር የለም።",
+      "noMatch": "ምንም ማጽደቂያ ፍለጋ/ማጣሪያዎን አይዛምዱም።",
+      "clearFilters": "ማጣሪያዎችን አጽዳ"
+    },
+    "card": {
+      "actionRequired": "እርምጃ ያስፈልጋል",
+      "templateLabel": "ቴምፕሌት፡",
+      "generatedByLabel": "የተፈጠረው ባቸው፡",
+      "recordLabel": "መዝገብ፡",
+      "requestedLabel": "የተጠየቀበት ጊዜ፡",
+      "pendingBadge": "ለማጽደቅ በጠባቂ",
+      "from": "ከ",
+      "viewPdf": "ፒዲኤፍ ይመልከቱ",
+      "opening": "በመክፈት ላይ…",
+      "approve": "ያጽድቁ",
+      "reject": "ውድቅ ያድርጉ",
+      "delete": "ሰርዝ"
+    },
+    "approveModal": {
+      "title": "ለማጽደቅ OTP ያስገቡ",
+      "document": "ሰነድ፡",
+      "viewPdfBtn": "ፒዲኤፍ በአሳሽ ውስጥ ይመልከቱ",
+      "otpLabel": "6-አሃዝ OTP (ወደ ኢሜይልዎ ተልኳል፣ በ5 ደቂቃ ይቃጠላል)",
+      "otpPlaceholder": "123456",
+      "otpPlaceholderSending": "OTP እየተላከ…",
+      "resendOtp": "OTP እንደገና ላክ",
+      "sending": "እየተላከ…",
+      "confirmSign": "አረጋግጥ እና ፈርም",
+      "verifying": "በማረጋገጥ ላይ…",
+      "otpRequired": "ወደ ኢሜይልዎ የተላከውን OTP ኮድ ያስገቡ።",
+      "approved": "ሰነዱ ጸድቆ ተፈርሟል።",
+      "failed": "ማጽደቅ አልተሳካም።",
+      "otpSent": "OTP ተልኳል።",
+      "otpFailed": "OTP መላክ አልተሳካም።"
+    },
+    "rejectModal": {
+      "title": "ሰነድ ውድቅ ያድርጉ",
+      "document": "ሰነድ፡",
+      "reasonLabel": "የውድቀት ምክንያት (አስፈላጊ)",
+      "confirmReject": "ውድቀቱን አረጋግጥ",
+      "submitting": "በማስገባት ላይ…",
+      "reasonRequired": "የውድቀት ምክንያት አስፈላጊ ነው።",
+      "recipientRequired": "ውድቀቱን ለመላክ ቢያንስ አንድ ሰው ይምረጡ።",
+      "rejected": "ሰነዱ ውድቅ ተደርጓል።",
+      "failed": "ውድቀቱ አልተሳካም።"
+    },
+    "deleteModal": {
+      "title": "ሰነድ ይሰርዙ?",
+      "message": "{{docUuid}} ይሰርዙ?",
+      "detail": "ጠባቂ ማጽደቂያ ጥያቄው ይሰረዛል እና ሰነዱ ከሰነድ ክትትል ሙሉ በሙሉ ይወገዳል። የሰነዱ መለያ ሰነድ ያረጋግጡ ገጽ ላይ አሁንም ጥቅም ላይ ሊውል ይችላል።",
+      "confirm": "አዎ፣ ሰርዝ",
+      "deleting": "በመሰረዝ ላይ…",
+      "cancel": "ሰርዝ",
+      "deleted": "ሰነዱ ተሰርዟል።",
+      "failed": "ሰነዱን መሰረዝ አልተሳካም።"
+    },
+    "deepLink": {
+      "staleWarning": "ያ ማጽደቂያ ከአሁን በኋላ ጠባቂ ላይ አይደለም — የአሁኑ ማጽደቂያዎችዎ ይታያሉ።"
+    },
+    "loadFailed": "ጠባቂ ማጽደቂያዎችን መጫን አልተሳካም።",
+    "recipientsFailed": "ተቀባዮችን መጫን አልተሳካም።"
+  },
+  "docTracking": {
+    "title": "የሰነድ ክትትል",
+    "loading": "ሰነዶችን በመጫን ላይ…",
+    "subtitle": "የተፈጠሩ ሰነዶችዎን ወደ ማጽደቅ፣ ፊርማ እና አቅርቦት ይከታተሉ።",
+    "stats": {
+      "total": "ጠቅላላ",
+      "pending": "ጠባቂ",
+      "approved": "ጸድቋል",
+      "delivered": "ቀርቧል",
+      "rejected": "ውድቅ"
+    },
+    "toolbar": {
+      "searchPlaceholder": "በሰነድ መለያ፣ ቴምፕሌት ወይም መዝገብ ፈልግ…",
+      "allStatuses": "ሁሉም ሁኔታዎች",
+      "allTemplates": "ሁሉም አብነቶች",
+      "allTime": "ሁሉም ጊዜ",
+      "today": "ዛሬ",
+      "last7Days": "ባለፉት 7 ቀናት",
+      "last30Days": "ባለፉት 30 ቀናት",
+      "clearFilters": "ማጣሪያዎችን አጽዳ",
+      "statusPending": "ለማጽደቅ ጠባቂ",
+      "statusApproved": "ጸድቋል",
+      "statusDelivered": "ቀርቧል",
+      "statusDraft": "ረቂቅ",
+      "statusRejected": "ውድቅ ተደርጓል"
+    },
+    "empty": {
+      "noDocs": "እስካሁን ምንም ሰነድ የለም።",
+      "noMatch": "ምንም ሰነድ ማጣሪያዎን አይዛምዱም።",
+      "clearFilters": "ማጣሪያዎችን አጽዳ"
+    },
+    "card": {
+      "record": "መዝገብ፡",
+      "generated": "የተፈጠረበት ጊዜ፡",
+      "approver": "አጽዳቂ፡",
+      "notAssigned": "አልተመደበም",
+      "viewPdf": "ፒዲኤፍ ይመልከቱ",
+      "opening": "በመክፈት ላይ…",
+      "assignApprover": "አጽዳቂ ይመድቡ",
+      "reassignApprover": "አጽዳቂ እንደገና ይመድቡ",
+      "deliver": "አቅርብ",
+      "editResubmit": "አርትዕ እና እንደገና አስገባ",
+      "revokeDoc": "ሰርዝ",
+      "delete": "ሰርዝ",
+      "rejectedBy": "ውድቅ ያደረጋቸው {{name}}",
+      "reason": "ምክንያት፡",
+      "deliveredTo": "ወደ {{email}} ቀርቧል",
+      "ownershipConfirmed": "ባለቤትነት ተረጋግጧል",
+      "ownershipPending": "ባለቤትነት በጠባቂ",
+      "recipientRejected": "ተቀባዩ ውድቅ አድርጓል",
+      "badgeDraft": "ረቂቅ",
+      "badgePendingApproval": "ለማጽደቅ ጠባቂ",
+      "badgeApproved": "ጸድቋል",
+      "badgeDelivered": "ቀርቧል",
+      "badgeRejected": "ውድቅ ተደርጓል"
+    },
+    "revokeModal": {
+      "title": "ሰነድ ይሰርዙ?",
+      "message": "{{docUuid}} ይሰርዙ? ይህ ሰነዱን ይሽረዋል እና ከአሁን በኋላ ትክክለኛ ሆኖ ሊረጋገጥ አይችልም።",
+      "confirm": "አዎ፣ ሰርዝ",
+      "revoking": "እየተሰረዘ…",
+      "cancel": "ሰርዝ",
+      "revoked": "ሰነዱ ተሰርዟል።",
+      "failed": "ሰነዱን መሰረዝ አልተሳካም።"
+    },
+    "deleteModal": {
+      "title": "ሰነድ ይሰርዙ?",
+      "message": "{{docUuid}} ሙሉ በሙሉ ይሰርዙ? ይህ መመለስ አይቻልም።",
+      "confirm": "አዎ፣ ሰርዝ",
+      "deleting": "በመሰረዝ ላይ…",
+      "cancel": "ሰርዝ",
+      "deleted": "ሰነዱ ተሰርዟል።",
+      "failed": "ሰነዱን መሰረዝ አልተሳካም።"
+    },
+    "loadFailed": "ሰነዶችን መጫን አልተሳካም።",
+    "openFailed": "ሰነዱን መክፈት አልተሳካም።",
+    "approverAssigned": "አጽዳቂ ተመድቧል።",
+    "approverFailed": "አጽዳቂን መመደብ አልተሳካም።"
+  },
+  "myDocuments": {
+    "title": "ሰነዶቼ",
+    "generateTitle": "ሰነድ ፍጠር",
+    "selectTemplate": "ቴምፕሌት ይምረጡ",
+    "noTemplates": "ምንም ንቁ አብነቶች አልተገኙም።",
+    "loadingTemplates": "አብነቶችን በመጫን ላይ…",
+    "recordIdLabel": "የመዝገብ መለያ",
+    "recordIdPlaceholder": "ለምሳሌ EMP-001",
+    "previewBtn": "ቅድሚያ ይመልከቱ",
+    "previewing": "ቅድሚያ በማሳየት ላይ…",
+    "generateBtn": "ፒዲኤፍ ፍጠር",
+    "generating": "እየተፈጠረ…",
+    "singleMode": "ነጠላ",
+    "multipleMode": "ብዙ",
+    "bulkMode": "ጅምላ",
+    "enterRecordId": "አስቀድሞ የመዝገብ መለያ ያስገቡ።",
+    "previewFailed": "ቅድሚያ ማሳየት አልተሳካም።",
+    "generateFailed": "ሰነዱን መፍጠር አልተሳካም።",
+    "generatedSuccess": "ሰነዱ በተሳካ ሁኔታ ተፈጥሯል።",
+    "resubmit": {
+      "title": "አርትዕ እና እንደገና አስገባ",
+      "recordIdLabel": "የመዝገብ መለያ",
+      "noteLabel": "ምን ተስተካከለ?",
+      "notePlaceholder": "ምን እንደተስተካከለ በአጭሩ ይግለጹ…",
+      "previewBtn": "ቅድሚያ ይመልከቱ",
+      "previewing": "ቅድሚያ በማሳየት ላይ…",
+      "submitBtn": "እንደገና አስገባ እና አቅርብ",
+      "submitting": "በማስገባት ላይ…",
+      "cancelBtn": "ሰርዝ",
+      "enterRecordId": "የመዝገብ መለያ ያስገቡ።",
+      "enterNote": "ከማስገባትዎ በፊት ምን እንደተስተካከለ አጭር ማብራሪያ ይጻፉ።",
+      "failed": "እንደገና ማስገባት አልተሳካም።",
+      "success": "ሰነዱ እንደገና ቀርቧል።"
+    }
+  },
+  "faq": {
+    "title": "ተደጋጋሚ ጥያቄዎች እና የእርዳታ ማዕከል",
+    "subtitle": "DocuVaultን ስለ መጠቀም ተደጋጋሚ ጥያቄዎች።",
+    "items": {
+      "generateDoc": {
+        "q": "ሰነድ እንዴት እፈጥራለሁ?",
+        "a": "በጎነ-ምናሌ ውስጥ \"ሰነዶቼ\" ይሂዱ። ከተቆልቋዩ ዝርዝር ውስጥ ንቁ ቴምፕሌት ይምረጡ፣ ሰነዱ ለሚሆንለት ሰው የሚሆን የመዝገብ መለያ ያስገቡ፣ የተሞሉ ይዘቶችን ለማየት \"ቅድሚያ ይመልከቱ\" ይጠቅሙ፣ ከዚያ የመጨረሻ ፒዲኤፍ ለማፍጠር \"ፍጠር\" ይጠቅሙ። ሰነዱ ወደፊት እንዲሄድ አጽዳቂ ለመምደብ ውይይት ይጠይቃል።"
+      },
+      "requestEsign": {
+        "q": "ኢ-ፊርማ እንዴት እጠይቃለሁ (ለማጽደቅ እልካለሁ)?",
+        "a": "ሰነድ ከፈጠሩ በኋላ ወዲያውኑ አጽዳቂ ለመምረጥ ይጠየቃሉ። ይህ ደረጃ ካለፉ፣ \"የሰነድ ክትትል\" ይክፈቱ፣ ሁኔታው ረቂቅ የሆነ ሰነዱን ያግኙ፣ እና \"አጽዳቂ ይምደቡ\" እርምጃን ይጠቅሙ። ስርዓቱ አጽዳቂው ሰው ወደ ኢሜይሉ አንድ ጊዜ ደህንነቱ የተጠበቀ የግምገማ ማገናኛ ይልካል።"
+      },
+      "otpApproval": {
+        "q": "OTP ማጽደቅ እንዴት ይሰራል?",
+        "a": "ሰነድ ለማጽደቅ ሲቀርብ፣ የተሾመው አጽዳቂ ሰው አንድ ጊዜ ደህንነቱ የተጠበቀ የግምገማ ማገናኛ ባለው ኢሜይል ይቀበላል። ያ ማገናኛ ሲከፈት በተናጠል ኢሜይል የሚላክ 6-አሃዝ OTP ያስፈልጋል። ትክክለኛ OTP ካስገቡ በኋላ አጽዳቂው ሙሉ ፒዲኤፍ ማንበብ ከዚያም ያጽድቅ ወይም ውድቅ ያድርግ ማለት ይችላል። OTP ከ15 ደቂቃ በኋላ ይቃጠላል፤ ከ3 ቀናት ሙከራ በኋላ ማገናኛ ለ15 ደቂቃ ይቆለፋል።"
+      },
+      "approveReject": {
+        "q": "ሰነድ እንዴት ያጸድቃሉ ወይም ውድቅ ያደርጋሉ?",
+        "a": "አጽዳቂዎች በጎነ-ምናሌ ውስጥ \"ጠባቂ ማጽደቂያዎች\" ስር ወይም ማሳወቂያ ኢሜይሉ ላይ ያለ ማገናኛ ጠቅ በማድረግ ጠባቂ ጥያቄዎችን ያያሉ። ጥያቄውን ይክፈቱ፣ OTP ያስገቡ፣ ፒዲኤፍ ይገምግሙ፣ ከዚያ ያጽድቁ ወይም ውድቅ ያድርጉ ይጠቅሙ። ውድቀት ለሰነዱ ጄኔሬተር የሚላክ ምክንያት ያስፈልጋል።"
+      },
+      "secureDelivery": {
+        "q": "አስተማማኝ አቅርቦት እንዴት ይሰራል?",
+        "a": "ሰነድ ጸድቆ ከተፈረመ በኋላ፣ ጄኔሬተሩ \"የሰነድ ክትትል → አቅርብ\" በኩል ለተቀባዩ ሊልክ ይችላል። ተቀባዩ ኢሜይሉ ላይ አንድ ጊዜ ደህንነቱ የተጠበቀ ማገናኛ ይቀበላል። ማገናኛውን ሲከፍት ማንነቱን በOTP ያረጋግጣል፣ ፒዲኤፍ ቅድሚያ ይመለከታል፣ ባለቤትነቱን ያረጋግጣል ወይም ይቃወማል፣ ከዚያ ሰነዱን ያወርዳል። ማገናኛ አንድ ጊዜ ብቻ ጥቅም ላይ ይዋላል እና ከ7 ቀናት በኋላ ይቃጠላል።"
+      },
+      "verifyDoc": {
+        "q": "ሰነድ እንዴት ያረጋግጣሉ?",
+        "a": "በጎነ-ምናሌ ውስጥ \"ሰነድ ያረጋግጡ\" ይሂዱ (መለያ አያስፈልግም)። በፒዲኤፍ ግርጌ ላይ ያለ የሰነዱ መለያ (ቅርጸት፡ DOC-YYYYMMDD-XXXXX) በመተየብ ወይም ፒዲኤፍ ፋይሉን ሲቀልቡ ማረጋገጥ ይቻላል። ስርዓቱ SHA-256 ሃሽ ያሰላ ከኦሪጅናሉ ጋር ያነጻጽራል — ትክክለኛ፣ የተቀየረ ወይም የተሰረዘ ሪፖርት ያዘጋጃል።"
+      },
+      "qrCode": {
+        "q": "ሰነዱ ላይ ያለ QR ኮድ ምን ማለት ነው?",
+        "a": "ሁሉም የተፈጠሩ ፒዲኤፍዎች ግርጌ ላይ ሁለት QR ኮዶች አሏቸው። ግራ QR የሰነዱ መለያ፣ የሰጪ ጊዜ ማህተም፣ SHA-256 ይዘት ሃሽ እና የማረጋገጫ URL ያካተተ JSON ፔሎድ ያሳያል — ሲቃኝ ማንም ሰው ሰነዱ ትክክለኛ መሆኑን ማረጋገጥ ይችላል። ቀኝ QR ሌላ የአቅርቦት መለያ ያሳያል እና ሲቃኝ ወዲያውኑ ትክክለኛ / ተሰርዟል / ልክ ያልሆነ ሪፖርት ያቀርባል።"
+      },
+      "profilePassword": {
+        "q": "መገለጫዬን ወይም የይለፍ ቃሌን እንዴት እቀይራለሁ?",
+        "a": "በጎነ-ምናሌ ውስጥ \"ቅንብሮቼ → መገለጫ\" ይጠቅሙ (ለሁሉም ሚናዎች ይታያል)። አዲስ የመገለጫ ፎቶ መጫን፣ ስምዎን፣ ኢሜይልዎን ወይም ስልክዎን ማዘምን፣ እና የይለፍ ቃልዎን መቀየር ይችላሉ። አዲሱን ለማዘጋጀት የአሁኑ የይለፍ ቃልዎ ያስፈልጋል። ለውጦቹ ወዲያውኑ ተግባራዊ ይሆናሉ።"
+      },
+      "themeSwitch": {
+        "q": "ቀላል እና ጨለማ ሁነታ መካከል እንዴት እቀይራለሁ?",
+        "a": "በጎነ-ምናሌ ታሪ ላይ \"ቀለም\" ይጠቅሙ፣ ወይም ከፍተኛ አሰሳ አሞሌ (☀/🌙) የቀያይሪያ ቁልፍ ይጠቀሙ። ምርጫዎ ቦታ ላይ ተቀምጦ በክፍለ ጊዜዎችና ገጽ ዳግም ሲጫኑም ጸንቶ ይቆያል።"
+      },
+      "support": {
+        "q": "ለስርዓት ድጋፍ ማን ጋር ነው የምደውለው?",
+        "a": "የስርዓት አስተዳዳሪዎን ያነጋግሩ። የተጠቃሚ መለያዎችን ማስተዳደር፣ የይለፍ ቃሎችን ዳግም ማስጀመር፣ አብነቶችን ማዋቀር እና የስርዓት ቅንብሮችን ማስተካከል ይችላሉ። ማን እንደሆኑ ካላወቁ፣ የድርጅትዎ ቴክኒክ ዲፓርትመንት ያነጋግሩ።"
+      }
+    }
+  },
+  "recipient": {
+    "title": "ሰነዶቼ",
+    "subtitle": "ለእርስዎ የቀረቡ ሰነዶች",
+    "loading": "ሰነዶችዎን በመጫን ላይ…",
+    "loadFailed": "ሰነዶችዎን መጫን አልተሳካም።",
+    "empty": "እስካሁን ምንም ሰነድ አልቀረበልዎትም።",
+    "colDocument": "ሰነድ",
+    "colTemplate": "ቴምፕሌት",
+    "colDeliveredAt": "የቀረበበት ጊዜ",
+    "colOwnership": "ባለቤትነት",
+    "colActions": "እርምጃዎች",
+    "downloadBtn": "አውርድ",
+    "downloading": "እያወረደ…",
+    "verifyBtn": "ያረጋግጡ",
+    "verifying": "እያረጋገጠ…",
+    "authentic": "✓ ትክክለኛ",
+    "integrityFailed": "✗ የሙሉነት ምርምራ አልተሳካም",
+    "downloadFailed": "ማውረድ አልተሳካም።",
+    "verifyFailed": "ማረጋገጥ አልተሳካም።"
+  },
+  "auditLogs": {
+    "title": "ኦዲት እና ሪፖርቶች",
+    "tabs": {
+      "trail": "የኦዲት ዱካ",
+      "reports": "ሪፖርቶች እና ፍለጋ",
+      "kpi": "KPI ዳሽቦርድ",
+      "archive": "የማዕቀፍ አስተዳደር"
+    },
+    "loading": "እየተጫነ…",
+    "loadFailed": "የኦዲት ውሂብ መጫን አልተሳካም።"
+  },
+  "notificationsPage": {
+    "title": "ሁሉም ማሳወቂያዎች",
+    "empty": "እስካሁን ምንም ማሳወቂያ የለም።",
+    "loading": "ማሳወቂያዎችን በመጫን ላይ…",
+    "loadFailed": "ማሳወቂያዎችን መጫን አልተሳካም።",
+    "markAllRead": "ሁሉንም እንደተነበቡ ምልክት አድርግ",
+    "tabAll": "ሁሉም",
+    "tabUnread": "ያልተነበበ",
+    "tabRead": "አንብብ"
+  }
+}

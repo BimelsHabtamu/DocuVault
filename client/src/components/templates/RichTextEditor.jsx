@@ -145,14 +145,26 @@ export default function RichTextEditor({ value, onChange, availableFields = [], 
   // without going through execCommand on an unfocused contentEditable).
   useEffect(() => {
     if (!insertBlockRef) return;
-    insertBlockRef.current = (html) => {
+    insertBlockRef.current = (html, options = {}) => {
       if (!editorRef.current) return;
-      editorRef.current.focus();
-      // Move caret to the very end, then insert
+      const { at = 'end' } = options;
+      const editor = editorRef.current;
+      editor.focus();
+      // Move the caret to the requested spot ('start' | 'end'), then go through
+      // execCommand('insertHTML') so the insertion lands on the browser's native
+      // undo stack — Ctrl+Z can then revert it like any other editor action.
+      // (Rewriting value/state directly would detach and recreate the nodes and
+      // silently wipe the undo history, which is why the logo upload used to be
+      // non-undoable.)
       const sel = window.getSelection();
       const range = document.createRange();
-      range.selectNodeContents(editorRef.current);
-      range.collapse(false);
+      if (at === 'start') {
+        range.setStart(editor, 0);
+        range.collapse(true);
+      } else {
+        range.selectNodeContents(editor);
+        range.collapse(false);
+      }
       sel.removeAllRanges();
       sel.addRange(range);
       document.execCommand('insertHTML', false, html);
@@ -298,8 +310,192 @@ const handleImageFileSelected = (e) => {
     return node?.closest?.('.rte-image-wrap') || null;
   };
 
+  // ── Click an image to "select" it (adds rte-img-selected class) ────────────
+  // This gives keyboard delete and toolbar buttons a stable target even when
+  // the browser's own selection didn't land exactly on the span.
+  const selectedImgRef = useRef(null);
+
+  const selectImage = useCallback((wrap) => {
+    // Deselect any previously selected image
+    if (selectedImgRef.current && selectedImgRef.current !== wrap) {
+      selectedImgRef.current.classList.remove('rte-img-selected');
+    }
+    selectedImgRef.current = wrap;
+    if (wrap) wrap.classList.add('rte-img-selected');
+  }, []);
+
+  const deselectImage = useCallback(() => {
+    if (selectedImgRef.current) {
+      selectedImgRef.current.classList.remove('rte-img-selected');
+      selectedImgRef.current = null;
+    }
+  }, []);
+
+  // ── Keyboard delete for selected images ────────────────────────────────────
+  const handleKeyDown = useCallback((e) => {
+    if (e.key !== 'Backspace' && e.key !== 'Delete') return;
+
+    // 1. If an image is explicitly selected via click, delete it
+    if (selectedImgRef.current) {
+      e.preventDefault();
+      selectedImgRef.current.remove();
+      selectedImgRef.current = null;
+      emitChange();
+      return;
+    }
+
+    // 2. Fallback: check if the browser caret is immediately before/after an
+    //    rte-image-wrap and delete it in that case too
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return;          // text selection — let the browser handle it
+
+    const { startContainer, startOffset } = range;
+    let targetWrap = null;
+
+    if (e.key === 'Backspace') {
+      // Node immediately before the caret
+      const prev = startContainer.nodeType === 3
+        ? null
+        : startContainer.childNodes[startOffset - 1];
+      if (prev?.classList?.contains('rte-image-wrap')) targetWrap = prev;
+    } else {
+      // Node immediately after the caret
+      const next = startContainer.nodeType === 3
+        ? null
+        : startContainer.childNodes[startOffset];
+      if (next?.classList?.contains('rte-image-wrap')) targetWrap = next;
+    }
+
+    if (targetWrap) {
+      e.preventDefault();
+      targetWrap.remove();
+      emitChange();
+    }
+  }, [emitChange]);
+
+  // ── Mouse drag-to-move for images (WPS-style) ─────────────────────────────
+  // When the user starts dragging an rte-image-wrap:
+  //   1. Store the element reference in dataTransfer (via a data attr + lookup)
+  //   2. On drop inside the same editor, remove from old position, insert at cursor
+  const draggingImgRef = useRef(null);
+
+  const handleEditorMouseDown = useCallback((e) => {
+    const wrap = e.target.closest?.('.rte-image-wrap');
+    if (!wrap) {
+      deselectImage();
+      return;
+    }
+    // Select it so toolbar buttons and keyboard delete work
+    selectImage(wrap);
+    e.stopPropagation(); // prevent editor focus events from interfering
+  }, [selectImage, deselectImage]);
+
+  const handleImgDragStart = useCallback((e) => {
+    const wrap = e.target.closest?.('.rte-image-wrap');
+    if (!wrap) return;
+    draggingImgRef.current = wrap;
+    wrap.classList.add('rte-img-dragging');
+    // Keep a tiny transparent ghost so the user sees their cursor, not a big image
+    const ghost = document.createElement('div');
+    ghost.style.cssText = 'width:1px;height:1px;opacity:0.01;position:absolute;top:-999px';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 0, 0);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/rte-image-move', '1');
+    setTimeout(() => document.body.removeChild(ghost), 0);
+  }, []);
+
+  const handleEditorDrop = useCallback((e) => {
+    // If this is an internal image-move drag, handle it here and stop
+    if (e.dataTransfer.getData('text/rte-image-move') === '1' && draggingImgRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const wrap = draggingImgRef.current;
+      draggingImgRef.current = null;
+      wrap.classList.remove('rte-img-dragging');
+
+      // Clone the node, remove from old spot
+      const clone = wrap.cloneNode(true);
+      wrap.remove();
+
+      // Re-attach drag handlers to the clone
+      clone.addEventListener('dragstart', handleImgDragStart);
+      clone.addEventListener('dragend', handleImgDragEnd);
+
+      // Insert clone at the drop position
+      const editor = editorRef.current;
+      if (!editor) return;
+      editor.focus();
+
+      let inserted = false;
+      if (document.caretRangeFromPoint) {
+        const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        if (range) {
+          range.insertNode(clone);
+          range.collapse(false);
+          inserted = true;
+        }
+      } else if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+        if (pos) {
+          const range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+          range.insertNode(clone);
+          range.collapse(false);
+          inserted = true;
+        }
+      }
+      if (!inserted) editor.appendChild(clone);
+
+      selectImage(clone);
+      emitChange();
+      return;
+    }
+
+    // Not an image-move — normal field/chip drop
+    e.preventDefault();
+    const rawJson = e.dataTransfer.getData('application/json');
+    const fieldPath = e.dataTransfer.getData('text/plain');
+    if (!fieldPath) return;
+    editorRef.current?.focus();
+    if (rawJson) {
+      try { insertField(JSON.parse(rawJson), redactMode); return; } catch { /* fall through */ }
+    }
+    insertPlaceholder(fieldPath, redactMode);
+  }, [emitChange, handleImgDragStart, insertField, insertPlaceholder, redactMode, selectImage]);
+
+  const handleImgDragEnd = useCallback((e) => {
+    if (draggingImgRef.current) {
+      draggingImgRef.current.classList.remove('rte-img-dragging');
+      draggingImgRef.current = null;
+    }
+  }, []);
+
+  // Wire drag listeners onto every rte-image-wrap whenever content changes
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const attachToWraps = () => {
+      editor.querySelectorAll('.rte-image-wrap').forEach((wrap) => {
+        // Avoid adding duplicate listeners by using a flag
+        if (wrap.dataset.rteListeners === '1') return;
+        wrap.dataset.rteListeners = '1';
+        wrap.setAttribute('draggable', 'true');
+        wrap.addEventListener('dragstart', handleImgDragStart);
+        wrap.addEventListener('dragend', handleImgDragEnd);
+      });
+    };
+    attachToWraps();
+    const mo = new MutationObserver(attachToWraps);
+    mo.observe(editor, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [handleImgDragStart, handleImgDragEnd]);
+
   const setImageAlignment = (align) => {
-    const wrap = getSelectedImageWrap();
+    const wrap = selectedImgRef.current || getSelectedImageWrap();
     if (!wrap) return;
 
     wrap.style.float = 'none';
@@ -326,7 +522,7 @@ const handleImageFileSelected = (e) => {
   };
 
   const resizeSelectedImage = (factor) => {
-    const wrap = getSelectedImageWrap();
+    const wrap = selectedImgRef.current || getSelectedImageWrap();
     if (!wrap) return;
     const currentWidth = wrap.offsetWidth || 220;
     const newWidth = Math.max(30, Math.min(760, Math.round(currentWidth * factor)));
@@ -335,25 +531,6 @@ const handleImageFileSelected = (e) => {
     emitChange();
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    // Prefer the rich payload (carries data_type so JSON/list fields route to a loop
-    // block); fall back to the plain field_path for any other drag source.
-    const rawJson = e.dataTransfer.getData('application/json');
-    const fieldPath = e.dataTransfer.getData('text/plain');
-    if (!fieldPath) return;
-    editorRef.current?.focus();
-
-    if (rawJson) {
-      try {
-        insertField(JSON.parse(rawJson), redactMode);
-        return;
-      } catch {
-        // fall through to plain insertion below
-      }
-    }
-    insertPlaceholder(fieldPath, redactMode);
-  };
   const handleDragOver = (e) => e.preventDefault();
 
   return (
@@ -493,6 +670,7 @@ const handleImageFileSelected = (e) => {
             <option value="generation_date">generation_date (auto, G.C.)</option>
             <option value="generation_date_gc">generation_date_gc (auto, G.C.)</option>
             <option value="generation_date_ec">generation_date_ec (auto, E.C.)</option>
+            <option value="company_seal">company_seal (auto company seal)</option>
           </select>
 
           <label className="rte-redact-toggle" title="When checked, the next inserted placeholder is masked (NFR-005 PII redaction)">
@@ -528,8 +706,6 @@ const handleImageFileSelected = (e) => {
           paddingRight: `${pageSpec.pagePaddingPx}px`,
           boxSizing: 'border-box',
           fontFamily: "'Noto Sans', 'Noto Sans Arabic', 'Noto Naskh Arabic', 'Noto Sans Ethiopic', 'Noto Sans Hebrew', 'Noto Sans Devanagari', 'Noto Sans SC', 'Noto Sans TC', 'Noto Sans JP', 'Noto Sans KR', Arial, sans-serif",
-          // Editor content is always on white — it simulates a real PDF page
-          // (white paper) so the author can judge colours and layout accurately.
           color: '#1a1a2e',
           unicodeBidi: 'plaintext',
           background: '#ffffff',
@@ -538,7 +714,9 @@ const handleImageFileSelected = (e) => {
         suppressContentEditableWarning
         onInput={emitChange}
         onBlur={emitChange}
-        onDrop={handleDrop}
+        onMouseDown={handleEditorMouseDown}
+        onKeyDown={handleKeyDown}
+        onDrop={handleEditorDrop}
         onDragOver={handleDragOver}
       />
     </div>

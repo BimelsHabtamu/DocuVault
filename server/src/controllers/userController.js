@@ -73,7 +73,7 @@ async function createUser(req, res) {
     // has been uploaded, and is simply omitted from the email when there isn't one.
     const appBranding = getAppSettings();
     const orgName = org || appBranding.orgName || '';
-    const orgLogoUrl = orgName ? appBranding.orgLogoUrl || '' : '';
+    const orgLogoUrl = appBranding.orgLogoUrl || '';
 
     let emailNote = '';
     try {

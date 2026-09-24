@@ -1,8 +1,10 @@
 import { createContext, useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
+  const { t } = useTranslation(['translation', 'layout']);
   const [toasts, setToasts] = useState([]);
 
   const showToast = useCallback((message, type = 'success') => {
@@ -17,10 +19,10 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={{ showToast }}>
       {children}
       <div className="toast-stack">
-        {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.type}`}>
-            <span className="toast-icon" aria-hidden="true">{t.type === 'error' ? '\u2715' : '\u2713'}</span>
-            {t.message}
+        {toasts.map((toast) => (
+          <div key={toast.id} className={`toast toast-${toast.type}`}>
+            <span className="toast-icon" aria-hidden="true">{toast.type === 'error' ? '\u2715' : '\u2713'}</span>
+            {t(toast.message)}
           </div>
         ))}
       </div>

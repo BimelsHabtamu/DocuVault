@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { templateService, documentService } from '../services/templateService';
 import { signatureService, deliveryService } from '../services/workflowService';
 import { useToast } from '../hooks/useToast';
@@ -7,25 +8,7 @@ import TemplateViewer from '../components/templates/TemplateViewer';
 import ApproverSelectModal from '../components/common/ApproverSelectModal';
 import BulkGenerationPanel from './BulkGenerationPanel';
 
-const MODES = [
-  {
-    id: 'single',
-    title: 'Single Record ID',
-    desc: 'Generate one document from a single Record ID.',
-  },
-  {
-    id: 'multiple',
-    title: 'Multiple Record IDs',
-    desc: 'Paste several Record IDs — comma or newline separated.',
-  },
-  {
-    id: 'bulk',
-    title: 'Bulk (.csv) File',
-    desc: 'Upload a .csv file of Record IDs to generate in one batch.',
-  },
-];
-
-/** Small document-style icon, matches the look every template card gets elsewhere (Template Management). */
+/** Small document-style icon */
 function DocumentIcon() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -37,26 +20,23 @@ function DocumentIcon() {
 }
 
 /**
- * "Edit & Resubmit" landing spot — reached from Document Tracking's Edit & Resubmit
- * button or from the public RejectionReviewPage (email link). Handles both:
- *   A) Approver-rejected document (status='draft'): regenerate, skip approver, send
- *      directly to the on-record recipient.
- *   B) Recipient-rejected delivery (status='delivered'): same — regenerate, send
- *      directly to the same recipient. No second approval round in either case.
+ * "Edit & Resubmit" panel — reached from Document Tracking or the public
+ * RejectionReviewPage. Handles both approver-rejected and recipient-rejected documents.
  */
 function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
   const { showToast } = useToast();
-  const [recordId, setRecordId] = useState(resubmitDoc.record_identifier || '');
-  const [note, setNote] = useState('');
+  const { t } = useTranslation('layout');
+  const [recordId, setRecordId]       = useState(resubmitDoc.record_identifier || '');
+  const [note, setNote]               = useState('');
   const [previewData, setPreviewData] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [phase, setPhase] = useState('form'); // 'form' | 'redelivering' | 'done'
+  const [submitting, setSubmitting]   = useState(false);
+  const [phase, setPhase]             = useState('form'); // 'form' | 'redelivering' | 'done'
   const [deliveryResult, setDeliveryResult] = useState(null);
 
   const handlePreview = async () => {
     if (!recordId.trim()) {
-      showToast('Enter a record ID first.', 'error');
+      showToast(t('myDocuments.resubmit.enterRecordId'), 'error');
       return;
     }
     setLoadingPreview(true);
@@ -64,7 +44,7 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
       const res = await documentService.preview({ template_id: resubmitDoc.template_id, record_id: recordId.trim() });
       setPreviewData(res.data);
     } catch (err) {
-      showToast(err.message || 'Preview failed.', 'error');
+      showToast(err.message || t('myDocuments.previewFailed'), 'error');
     } finally {
       setLoadingPreview(false);
     }
@@ -72,23 +52,21 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
 
   const handleSubmit = async () => {
     if (!recordId.trim()) {
-      showToast('Enter a record ID.', 'error');
+      showToast(t('myDocuments.resubmit.enterRecordId'), 'error');
       return;
     }
     if (!note.trim()) {
-      showToast('Write a short note on what was fixed before resubmitting.', 'error');
+      showToast(t('myDocuments.resubmit.enterNote'), 'error');
       return;
     }
     setSubmitting(true);
     try {
-      // Step 1: regenerate PDF (marks it signed directly — no approver step).
       const res = await documentService.resubmit(resubmitDoc.id, {
         record_identifier: recordId.trim(),
         note: note.trim(),
       });
       showToast(res.message || 'Corrected document generated.', 'success');
 
-      // Step 2: send new secure-link+OTP delivery to the original recipient.
       setPhase('redelivering');
       let delivery = null;
       try {
@@ -96,21 +74,18 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
         const delivRes = await deliveryService.resubmitDelivery(newDocId);
         delivery = delivRes.data;
       } catch (delivErr) {
-        // Non-fatal: document was regenerated; Generator can use Send from Document
-        // Tracking if the automatic delivery fails (e.g. no prior rejected delivery).
         console.warn('[ResubmitPanel] resubmit-delivery failed (non-fatal):', delivErr.message);
       }
       setDeliveryResult(delivery);
       setPhase('done');
     } catch (err) {
-      showToast(err.message || 'Failed to resubmit document.', 'error');
+      showToast(err.message || t('myDocuments.resubmit.failed'), 'error');
       setPhase('form');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Done screen
   if (phase === 'done') {
     return (
       <div className="my-documents-page">
@@ -127,19 +102,19 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
                 Sent directly to <b>{deliveryResult.recipientEmail}</b>
               </div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-                The recipient will receive a new secure link and must complete OTP
-                verification again before downloading. No approver step was needed.
+                The recipient will receive a new secure link and must complete OTP verification again before downloading. No approver step was needed.
               </div>
             </>
           ) : (
             <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: 4 }}>
-              Delivery could not be sent automatically — use the <b>Send</b> button in
-              Document Tracking to send it to the recipient.
+              Delivery could not be sent automatically — use the <b>Send</b> button in Document Tracking to send it to the recipient.
             </div>
           )}
         </div>
         <div className="template-form-actions" style={{ marginTop: 20 }}>
-          <button type="button" onClick={onDone} className="btn-primary">Go to Document Tracking</button>
+          <button type="button" onClick={onDone} className="btn-primary">
+            Go to Document Tracking
+          </button>
         </div>
       </div>
     );
@@ -147,7 +122,7 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
 
   return (
     <div className="my-documents-page">
-      <h1>Edit &amp; Resubmit</h1>
+      <h1>{t('myDocuments.resubmit.title')}</h1>
       <p style={{ color: 'var(--text-secondary)', marginTop: -8 }}>
         Fixing <b>{resubmitDoc.doc_uuid}</b> ({resubmitDoc.template_name}) — the corrected document
         will be sent <b>directly to the recipient</b> once you submit. No approver step required.
@@ -164,13 +139,12 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
           <label>Template</label>
           <p style={{ margin: '4px 0', fontWeight: 600 }}>{resubmitDoc.template_name}</p>
           <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            The current (possibly just-fixed) version of the template is used automatically.
-            If the template itself was the problem, fix it in Templates first, then resubmit here.
+            The current version of the template is used automatically. If the template itself was the problem, fix it in Templates first, then resubmit here.
           </p>
         </div>
 
         <div className="form-field">
-          <label htmlFor="resubmit-record-id">Record ID</label>
+          <label htmlFor="resubmit-record-id">{t('myDocuments.resubmit.recordIdLabel')}</label>
           <input
             id="resubmit-record-id"
             value={recordId}
@@ -185,31 +159,34 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
         </div>
 
         <div className="form-field">
-          <label htmlFor="resubmit-note">What was fixed? (required)</label>
+          <label htmlFor="resubmit-note">{t('myDocuments.resubmit.noteLabel')}</label>
           <textarea
             id="resubmit-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
-            placeholder="e.g. Corrected the employee's salary figure in the source record."
+            placeholder={t('myDocuments.resubmit.notePlaceholder')}
             disabled={submitting}
           />
         </div>
 
         <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: '0 0 12px' }}>
-          Submitting regenerates the document and sends a new secure link + OTP
-          directly to the recipient — they must verify their identity again before downloading.
+          Submitting regenerates the document and sends a new secure link + OTP directly to the recipient.
         </p>
 
         <div className="template-form-actions">
           <button type="button" onClick={handlePreview} disabled={loadingPreview || submitting} className="btn-secondary">
-            {loadingPreview ? 'Loading…' : 'Preview'}
+            {loadingPreview ? t('myDocuments.resubmit.previewing') : t('myDocuments.resubmit.previewBtn')}
           </button>
           <button type="button" onClick={handleSubmit} disabled={submitting || !recordId.trim()} className="btn-primary">
-            {phase === 'redelivering' ? 'Sending to recipient…' : submitting ? 'Regenerating…' : 'Regenerate & Send to Recipient'}
+            {phase === 'redelivering'
+              ? 'Sending to recipient…'
+              : submitting
+                ? t('myDocuments.resubmit.submitting')
+                : t('myDocuments.resubmit.submitBtn')}
           </button>
           <button type="button" onClick={onCancel} disabled={submitting} className="btn-secondary">
-            Cancel
+            {t('myDocuments.resubmit.cancelBtn')}
           </button>
         </div>
       </div>
@@ -225,43 +202,37 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
 }
 
 /**
- * Generation-only page: pick a template, then pick exactly ONE way to supply
- * Record ID(s) — Single / Multiple / Bulk .csv — laid out as a horizontal card
- * grid (same look as Template Management). Only the selected mode's input is
- * shown and can hold data; switching modes always starts that mode empty, so
- * a Record ID can never be entered into more than one of the three at once.
- * Every mode follows the same Preview -> Generate flow, then the (mandatory)
- * approver assignment.
- *
- * Also doubles as the "Edit & Resubmit" landing page (see ResubmitPanel above)
- * when arriving from Document Tracking with a rejected document's context in
- * navigation state — that mode replaces this generation UI entirely.
+ * Generation-only page: pick a template, then pick Single / Multiple / Bulk mode.
+ * Also serves as the Edit & Resubmit landing page when arriving with rejected doc state.
  */
 export default function MyDocumentsPage() {
   const { showToast } = useToast();
+  const { t } = useTranslation(['translation', 'layout']);
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
   const [resubmitDoc, setResubmitDoc] = useState(location.state?.resubmitDoc || null);
 
-  const [templates, setTemplates] = useState([]);
+  // Build generation modes from t() so they update on language switch
+  const MODES = [
+    { id: 'single',   title: t('modes.singleTitle'),   desc: t('modes.singleDesc') },
+    { id: 'multiple', title: t('modes.multipleTitle'),  desc: t('modes.multipleDesc') },
+    { id: 'bulk',     title: t('modes.bulkTitle'),      desc: t('modes.bulkDesc') },
+  ];
+
+  const [templates, setTemplates]           = useState([]);
   const [templatesLoaded, setTemplatesLoaded] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
-  const [mode, setMode] = useState('single');
-
-  // Single-record mode state.
-  const [recordId, setRecordId] = useState('');
-  const [previewData, setPreviewData] = useState(null);
+  const [mode, setMode]                     = useState('single');
+  const [recordId, setRecordId]             = useState('');
+  const [previewData, setPreviewData]       = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [generating, setGenerating] = useState(false);
-
-  // Approver-assignment modal, opened immediately after a successful Generate —
-  // a freshly generated document is unusable until an approver is assigned.
-  const [approverModalDoc, setApproverModalDoc] = useState(null); // { id, doc_uuid }
+  const [generating, setGenerating]         = useState(false);
+  const [approverModalDoc, setApproverModalDoc] = useState(null);
 
   useEffect(() => {
     templateService.getAll({ status: 'active' })
       .then((res) => setTemplates(res.data))
-      .catch((err) => showToast(err.message || 'Failed to load templates.', 'error'))
+      .catch((err) => showToast(err.message || t('myDocuments.generateFailed', { ns: 'layout' }), 'error'))
       .finally(() => setTemplatesLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -273,7 +244,6 @@ export default function MyDocumentsPage() {
     setPreviewData(null);
   };
 
-  /** Switching modes always starts the newly-chosen mode empty — see file header. */
   const handleModeChange = (nextMode) => {
     if (nextMode === mode) return;
     setMode(nextMode);
@@ -282,32 +252,32 @@ export default function MyDocumentsPage() {
   };
 
   const handlePreview = async () => {
-    if (!selectedTemplateId || !recordId) {
-      showToast('Select a template and enter a record ID.', 'error');
+    const id = recordId.trim();
+    if (!selectedTemplateId || !id) {
+      showToast(t('myDocuments.enterRecordId', { ns: 'layout' }), 'error');
       return;
     }
     setLoadingPreview(true);
     try {
-      const res = await documentService.preview({ template_id: selectedTemplateId, record_id: recordId });
+      const res = await documentService.preview({ template_id: selectedTemplateId, record_id: id });
       setPreviewData(res.data);
     } catch (err) {
-      showToast(err.message || 'Preview failed.', 'error');
+      showToast(err.message || t('myDocuments.previewFailed', { ns: 'layout' }), 'error');
     } finally {
       setLoadingPreview(false);
     }
   };
 
   const handleGenerate = async () => {
-    if (!selectedTemplateId || !recordId) return;
+    const id = recordId.trim();
+    if (!selectedTemplateId || !id) return;
     setGenerating(true);
     try {
-      const res = await documentService.generate({ template_id: selectedTemplateId, record_id: recordId });
-      showToast(res.message || 'Document generated.', 'success');
-      // Mandatory next step: pick who approves it. Opens immediately — the document
-      // is unusable (can't be approved, rejected, or e-signed) until this happens.
+      const res = await documentService.generate({ template_id: selectedTemplateId, record_id: id });
+      showToast(res.message || t('myDocuments.generatedSuccess', { ns: 'layout' }), 'success');
       setApproverModalDoc({ id: res.data.id, doc_uuid: res.data.docUuid });
     } catch (err) {
-      showToast(err.message || 'Generation failed.', 'error');
+      showToast(err.message || t('myDocuments.generateFailed', { ns: 'layout' }), 'error');
     } finally {
       setGenerating(false);
     }
@@ -318,11 +288,9 @@ export default function MyDocumentsPage() {
       const res = await signatureService.initiate(approverModalDoc.id, approverId);
       showToast(res.message || 'Signature request sent — track it from Document Tracking.', 'success');
       setApproverModalDoc(null);
-      // Navigate to Document Tracking with the new document highlighted so the
-      // generator can see the Pending status immediately.
       navigate(`/document-tracking?highlight=${approverModalDoc.id}`);
     } catch (err) {
-      showToast(err.message || 'Failed to send signature request.', 'error');
+      showToast(err.message || t('docTracking.approverFailed', { ns: 'layout' }), 'error');
     }
   };
 
@@ -342,38 +310,38 @@ export default function MyDocumentsPage() {
 
   return (
     <div className="my-documents-page">
-      <h1>Generate a Document</h1>
+      <h1>{t('myDocuments.generateTitle', { ns: 'layout' })}</h1>
 
       {templatesLoaded && templates.length === 0 && (
         <p className="approver-required-banner" style={{ display: 'block' }}>
-          No <strong>Active</strong> templates yet — single and bulk/CSV generation (below) only work
+          No <strong>Active</strong> templates yet — single and bulk/CSV generation only work
           against a template whose status is Active. Ask an admin to create or activate one in Templates.
         </p>
       )}
 
       {templates.length > 0 && (
-        <div className="template-card-grid doc-template-picker" role="tablist" aria-label="Choose a template">
-          {templates.map((t) => {
-            const selected = String(selectedTemplateId) === String(t.id);
+        <div className="template-card-grid doc-template-picker" role="tablist" aria-label={t('myDocuments.selectTemplate', { ns: 'layout' })}>
+          {templates.map((tmpl) => {
+            const selected = String(selectedTemplateId) === String(tmpl.id);
             return (
               <button
                 type="button"
-                key={t.id}
+                key={tmpl.id}
                 role="tab"
                 aria-selected={selected}
                 className={`template-card doc-template-card${selected ? ' doc-template-card-selected' : ''}`}
-                onClick={() => handleTemplateChange(t.id)}
+                onClick={() => handleTemplateChange(tmpl.id)}
               >
                 <div className="template-card-top">
                   <div className="template-card-icon"><DocumentIcon /></div>
                   <div className="template-card-title-wrap">
-                    <h3 className="template-card-name" title={t.name}>{t.name}</h3>
-                    <span className="template-card-category">{t.category}</span>
+                    <h3 className="template-card-name" title={tmpl.name}>{tmpl.name}</h3>
+                    <span className="template-card-category">{tmpl.category}</span>
                   </div>
                   {selected && <span className="gen-mode-card-check">✓</span>}
                 </div>
                 <div className="template-card-meta">
-                  <span className="template-card-meta-item"><strong>Version</strong> v{t.version}</span>
+                  <span className="template-card-meta-item"><strong>Version</strong> v{tmpl.version}</span>
                 </div>
               </button>
             );
@@ -383,7 +351,7 @@ export default function MyDocumentsPage() {
 
       {selectedTemplateId && (
         <>
-          <div className="gen-mode-grid" role="tablist" aria-label="Record ID input mode">
+          <div className="gen-mode-grid" role="tablist" aria-label={t('myDocuments.generateTitle', { ns: 'layout' })}>
             {MODES.map((m) => {
               const selected = mode === m.id;
               return (
@@ -408,16 +376,22 @@ export default function MyDocumentsPage() {
           {mode === 'single' && (
             <div className="template-form" style={{ maxWidth: 560 }}>
               <div className="form-field">
-                <label htmlFor="doc-record-id">Record ID</label>
-                <input id="doc-record-id" value={recordId} onChange={(e) => setRecordId(e.target.value)} placeholder="e.g. EMP001" autoFocus />
+                <label htmlFor="doc-record-id">{t('myDocuments.recordIdLabel', { ns: 'layout' })}</label>
+                <input
+                  id="doc-record-id"
+                  value={recordId}
+                  onChange={(e) => setRecordId(e.target.value)}
+                  placeholder={t('myDocuments.recordIdPlaceholder', { ns: 'layout' })}
+                  autoFocus
+                />
               </div>
 
               <div className="template-form-actions">
                 <button type="button" onClick={handlePreview} disabled={loadingPreview} className="btn-secondary">
-                  {loadingPreview ? 'Loading…' : 'Preview'}
+                  {loadingPreview ? t('myDocuments.previewing', { ns: 'layout' }) : t('myDocuments.previewBtn', { ns: 'layout' })}
                 </button>
                 <button type="button" onClick={handleGenerate} disabled={generating || !recordId} className="btn-primary">
-                  {generating ? 'Generating…' : 'Generate PDF'}
+                  {generating ? t('myDocuments.generating', { ns: 'layout' }) : t('myDocuments.generateBtn', { ns: 'layout' })}
                 </button>
               </div>
             </div>
@@ -438,15 +412,13 @@ export default function MyDocumentsPage() {
 
       {approverModalDoc && (
         <ApproverSelectModal
-          title="Select an Approver"
-          description={`Document ${approverModalDoc.doc_uuid} needs an approver. Choose who should review, OTP-confirm, and e-sign it — only an Approver can approve, reject, or e-sign.`}
-          submitLabel="Send Signature Request"
+          title={t('docTracking.card.assignApprover', { ns: 'layout' })}
+          description={`Document ${approverModalDoc.doc_uuid} needs an approver. Choose who should review, OTP-confirm, and e-sign it.`}
+          submitLabel={t('approvals.approveModal.confirmSign', { ns: 'layout' })}
           onSubmit={handleAssignApprover}
           onSkip={() => {
             const docId = approverModalDoc.id;
             setApproverModalDoc(null);
-            // Even when skipping, go to Document Tracking so the generator sees
-            // the draft and can assign an approver from the "Select Approver" button there.
             navigate(`/document-tracking?highlight=${docId}`);
           }}
         />

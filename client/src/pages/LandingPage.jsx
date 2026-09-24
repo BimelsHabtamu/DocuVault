@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
+import { useAuth } from '../hooks/useAuth';
+import FaqAccordion from '../components/common/FaqAccordion';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import logo from '/public/logo.png';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -24,51 +28,55 @@ function useReveal() {
 /* ─────────────────────────────────────────────────────────────────────────────
    Slideshow
 ───────────────────────────────────────────────────────────────────────────── */
-const SLIDES = [
-  { url: '/image1.png', caption: 'Automated document generation' },
-  { url: '/image2.png', caption: 'Secure digital signatures' },
-  { url: '/image3.png', caption: 'Real-time approval workflows' },
-  { url: '/image4.png', caption: 'Verified document delivery' },
+const SLIDES = (t) => [
+  { url: '/image1.png', caption: t('landing.slides.autoGen') },
+  { url: '/image2.png', caption: t('landing.slides.secureSignatures') },
+  { url: '/image3.png', caption: t('landing.slides.approvalWorkflows') },
+  { url: '/image4.png', caption: t('landing.slides.verifiedDelivery') },
+  { url: '/image5.png', caption: t('landing.slides.streamlined') },
+  { url: '/image6.png', caption: t('landing.slides.multiRole') },
+  { url: '/image7.png', caption: t('landing.slides.auditTrail') },
+  { url: '/image8.png', caption: t('landing.slides.enterpriseSecurity') },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Features
 ───────────────────────────────────────────────────────────────────────────── */
-const FEATURES = [
+const FEATURES = (t) => [
   {
     accent: '#0F766E', bg: 'rgba(15,118,110,0.12)',
-    title: 'Smart Template Engine',
-    desc: 'Build document templates with dynamic placeholders, conditional blocks, and loop support. Connect to any internal or external database table.',
+    title: t('landing.features.templatesTitle'),
+    desc: t('landing.features.templatesDesc'),
     icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9v12a2 2 0 01-2 2z"/></svg>),
   },
   {
     accent: '#3B82F6', bg: 'rgba(59,130,246,0.12)',
-    title: 'Bulk PDF Generation',
-    desc: 'Generate hundreds of personalized PDFs from a CSV upload or multiple record IDs in one batch. Automatic approver assignment included.',
+    title: t('landing.features.bulkPdfTitle'),
+    desc: t('landing.features.bulkPdfDesc'),
     icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>),
   },
   {
     accent: '#F59E0B', bg: 'rgba(245,158,11,0.12)',
-    title: 'E-Signature with OTP',
-    desc: 'Approvers review the PDF then confirm approval with a one-time password. Every signature is HMAC-SHA256 verified and NTP-timestamped.',
+    title: t('landing.features.esignTitle'),
+    desc: t('landing.features.esignDesc'),
     icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>),
   },
   {
     accent: '#16A34A', bg: 'rgba(22,163,74,0.12)',
-    title: 'Cryptographic Verification',
-    desc: 'Every document carries a SHA-256 hash. Verify authenticity via Document ID, QR code scan, or PDF upload — no login required.',
+    title: t('landing.features.cryptoTitle'),
+    desc: t('landing.features.cryptoDesc'),
     icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>),
   },
   {
     accent: '#8B5CF6', bg: 'rgba(139,92,246,0.12)',
-    title: 'Secure Delivery',
-    desc: 'Recipients receive a one-time link with OTP verification. Ownership confirmation, download tracking, and full delivery audit log included.',
+    title: t('landing.features.deliveryTitle'),
+    desc: t('landing.features.deliveryDesc'),
     icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>),
   },
   {
     accent: '#EF4444', bg: 'rgba(239,68,68,0.12)',
-    title: 'Forensic Audit Trail',
-    desc: 'Every action — generate, preview, approve, reject, deliver, verify — is logged immutably. Export full CSV audit reports with filters.',
+    title: t('landing.features.forensicTitle'),
+    desc: t('landing.features.forensicDesc'),
     icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>),
   },
 ];
@@ -76,35 +84,35 @@ const FEATURES = [
 /* ─────────────────────────────────────────────────────────────────────────────
    Roles
 ───────────────────────────────────────────────────────────────────────────── */
-const ROLES = [
-  { image: '/super.png',     name: 'Super Admin',   color: '#8B5CF6', desc: 'Full system control — templates, users, settings, audit, and all documents.',          perms: ['Manage all templates', 'Manage all users', 'View full audit logs', 'System settings & DB'] },
-  { image: '/system.png',    name: 'System Admin',  color: '#0F766E', desc: 'Manages templates and monitors operations without user/settings access.',               perms: ['Create & edit templates', 'Generate documents', 'View audit & reports', 'Manage approvals'] },
-  { image: '/generator.png', name: 'Generator',     color: '#3B82F6', desc: 'Generates PDFs from templates and tracks their delivery status.',                       perms: ['Generate documents', 'Track document status', 'Request e-signature', 'Verify documents'] },
-  { image: '/approver.png',  name: 'Approver',      color: '#F59E0B', desc: 'Reviews pending documents and applies cryptographic e-signatures via OTP.',             perms: ['Review pending documents', 'Approve or reject', 'Apply HMAC e-signature', 'Verify documents'] },
-  { image: '/Recipient.png', name: 'Recipient',     color: '#16A34A', desc: 'Receives delivered documents via secure link and confirms ownership.',                  perms: ['Receive secure documents', 'OTP identity verification', 'Confirm or reject ownership'] },
+const ROLES = (t) => [
+  { image: '/super.png',     name: t('landing.roles.superAdminName'),   color: '#8B5CF6', desc: t('landing.roles.superAdminDesc'),          perms: [t('landing.roles.superAdminPerm1'), t('landing.roles.superAdminPerm2'), t('landing.roles.superAdminPerm3'), t('landing.roles.superAdminPerm4')] },
+  { image: '/system.png',    name: t('landing.roles.systemAdminName'),  color: '#0F766E', desc: t('landing.roles.systemAdminDesc'),               perms: [t('landing.roles.systemAdminPerm1'), t('landing.roles.systemAdminPerm2'), t('landing.roles.systemAdminPerm3'), t('landing.roles.systemAdminPerm4')] },
+  { image: '/generator.png', name: t('landing.roles.generatorName'),     color: '#3B82F6', desc: t('landing.roles.generatorDesc'),                       perms: [t('landing.roles.generatorPerm1'), t('landing.roles.generatorPerm2'), t('landing.roles.generatorPerm3'), t('landing.roles.generatorPerm4')] },
+  { image: '/approver.png',  name: t('landing.roles.approverName'),      color: '#F59E0B', desc: t('landing.roles.approverDesc'),             perms: [t('landing.roles.approverPerm1'), t('landing.roles.approverPerm2'), t('landing.roles.approverPerm3'), t('landing.roles.approverPerm4')] },
+  { image: '/Recipient.png', name: t('landing.roles.recipientName'),     color: '#16A34A', desc: t('landing.roles.recipientDesc'),                  perms: [t('landing.roles.recipientPerm1'), t('landing.roles.recipientPerm2'), t('landing.roles.recipientPerm3')] },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Workflow steps
 ───────────────────────────────────────────────────────────────────────────── */
-const STEPS = [
-  { num: '01', title: 'Create Template', desc: 'Build a document template with dynamic fields mapped to your data source.' },
-  { num: '02', title: 'Generate PDF',    desc: 'Select a record ID and generate a personalized PDF instantly or in bulk.' },
-  { num: '03', title: 'Request Approval', desc: 'Route the document to an approver with a secure one-time review link.' },
-  { num: '04', title: 'E-Sign with OTP', desc: 'Approver verifies identity with OTP and applies a cryptographic signature.' },
-  { num: '05', title: 'Secure Delivery', desc: 'Recipient receives a one-time link and confirms ownership with OTP.' },
-  { num: '06', title: 'Verify Anytime',  desc: 'Anyone can verify authenticity via Doc ID, QR scan, or PDF upload.' },
+const STEPS = (t) => [
+  { num: '01', title: t('landing.steps.createTitle'), desc: t('landing.steps.createDesc') },
+  { num: '02', title: t('landing.steps.generateTitle'),    desc: t('landing.steps.generateDesc') },
+  { num: '03', title: t('landing.steps.requestTitle'), desc: t('landing.steps.requestDesc') },
+  { num: '04', title: t('landing.steps.esignTitle'), desc: t('landing.steps.esignDesc') },
+  { num: '05', title: t('landing.steps.deliverTitle'), desc: t('landing.steps.deliverDesc') },
+  { num: '06', title: t('landing.steps.verifyTitle'),  desc: t('landing.steps.verifyDesc') },
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Security chain
 ───────────────────────────────────────────────────────────────────────────── */
-const CHAIN = [
-  'SHA-256 file hash stored at generation time — any tampering is detectable',
-  'HMAC-SHA256 signature applied by the approver using a per-user secret key',
-  'OTP 2FA required for both approver sign-off and recipient identity confirmation',
-  'JWT-secured single-use delivery tokens that expire after 7 days',
-  'Full immutable audit log — every action forensically recorded with timestamp',
+const CHAIN = (t) => [
+  t('landing.chain.hash'),
+  t('landing.chain.hmac'),
+  t('landing.chain.otp'),
+  t('landing.chain.jwt'),
+  t('landing.chain.audit'),
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -127,13 +135,10 @@ function IconMoon() {
     </svg>
   );
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Inline Verification Widget — embedded on the landing page, no page redirect
-───────────────────────────────────────────────────────────────────────────── */
 import { verifyByDocId, verifyByFile, verifyDocumentSignature } from '../services/publicService';
 
 function InlineVerifyWidget() {
+  const { t } = useTranslation(['translation', 'auth']);
   const [mode,       setMode]       = useState('doc_id');
   const [docId,      setDocId]      = useState('');
   const [pdfFile,    setPdfFile]    = useState(null);
@@ -153,17 +158,17 @@ function InlineVerifyWidget() {
     try {
       let res;
       if (mode === 'upload') {
-        if (!pdfFile) { setError('Please select a PDF file.'); setLoading(false); return; }
+        if (!pdfFile) { setError(t('landing.verifyWidget.errors.selectPdf')); setLoading(false); return; }
         res = await verifyByFile(pdfFile);
       } else {
         const id = docId.trim().toUpperCase();
-        if (!id) { setError('Please enter a Document ID.'); setLoading(false); return; }
+        if (!id) { setError(t('landing.verifyWidget.errors.enterDocId')); setLoading(false); return; }
         res = await verifyByDocId(id);
       }
-      if (!res.data) throw new Error(res.message || 'Verification failed.');
+      if (!res.data) throw new Error(res.message || t('landing.verifyWidget.errors.verificationFailed'));
       setResult(res.data);
     } catch (err) {
-      setError(err.message || 'Verification failed. Please try again.');
+      setError(err.message || t('landing.verifyWidget.errors.verificationFailedRetry'));
     } finally {
       setLoading(false);
     }
@@ -174,10 +179,10 @@ function InlineVerifyWidget() {
     setSigLoading(true); setSigError(null); setSigResult(null);
     try {
       const res = await verifyDocumentSignature(result.docId);
-      if (!res.data) throw new Error(res.message || 'Signature verification failed.');
+      if (!res.data) throw new Error(res.message || t('landing.verifyWidget.errors.signatureFailed'));
       setSigResult(res.data);
     } catch (err) {
-      setSigError(err.message || 'Signature verification failed.');
+      setSigError(err.message || t('landing.verifyWidget.errors.signatureFailed'));
     } finally {
       setSigLoading(false);
     }
@@ -192,7 +197,7 @@ function InlineVerifyWidget() {
     <div style={{ maxWidth: 520, margin: '0 auto' }}>
       {/* Mode tabs */}
       <div style={{ display: 'flex', gap: 0, marginBottom: 20, border: '1px solid var(--lp-border-med)', borderRadius: 10, overflow: 'hidden' }}>
-        {[{ id: 'doc_id', label: 'By Document ID' }, { id: 'upload', label: 'Upload PDF' }].map(tab => (
+        {[{ id: 'doc_id', label: t('landing.verifyWidget.byDocId') }, { id: 'upload', label: t('landing.verifyWidget.uploadPdf') }].map(tab => (
           <button key={tab.id} type="button"
             onClick={() => { setMode(tab.id); reset(); setDocId(''); setPdfFile(null); }}
             style={{ flex: 1, padding: '10px 4px', fontSize: '0.84rem', fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', background: mode === tab.id ? '#0F766E' : 'var(--lp-bg-card)', color: mode === tab.id ? '#fff' : 'var(--lp-text-muted)' }}>
@@ -212,11 +217,11 @@ function InlineVerifyWidget() {
       <form onSubmit={handleSubmit} noValidate>
         {mode === 'doc_id' && (
           <div style={{ marginBottom: 14 }}>
-            <label htmlFor="lp-verify-id" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>Document ID</label>
-            <p style={{ fontSize: '0.74rem', color: 'var(--lp-text-muted)', marginBottom: 8 }}>Format: DOC-YYYYMMDD-XXXXX — printed on the document</p>
+            <label htmlFor="lp-verify-id" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>{t('landing.verifyWidget.docIdLabel')}</label>
+            <p style={{ fontSize: '0.74rem', color: 'var(--lp-text-muted)', marginBottom: 8 }}>{t('landing.verifyWidget.docIdHint')}</p>
             <input id="lp-verify-id" value={docId}
               onChange={e => { setDocId(e.target.value); reset(); }}
-              placeholder="e.g. DOC-20260817-A1B2C"
+              placeholder={t('landing.verifyWidget.docIdPlaceholder')}
               disabled={loading}
               style={{ width: '100%', padding: '11px 14px', border: '1.5px solid var(--lp-border-med)', borderRadius: 9, fontSize: '0.9rem', fontFamily: 'inherit', color: 'var(--lp-text)', background: 'var(--lp-bg-card)', outline: 'none', textTransform: 'uppercase', letterSpacing: '0.03em', boxSizing: 'border-box', transition: 'border-color 0.15s' }}
               onFocus={e => e.target.style.borderColor = '#0F766E'}
@@ -225,8 +230,8 @@ function InlineVerifyWidget() {
         )}
         {mode === 'upload' && (
           <div style={{ marginBottom: 14 }}>
-            <label htmlFor="lp-verify-pdf" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>Upload PDF</label>
-            <p style={{ fontSize: '0.74rem', color: 'var(--lp-text-muted)', marginBottom: 8 }}>Verify integrity against the original stored hash</p>
+            <label htmlFor="lp-verify-pdf" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--lp-text)', marginBottom: 6 }}>{t('landing.verifyWidget.uploadLabel')}</label>
+            <p style={{ fontSize: '0.74rem', color: 'var(--lp-text-muted)', marginBottom: 8 }}>{t('landing.verifyWidget.uploadHint')}</p>
             <input id="lp-verify-pdf" type="file" accept="application/pdf" disabled={loading}
               onChange={e => { setPdfFile(e.target.files[0] || null); reset(); }}
               style={{ width: '100%', padding: '9px 12px', border: '1.5px solid var(--lp-border-med)', borderRadius: 9, fontSize: '0.84rem', fontFamily: 'inherit', color: 'var(--lp-text)', background: 'var(--lp-bg-card)', cursor: 'pointer', boxSizing: 'border-box' }} />
@@ -238,9 +243,9 @@ function InlineVerifyWidget() {
           disabled={loading || (mode === 'doc_id' ? !docId.trim() : !pdfFile)}
           style={{ width: '100%', padding: '12px', background: '#0F766E', color: '#fff', border: 'none', borderRadius: 9, fontSize: '0.86rem', fontWeight: 700, fontFamily: 'inherit', letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: (loading || (mode === 'doc_id' ? !docId.trim() : !pdfFile)) ? 0.55 : 1, boxShadow: '0 4px 14px rgba(15,118,110,0.35)', transition: 'opacity 0.15s' }}>
           {loading ? (
-            <><span style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'lp-spin .65s linear infinite', flexShrink: 0 }} aria-hidden="true" /> Verifying…</>
+            <><span style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'lp-spin .65s linear infinite', flexShrink: 0 }} aria-hidden="true" /> {t('landing.verifyWidget.verifying')}</>
           ) : (
-            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Verify Document</>
+            <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> {t('landing.verifyWidget.verifyDocument')}</>
           )}
         </button>
       </form>
@@ -260,10 +265,10 @@ function InlineVerifyWidget() {
             </div>
             <div>
               <div style={{ fontSize: '0.9rem', fontWeight: 700, color: verified ? '#4ADE80' : revoked ? '#FBBF24' : '#F87171' }}>
-                {verified ? '✓ Document is Authentic & Untampered' : revoked ? '⚠ Document has been Revoked' : notFound ? 'Document Not Found' : '⚠ Document is Corrupt or Forged'}
+                {verified ? t('landing.verifyWidget.authenticTitle') : revoked ? t('landing.verifyWidget.revokedTitle') : notFound ? t('landing.verifyWidget.notFoundTitle') : t('landing.verifyWidget.corruptTitle')}
               </div>
               <div style={{ fontSize: '0.76rem', color: verified ? '#4ADE80' : revoked ? '#FBBF24' : '#F87171', opacity: 0.8, marginTop: 2 }}>
-                {verified ? 'Verified against the original record.' : revoked ? 'This document is no longer valid.' : notFound ? 'No document with this ID exists in our records.' : 'Hash mismatch — content may have been modified.'}
+                {verified ? t('landing.verifyWidget.authenticMsg') : revoked ? t('landing.verifyWidget.revokedMsg') : notFound ? t('landing.verifyWidget.notFoundMsg') : t('landing.verifyWidget.corruptMsg')}
               </div>
             </div>
           </div>
@@ -272,10 +277,10 @@ function InlineVerifyWidget() {
           {(result.docId || result.docStatus || result.generatedAt || result.issuedAt || result.revokedAt) && (
             <div style={{ padding: '12px 16px', background: 'var(--lp-bg-card)', borderTop: '1px solid var(--lp-border)', display: 'flex', flexDirection: 'column', gap: 7 }}>
               {[
-                result.docId && { key: 'Document ID', val: result.docId, mono: true },
-                result.docStatus && { key: 'Status', val: result.docStatus },
-                (result.generatedAt || result.issuedAt) && { key: 'Recorded', val: new Date(result.generatedAt || result.issuedAt).toLocaleString() },
-                result.revokedAt && { key: 'Revoked at', val: new Date(result.revokedAt).toLocaleString() },
+                result.docId && { key: t('landing.verifyWidget.docIdRow'), val: result.docId, mono: true },
+                result.docStatus && { key: t('landing.verifyWidget.statusRow'), val: result.docStatus },
+                (result.generatedAt || result.issuedAt) && { key: t('landing.verifyWidget.recordedRow'), val: new Date(result.generatedAt || result.issuedAt).toLocaleString() },
+                result.revokedAt && { key: t('landing.verifyWidget.revokedRow'), val: new Date(result.revokedAt).toLocaleString() },
               ].filter(Boolean).map(row => (
                 <div key={row.key} style={{ display: 'flex', gap: 10, fontSize: '0.81rem' }}>
                   <span style={{ fontWeight: 600, color: 'var(--lp-text-muted)', minWidth: 100, flexShrink: 0 }}>{row.key}</span>
@@ -284,7 +289,7 @@ function InlineVerifyWidget() {
               ))}
               {(tampered || result.hashNote === 'content_hash_mismatch') && (
                 <div style={{ padding: '8px 10px', borderRadius: 7, fontSize: '0.78rem', background: 'rgba(220,38,38,0.10)', color: '#F87171', fontStyle: 'italic' }}>
-                  The document may have been modified after generation. Do not rely on its contents.
+                  {t('landing.verifyWidget.tamperWarning')}
                 </div>
               )}
             </div>
@@ -293,22 +298,22 @@ function InlineVerifyWidget() {
           {/* Signature panel */}
           {result.docId && (
             <div style={{ padding: '12px 16px', background: 'var(--lp-bg-card)', borderTop: '1px solid var(--lp-border)' }}>
-              <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--lp-text-muted)', marginBottom: 8 }}>Digital Signature</div>
+              <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--lp-text-muted)', marginBottom: 8 }}>{t('landing.verifyWidget.digitalSignature')}</div>
               {!sigResult && !sigLoading && !sigError && (
                 <button type="button" onClick={handleVerifySig}
                   style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid var(--lp-border-med)', background: 'var(--lp-bg-card)', color: 'var(--lp-text)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Verify Digital Signature
+                  {t('landing.verifyWidget.verifySignature')}
                 </button>
               )}
-              {sigLoading && <div style={{ fontSize: '0.79rem', color: 'var(--lp-text-muted)' }}>Verifying signature…</div>}
+              {sigLoading && <div style={{ fontSize: '0.79rem', color: 'var(--lp-text-muted)' }}>{t('landing.verifyWidget.verifyingSignature')}</div>}
               {sigError   && <div style={{ fontSize: '0.79rem', color: '#F87171' }}>{sigError}</div>}
               {sigResult  && (
                 <div style={{ fontSize: '0.79rem', color: 'var(--lp-text)' }}>
                   <div style={{ color: sigResult.signatureValid ? '#4ADE80' : sigResult.signed === false ? 'var(--lp-text-muted)' : '#F87171', marginBottom: 4 }}>
-                    {sigResult.signed === false ? '— Not yet signed' : sigResult.signatureValid ? '✓ Signature valid' : '✗ Signature HMAC mismatch'}
+                    {sigResult.signed === false ? t('landing.verifyWidget.notSigned') : sigResult.signatureValid ? t('landing.verifyWidget.signatureValid') : t('landing.verifyWidget.signatureMismatch')}
                   </div>
-                  {sigResult.signerName && <div>Approver: <strong>{sigResult.signerName}</strong></div>}
-                  {sigResult.signedAt   && <div style={{ marginTop: 2 }}>Signed: {new Date(sigResult.signedAt).toLocaleString()}</div>}
+                  {sigResult.signerName && <div>{t('landing.verifyWidget.approver', { name: sigResult.signerName })}</div>}
+                  {sigResult.signedAt   && <div style={{ marginTop: 2 }}>{t('landing.verifyWidget.signed', { date: new Date(sigResult.signedAt).toLocaleString() })}</div>}
                 </div>
               )}
             </div>
@@ -321,48 +326,66 @@ function InlineVerifyWidget() {
 }
 function Navbar({ scrolled, dark, toggleTheme }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useAuth();
+  const { t } = useTranslation(['translation', 'auth']);
+
+  // Where the logo/brand takes the user when clicked
+  const dashboardPath = user?.role === 'recipient' ? '/my-documents' : '/dashboard';
 
   const NAV_LINKS = [
-    { href: '#home',         label: 'Home' },
-    { href: '#features',     label: 'Features' },
-    { href: '#how',          label: 'How It Works' },
-    { href: '#security',     label: 'Security' },
-    { href: '#about',        label: 'About' },
-    { href: '#verification', label: 'Verification' },
+    { href: '#home',         label: t('landing.nav.home') },
+    { href: '#features',     label: t('landing.nav.features') },
+    { href: '#how',          label: t('landing.nav.howItWorks') },
+    { href: '#security',     label: t('landing.nav.security') },
+    { href: '#about',        label: t('landing.nav.about') },
+    { href: '#faq',          label: t('landing.nav.faq') },
+    { href: '#verification', label: t('landing.nav.verification') },
   ];
 
   return (
     <header className={`lp-nav${scrolled ? ' lp-nav-scrolled' : ''}`}>
       <div className="lp-nav-inner">
-        {/* Logo + brand — clicking goes back to top */}
-        <a href="#home" className="lp-nav-brand">
-          <img src={logo} alt="DocuVault" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-          <span className="lp-nav-brand-name">DocuVault</span>
-        </a>
+        {/* Logo + brand — logged-in users go to dashboard, guests scroll to top */}
+        {user ? (
+          <Link to={dashboardPath} className="lp-nav-brand">
+            <img src={logo} alt="DocuVault" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+            <span className="lp-nav-brand-name">DocuVault</span>
+          </Link>
+        ) : (
+          <a href="#home" className="lp-nav-brand">
+            <img src={logo} alt="DocuVault" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+            <span className="lp-nav-brand-name">DocuVault</span>
+          </a>
+        )}
 
         {/* Desktop nav */}
-        <nav className="lp-desktop-nav" aria-label="Main navigation">
+        <nav className="lp-desktop-nav" aria-label={t('landing.nav.mainNavigation')}>
           {NAV_LINKS.map(({ href, label }) => (
             <a key={href} href={href} className="lp-nav-link">{label}</a>
           ))}
         </nav>
 
-        {/* Right: 🌙 toggle + Sign In */}
+        {/* Right: language + 🌙 toggle + Sign In / Dashboard */}
         <div className="lp-nav-actions">
+          <LanguageSwitcher variant="navbar" />
           <button
             type="button"
             onClick={toggleTheme}
             className="lp-theme-btn"
-            title={dark ? 'Switch to Light mode' : 'Switch to Dark mode'}
-            aria-label={dark ? 'Switch to Light mode' : 'Switch to Dark mode'}
+            title={dark ? t('landing.nav.switchToLight') : t('landing.nav.switchToDark')}
+            aria-label={dark ? t('landing.nav.switchToLight') : t('landing.nav.switchToDark')}
           >
             {dark ? <IconSun /> : <IconMoon />}
           </button>
-          <Link to="/login" className="lp-nav-signin-btn">Sign In</Link>
+          {user ? (
+            <Link to={dashboardPath} className="lp-nav-signin-btn">{t('landing.nav.dashboard')}</Link>
+          ) : (
+            <Link to="/login" className="lp-nav-signin-btn">{t('landing.nav.signIn')}</Link>
+          )}
         </div>
 
         {/* Hamburger */}
-        <button type="button" className="lp-hamburger" onClick={() => setMobileOpen(o => !o)} aria-label="Toggle menu">
+        <button type="button" className="lp-hamburger" onClick={() => setMobileOpen(o => !o)} aria-label={t('landing.nav.toggleMenu')}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             {mobileOpen
               ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
@@ -379,11 +402,16 @@ function Navbar({ scrolled, dark, toggleTheme }) {
             <a key={href} href={href} onClick={() => setMobileOpen(false)} className="lp-mobile-link">{label}</a>
           ))}
           <div className="lp-mobile-actions">
+            <LanguageSwitcher variant="menu" />
             <button type="button" onClick={toggleTheme} className="lp-mobile-theme-btn">
               {dark ? <IconSun /> : <IconMoon />}
-              {dark ? 'Light Mode' : 'Dark Mode'}
+              {dark ? t('landing.nav.lightMode') : t('landing.nav.darkMode')}
             </button>
-            <Link to="/login" onClick={() => setMobileOpen(false)} className="lp-mobile-signin-btn">Sign In</Link>
+            {user ? (
+              <Link to={dashboardPath} onClick={() => setMobileOpen(false)} className="lp-mobile-signin-btn">{t('landing.nav.dashboard')}</Link>
+            ) : (
+              <Link to="/login" onClick={() => setMobileOpen(false)} className="lp-mobile-signin-btn">{t('landing.nav.signIn')}</Link>
+            )}
           </div>
         </div>
       )}
@@ -395,6 +423,7 @@ function Navbar({ scrolled, dark, toggleTheme }) {
    Footer
 ───────────────────────────────────────────────────────────────────────────── */
 function Footer() {
+  const { t } = useTranslation(['translation', 'auth']);
   return (
     <footer className="lp-footer">
       <div className="lp-footer-inner">
@@ -405,34 +434,35 @@ function Footer() {
               <span className="lp-footer-brand-name">DocuVault</span>
             </div>
             <p className="lp-footer-tagline">
-              Enterprise-grade document automation. Generate, approve, sign, verify, and deliver with full cryptographic security.
+              {t('landing.footer.tagline')}
             </p>
           </div>
           <div className="lp-footer-links-row">
             <div>
-              <div className="lp-footer-col-title">Platform</div>
+              <div className="lp-footer-col-title">{t('landing.footer.platform')}</div>
               {[
-                { href: '#home',     label: 'Home' },
-                { href: '#features', label: 'Features' },
-                { href: '#how',      label: 'How It Works' },
-                { href: '#security', label: 'Security' },
-                { href: '#about',    label: 'About' },
-                { href: '#verification', label: 'Verification' },
+                { href: '#home',     label: t('landing.nav.home') },
+                { href: '#features', label: t('landing.nav.features') },
+                { href: '#how',      label: t('landing.nav.howItWorks') },
+                { href: '#security', label: t('landing.nav.security') },
+                { href: '#about',    label: t('landing.nav.about') },
+                { href: '#faq',      label: t('landing.nav.faq') },
+                { href: '#verification', label: t('landing.nav.verification') },
               ].map(({ href, label }) => (
                 <a key={href} href={href} className="lp-footer-link">{label}</a>
               ))}
             </div>
             <div>
-              <div className="lp-footer-col-title">Access</div>
-              <Link to="/login"  className="lp-footer-link">Sign In</Link>
-              <Link to="/verify" className="lp-footer-link">Verify Document</Link>
-              <Link to="/faq"    className="lp-footer-link">FAQ &amp; Help</Link>
+              <div className="lp-footer-col-title">{t('landing.footer.access')}</div>
+              <Link to="/login"  className="lp-footer-link">{t('landing.nav.signIn')}</Link>
+              <Link to="/verify" className="lp-footer-link">{t('landing.footer.verifyDocument')}</Link>
+              <Link to="/faq"    className="lp-footer-link">{t('landing.footer.faqHelp')}</Link>
             </div>
           </div>
         </div>
         <div className="lp-footer-bottom">
-          <span>© 2026 DocuVault. All rights reserved.</span>
-          <span>Enterprise Document Automation Platform</span>
+          <span>{t('landing.footer.copyright')}</span>
+          <span>{t('landing.footer.taglineBottom')}</span>
         </div>
       </div>
     </footer>
@@ -451,6 +481,7 @@ function SectionBadge({ label }) {
 ───────────────────────────────────────────────────────────────────────────── */
 export default function LandingPage() {
   const { dark, toggle: toggleTheme } = useTheme();
+  const { t } = useTranslation(['translation', 'auth']);
 
   const [activeStep, setActiveStep] = useState(0);
   const [slideIndex, setSlideIndex] = useState(0);
@@ -466,18 +497,25 @@ export default function LandingPage() {
   const refSecRight = useReveal();
   const refRoleHead = useReveal();
   const refRoles    = useReveal();
+  const refFaq      = useReveal();
   const refVerify   = useReveal();
   const refFinalCta = useReveal();
 
+  const slides  = SLIDES(t);
+  const features = FEATURES(t);
+  const steps   = STEPS(t);
+  const roles   = ROLES(t);
+  const chain   = CHAIN(t);
+
   useEffect(() => {
-    const t = setInterval(() => setActiveStep(s => (s + 1) % STEPS.length), 2000);
+    const t = setInterval(() => setActiveStep(s => (s + 1) % steps.length), 2000);
     return () => clearInterval(t);
   }, []);
 
   useEffect(() => {
     const t = setInterval(() => {
       setFadeIn(false);
-      setTimeout(() => { setSlideIndex(i => (i + 1) % SLIDES.length); setFadeIn(true); }, 500);
+      setTimeout(() => { setSlideIndex(i => (i + 1) % slides.length); setFadeIn(true); }, 500);
     }, 4500);
     return () => clearInterval(t);
   }, []);
@@ -652,6 +690,28 @@ export default function LandingPage() {
           background: rgba(255,255,255,0.16);
           border-color: rgba(255,255,255,0.45);
           color: #fff; transform: scale(1.06);
+        }
+        .lp-nav-actions .lang-switcher-navbar {
+          color: rgba(255,255,255,0.85);
+          border-color: rgba(255,255,255,0.22);
+          background: rgba(255,255,255,0.08);
+          padding: 7px 10px;
+        }
+        .lp-nav-actions .lang-switcher-navbar .lang-code { display: none; }
+        .lp-nav-actions .lang-switcher-navbar:hover {
+          background: rgba(255,255,255,0.16);
+          border-color: rgba(255,255,255,0.45);
+          color: #fff;
+        }
+        .lp-nav-actions .lang-switcher-navbar:focus-visible {
+          outline: 2px solid rgba(255,255,255,0.6);
+          outline-offset: 2px;
+        }
+        html:not(.dark) .lp-nav.lp-nav-scrolled .lp-nav-actions .lang-switcher-navbar {
+          border-color: #E2E8F0; background: #F8FAFC; color: #475569;
+        }
+        html:not(.dark) .lp-nav.lp-nav-scrolled .lp-nav-actions .lang-switcher-navbar:hover {
+          background: rgba(15,118,110,0.08); border-color: #0F766E; color: #0F766E;
         }
         html:not(.dark) .lp-nav.lp-nav-scrolled .lp-theme-btn {
           border-color: #E2E8F0; background: #F8FAFC; color: #475569;
@@ -833,7 +893,7 @@ export default function LandingPage() {
             HERO — always dark/photo regardless of theme
         ══════════════════════════════════════════════════════ */}
         <section id="home" style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-          {SLIDES.map((slide, i) => (
+          {slides.map((slide, i) => (
             <div key={slide.url} style={{
               position: 'absolute', inset: 0,
               opacity: i === slideIndex ? (fadeIn ? 1 : 0) : 0,
@@ -847,8 +907,8 @@ export default function LandingPage() {
 
           {/* Slide dots */}
           <div style={{ position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 8, zIndex: 10 }}>
-            {SLIDES.map((_, i) => (
-              <button key={i} onClick={() => { setSlideIndex(i); setFadeIn(true); }} aria-label={`Slide ${i + 1}`} style={{
+            {slides.map((_, i) => (
+              <button key={i} onClick={() => { setSlideIndex(i); setFadeIn(true); }} aria-label={t('landing.hero.slideLabel', { number: i + 1 })} style={{
                 borderRadius: 999, border: 'none', cursor: 'pointer', transition: 'all 0.3s',
                 width: i === slideIndex ? 24 : 8, height: 8,
                 background: i === slideIndex ? '#fff' : 'rgba(255,255,255,0.35)',
@@ -861,35 +921,25 @@ export default function LandingPage() {
             <div style={{ maxWidth: 640 }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(15,118,110,0.20)', border: '1px solid rgba(15,118,110,0.50)', borderRadius: 999, padding: '5px 14px', marginBottom: 24 }}>
                 <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#5EEAD4', boxShadow: '0 0 0 3px rgba(94,234,212,0.25)' }} />
-                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5EEAD4' }}>Enterprise Document Platform</span>
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5EEAD4' }}>{t('landing.hero.badge')}</span>
               </div>
               <h1 style={{ fontSize: 'clamp(2.2rem,5vw,3.6rem)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.03em', marginBottom: 20 }}>
-                <span style={{ display: 'block', color: '#fff' }}>Automate.</span>
-                <span style={{ display: 'block', color: '#fff' }}>Verify.</span>
-                <span style={{ display: 'block', background: 'linear-gradient(90deg,#5EEAD4,#0F766E)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Deliver with Trust.</span>
+                <span style={{ display: 'block', color: '#fff' }}>{t('landing.hero.title1')}</span>
+                <span style={{ display: 'block', color: '#fff' }}>{t('landing.hero.title2')}</span>
+                <span style={{ display: 'block', background: 'linear-gradient(90deg,#5EEAD4,#0F766E)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('landing.hero.title3')}</span>
               </h1>
-              <p style={{ fontSize: '1.05rem', color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, marginBottom: 32, maxWidth: 500 }}>
-                DocuVault is a full-cycle document automation platform — generate PDFs from templates, route for e-signature approval, deliver securely, and verify authenticity with cryptographic proof.
-              </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 36 }}>
-                {['SHA-256 Hashing', 'OTP E-Signature', 'Bulk Generation', 'QR Verification', 'Full Audit Trail'].map(f => (
-                  <span key={f} style={{ fontSize: '0.75rem', fontWeight: 500, background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.80)', padding: '5px 12px', borderRadius: 999, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#5EEAD4', flexShrink: 0 }} />{f}
-                  </span>
-                ))}
-              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                 <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#0F766E', color: '#fff', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 700, padding: '13px 28px', borderRadius: 10, boxShadow: '0 6px 20px rgba(15,118,110,0.45)', transition: 'all 0.2s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = '#115E59'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = '#0F766E'; e.currentTarget.style.transform = 'none'; }}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-                  Sign In to Workspace
+                  {t('landing.hero.signInToWorkspace')}
                 </Link>
                 <Link to="/verify" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.10)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600, padding: '13px 24px', borderRadius: 10, transition: 'all 0.2s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; e.currentTarget.style.transform = 'none'; }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                  Verify a Document
+                  {t('landing.hero.verifyDocument')}
                 </Link>
               </div>
             </div>
@@ -901,10 +951,10 @@ export default function LandingPage() {
         <section className="lp-stats-section">
           <div ref={refStats} className="lp-stats-grid lp-reveal lp-reveal-stagger">
             {[
-              { value: '5 Roles',  label: 'Role-based access control' },
-              { value: 'SHA-256', label: 'Cryptographic document hashing' },
-              { value: 'OTP 2FA', label: 'Two-factor approval & delivery' },
-              { value: '100%',    label: 'Forensic audit coverage' },
+              { value: t('landing.stats.fiveRoles'),  label: t('landing.stats.roleAccessLabel') },
+              { value: 'SHA-256', label: t('landing.stats.shaLabel') },
+              { value: 'OTP 2FA', label: t('landing.stats.otpLabel') },
+              { value: '100%',    label: t('landing.stats.auditLabel') },
             ].map(({ value, label }, i) => (
               <div key={value} className="lp-stat-cell" style={{ borderRight: i < 3 ? '1px solid var(--lp-stat-border)' : 'none' }}>
                 <div className="lp-stat-value">{value}</div>
@@ -918,17 +968,17 @@ export default function LandingPage() {
         <section id="features" className="lp-section-dark" style={{ padding: '96px 24px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div ref={refFeatHead} className="lp-reveal" style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto 60px' }}>
-              <SectionBadge label="Platform Capabilities" />
+              <SectionBadge label={t('landing.featuresSection.badge')} />
               <h2 style={{ fontSize: 'clamp(1.6rem,3vw,2.4rem)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--lp-text)', lineHeight: 1.2, marginBottom: 14 }}>
-                Everything you need for{' '}
-                <span style={{ color: 'var(--lp-accent)' }}>secure document workflows</span>
+                {t('landing.featuresSection.titleBefore')}
+                <span style={{ color: 'var(--lp-accent)' }}>{t('landing.featuresSection.titleAccent')}</span>
               </h2>
               <p style={{ fontSize: '0.95rem', color: 'var(--lp-text-muted)', lineHeight: 1.7 }}>
-                From template creation to verified delivery — every step is automated, secured, and auditable.
+                {t('landing.featuresSection.subtitle')}
               </p>
             </div>
             <div ref={refFeats} className="lp-reveal lp-reveal-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 20 }}>
-              {FEATURES.map(f => (
+              {features.map(f => (
                 <div key={f.title} className="lp-feat-card">
                   <div style={{ width: 44, height: 44, borderRadius: 12, background: f.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: f.accent, marginBottom: 16 }}>{f.icon}</div>
                   <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--lp-text)', marginBottom: 8 }}>{f.title}</h3>
@@ -943,17 +993,17 @@ export default function LandingPage() {
         <section id="how" className="lp-section-alt" style={{ padding: '96px 24px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div ref={refHowHead} className="lp-reveal" style={{ textAlign: 'center', maxWidth: 560, margin: '0 auto 60px' }}>
-              <SectionBadge label="Workflow" />
+              <SectionBadge label={t('landing.howSection.badge')} />
               <h2 style={{ fontSize: 'clamp(1.6rem,3vw,2.4rem)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--lp-text)', lineHeight: 1.2, marginBottom: 14 }}>
-                Six steps from{' '}
-                <span style={{ color: 'var(--lp-accent)' }}>template to verified delivery</span>
+                {t('landing.howSection.titleBefore')}
+                <span style={{ color: 'var(--lp-accent)' }}>{t('landing.howSection.titleAccent')}</span>
               </h2>
               <p style={{ fontSize: '0.9rem', color: 'var(--lp-text-muted)', lineHeight: 1.7 }}>
-                A complete, automated workflow that eliminates manual document handling.
+                {t('landing.howSection.subtitle')}
               </p>
             </div>
             <div ref={refSteps} className="lp-reveal lp-reveal-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 16 }}>
-              {STEPS.map((s, i) => {
+              {steps.map((s, i) => {
                 const isActive = activeStep === i;
                 return (
                   <div key={s.num} style={{
@@ -975,7 +1025,7 @@ export default function LandingPage() {
               <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#0F766E', color: '#fff', textDecoration: 'none', fontSize: '0.88rem', fontWeight: 700, padding: '12px 28px', borderRadius: 10, boxShadow: '0 4px 16px rgba(15,118,110,0.35)', transition: 'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#115E59'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#0F766E'; e.currentTarget.style.transform = 'none'; }}>
-                Start Using the Platform
+                {t('landing.howSection.cta')}
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </Link>
             </div>
@@ -987,20 +1037,20 @@ export default function LandingPage() {
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 64, alignItems: 'center' }}>
               <div ref={refSecLeft} className="lp-reveal">
-                <SectionBadge label="Security Architecture" />
+                <SectionBadge label={t('landing.securitySection.badge')} />
                 <h2 style={{ fontSize: 'clamp(1.6rem,3vw,2.3rem)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--lp-text)', lineHeight: 1.2, marginBottom: 16 }}>
-                  Cryptographic security{' '}
-                  <span style={{ color: 'var(--lp-accent)' }}>at every step</span>
+                  {t('landing.securitySection.titleBefore')}
+                  <span style={{ color: 'var(--lp-accent)' }}>{t('landing.securitySection.titleAccent')}</span>
                 </h2>
                 <p style={{ fontSize: '0.92rem', color: 'var(--lp-text-muted)', lineHeight: 1.75, marginBottom: 28 }}>
-                  Every document is cryptographically protected from generation to verification. Tampering is instantly detectable at any stage.
+                  {t('landing.securitySection.subtitle')}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 28 }}>
                   {[
-                    { title: 'SHA-256',     sub: 'File integrity hash at generation' },
-                    { title: 'HMAC-SHA256', sub: 'Per-approver cryptographic signature' },
-                    { title: 'OTP 2FA',     sub: 'Identity-verified approvals & delivery' },
-                    { title: 'JWT Tokens',  sub: 'Short-lived single-use access tokens' },
+                    { title: 'SHA-256',     sub: t('landing.securitySection.tech.shaSub') },
+                    { title: 'HMAC-SHA256', sub: t('landing.securitySection.tech.hmacSub') },
+                    { title: 'OTP 2FA',     sub: t('landing.securitySection.tech.otpSub') },
+                    { title: 'JWT Tokens',  sub: t('landing.securitySection.tech.jwtSub') },
                   ].map(({ title, sub }) => (
                     <div key={title} className="lp-tech-badge">
                       <div style={{ fontSize: '0.87rem', fontWeight: 700, color: 'var(--lp-text)', marginBottom: 3 }}>{title}</div>
@@ -1012,15 +1062,15 @@ export default function LandingPage() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--lp-step-active-bg)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                  Try the Verify Portal
+                  {t('landing.securitySection.tryVerifyPortal')}
                 </Link>
               </div>
               <div ref={refSecRight} className="lp-reveal" style={{ position: 'relative' }}>
                 <div style={{ position: 'absolute', inset: 0, borderRadius: 24, background: 'radial-gradient(ellipse at center,rgba(15,118,110,0.10) 0%,transparent 70%)', pointerEvents: 'none' }} />
                 <div className="lp-chain-wrap" style={{ position: 'relative' }}>
-                  <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lp-text-faint)', marginBottom: 16 }}>Document Integrity Chain</p>
+                  <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lp-text-faint)', marginBottom: 16 }}>{t('landing.securitySection.integrityChain')}</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {CHAIN.map((item, i) => (
+                    {chain.map((item, i) => (
                       <div key={i} className="lp-chain-item">
                         <div style={{ width: 22, height: 22, borderRadius: '50%', flexShrink: 0, background: 'rgba(22,163,74,0.15)', border: '1px solid rgba(22,163,74,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
                           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1039,17 +1089,17 @@ export default function LandingPage() {
         <section id="about" className="lp-section-alt" style={{ padding: '96px 24px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div ref={refRoleHead} className="lp-reveal" style={{ textAlign: 'center', maxWidth: 560, margin: '0 auto 56px' }}>
-              <SectionBadge label="Access Control" />
+              <SectionBadge label={t('landing.rolesSection.badge')} />
               <h2 style={{ fontSize: 'clamp(1.6rem,3vw,2.4rem)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--lp-text)', lineHeight: 1.2, marginBottom: 14 }}>
-                Built for every{' '}
-                <span style={{ color: 'var(--lp-accent)' }}>team member's role</span>
+                {t('landing.rolesSection.titleBefore')}
+                <span style={{ color: 'var(--lp-accent)' }}>{t('landing.rolesSection.titleAccent')}</span>
               </h2>
               <p style={{ fontSize: '0.9rem', color: 'var(--lp-text-muted)', lineHeight: 1.7 }}>
-                Five distinct roles with purpose-built permission sets. Everyone sees only what they need.
+                {t('landing.rolesSection.subtitle')}
               </p>
             </div>
             <div ref={refRoles} className="lp-reveal lp-reveal-stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 16 }}>
-              {ROLES.map(r => (
+              {roles.map(r => (
                 <div key={r.name} className="lp-role-card">
                   <img src={r.image} alt={r.name} style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'contain', marginBottom: 14, background: 'rgba(128,128,128,0.08)', padding: 4 }} />
                   <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--lp-text)', marginBottom: 6 }}>{r.name}</h4>
@@ -1068,17 +1118,41 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ══ FAQ — public, any visitor can read the help center ══ */}
+        <section id="faq" className="lp-section-alt" style={{ padding: '96px 24px' }}>
+          <div style={{ maxWidth: 720, margin: '0 auto' }}>
+            <div ref={refFaq} className="lp-reveal" style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto 48px' }}>
+              <SectionBadge label={t('landing.faqSection.badge')} />
+              <h2 style={{ fontSize: 'clamp(1.6rem,3vw,2.4rem)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--lp-text)', lineHeight: 1.2, marginBottom: 14 }}>
+                {t('landing.faqSection.titleBefore')}
+                <span style={{ color: 'var(--lp-accent)' }}>{t('landing.faqSection.titleAccent')}</span>
+              </h2>
+              <p style={{ fontSize: '0.95rem', color: 'var(--lp-text-muted)', lineHeight: 1.7 }}>
+                {t('landing.faqSection.subtitle')}
+              </p>
+            </div>
+
+            <div style={{
+              background: 'var(--lp-bg-alt)', border: '1px solid var(--lp-border-med)',
+              borderRadius: 20, padding: '32px 28px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.10)',
+            }}>
+              <FaqAccordion roleAware={false} />
+            </div>
+          </div>
+        </section>
+
         {/* ══ VERIFICATION — inline, no page redirect ══ */}
         <section id="verification" className="lp-section-dark" style={{ padding: '96px 24px' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto' }}>
             <div ref={refVerify} className="lp-reveal" style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto 48px' }}>
-              <SectionBadge label="Document Verification" />
+              <SectionBadge label={t('landing.verificationSection.badge')} />
               <h2 style={{ fontSize: 'clamp(1.6rem,3vw,2.4rem)', fontWeight: 900, letterSpacing: '-0.02em', color: 'var(--lp-text)', lineHeight: 1.2, marginBottom: 14 }}>
-                Verify any document{' '}
-                <span style={{ color: 'var(--lp-accent)' }}>instantly — no login needed</span>
+                {t('landing.verificationSection.titleBefore')}
+                <span style={{ color: 'var(--lp-accent)' }}>{t('landing.verificationSection.titleAccent')}</span>
               </h2>
               <p style={{ fontSize: '0.95rem', color: 'var(--lp-text-muted)', lineHeight: 1.7 }}>
-                Enter a Document ID, upload the PDF, or scan the QR code to confirm authenticity and integrity in seconds.
+                {t('landing.verificationSection.subtitle')}
               </p>
             </div>
 
@@ -1095,8 +1169,8 @@ export default function LandingPage() {
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--lp-text)' }}>DocuVault Verification Portal</div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--lp-text-muted)', marginTop: 2 }}>Cryptographic authenticity check · Free · No account required</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--lp-text)' }}>{t('landing.verificationSection.portalTitle')}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--lp-text-muted)', marginTop: 2 }}>{t('landing.verificationSection.portalSubtitle')}</div>
                 </div>
               </div>
               <InlineVerifyWidget />
@@ -1110,23 +1184,23 @@ export default function LandingPage() {
           <div ref={refFinalCta} className="lp-reveal" style={{ maxWidth: 680, margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
             <img src={logo} alt="DocuVault" style={{ width: 56, height: 56, borderRadius: 14, objectFit: 'cover', margin: '0 auto 20px', boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }} />
             <h2 style={{ fontSize: 'clamp(1.8rem,4vw,2.8rem)', fontWeight: 900, color: '#fff', marginBottom: 16, letterSpacing: '-0.03em', lineHeight: 1.15 }}>
-              Ready to transform your{' '}
-              <span style={{ color: '#CCFBF1' }}>document workflows?</span>
+              {t('landing.cta.titleBefore')}
+              <span style={{ color: '#CCFBF1' }}>{t('landing.cta.titleAccent')}</span>
             </h2>
             <p style={{ fontSize: '1rem', color: 'rgba(255,255,255,0.65)', lineHeight: 1.7, marginBottom: 36, maxWidth: 480, margin: '0 auto 36px' }}>
-              Sign in to your DocuVault workspace and start generating, approving, and delivering documents with full cryptographic security and a complete audit trail.
+              {t('landing.cta.subtitle')}
             </p>
             <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: '#fff', color: '#0F766E', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 800, padding: '14px 32px', borderRadius: 12, boxShadow: '0 6px 24px rgba(0,0,0,0.20)', transition: 'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#F0FDF4'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'none'; }}>
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
-                Sign In to Workspace
+                {t('landing.cta.signInToWorkspace')}
               </Link>
               <Link to="/verify" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.30)', color: '#fff', textDecoration: 'none', fontSize: '0.95rem', fontWeight: 700, padding: '14px 28px', borderRadius: 12, transition: 'all 0.2s' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.transform = 'none'; }}>
-                Verify a Document
+                {t('landing.footer.verifyDocument')}
               </Link>
             </div>
           </div>

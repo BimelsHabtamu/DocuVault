@@ -4,6 +4,7 @@
  * All verify logic is self-contained; no route change happens.
  */
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { verifyByDocId, verifyByFile, verifyDocumentSignature } from '../../services/publicService';
 
 /* ── small inline icons ── */
@@ -61,6 +62,7 @@ function IconWarn() {
 }
 
 export default function VerifyModal({ open, onClose }) {
+  const { t } = useTranslation(['translation', 'layout']);
   const [mode,       setMode]       = useState('doc_id');
   const [docId,      setDocId]      = useState('');
   const [pdfFile,    setPdfFile]    = useState(null);
@@ -113,35 +115,35 @@ export default function VerifyModal({ open, onClose }) {
     try {
       let res;
       if (mode === 'upload') {
-        if (!pdfFile) { setError('Please select a PDF file.'); setLoading(false); return; }
+        if (!pdfFile) { setError(t('verify.errSelectPdf')); setLoading(false); return; }
         res = await verifyByFile(pdfFile);
       } else {
         const id = docId.trim().toUpperCase();
-        if (!id) { setError('Please enter a Document ID.'); setLoading(false); return; }
+        if (!id) { setError(t('verify.errEnterDocId')); setLoading(false); return; }
         res = await verifyByDocId(id);
       }
-      if (!res.data) throw new Error(res.message || 'Verification failed.');
+      if (!res.data) throw new Error(res.message || t('verify.verificationFailed'));
       setResult(res.data);
     } catch (err) {
-      setError(err.message || 'Verification failed. Please try again.');
+      setError(err.message || t('verify.verificationFailedRetry'));
     } finally {
       setLoading(false);
     }
-  }, [mode, docId, pdfFile]);
+  }, [mode, docId, pdfFile, t]);
 
   const handleVerifySig = useCallback(async () => {
     if (!result?.docId) return;
     setSigLoading(true); setSigError(null); setSigResult(null);
     try {
       const res = await verifyDocumentSignature(result.docId);
-      if (!res.data) throw new Error(res.message || 'Signature verification failed.');
+      if (!res.data) throw new Error(res.message || t('verify.sigFailed'));
       setSigResult(res.data);
     } catch (err) {
-      setSigError(err.message || 'Signature verification failed.');
+      setSigError(err.message || t('verify.sigFailed'));
     } finally {
       setSigLoading(false);
     }
-  }, [result?.docId]);
+  }, [result?.docId, t]);
 
   if (!open) return null;
 
@@ -369,7 +371,7 @@ export default function VerifyModal({ open, onClose }) {
         className="vm-overlay"
         role="dialog"
         aria-modal="true"
-        aria-label="Verify Document"
+        aria-label={t('nav.verifyDocument')}
         onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       >
         <div className="vm-panel">
@@ -381,11 +383,11 @@ export default function VerifyModal({ open, onClose }) {
                 <IconShield />
               </div>
               <div>
-                <h2 className="vm-title">Verify Document</h2>
-                <p className="vm-subtitle">Confirm authenticity without leaving your workspace</p>
+                <h2 className="vm-title">{t('nav.verifyDocument')}</h2>
+                <p className="vm-subtitle">{t('verify.subtitle')}</p>
               </div>
             </div>
-            <button type="button" className="vm-close-btn" onClick={onClose} aria-label="Close">
+            <button type="button" className="vm-close-btn" onClick={onClose} aria-label={t('common.close')}>
               <IconClose />
             </button>
           </div>
@@ -402,14 +404,14 @@ export default function VerifyModal({ open, onClose }) {
             <style>{`@keyframes vm-scan { 0%{margin-left:-40%} 100%{margin-left:140%} }`}</style>
 
             {/* Mode tabs */}
-            <div className="vm-tabs" role="tablist" aria-label="Verification method">
+            <div className="vm-tabs" role="tablist" aria-label={t('verify.methodLabel')}>
               <button
                 type="button" role="tab"
                 className={`vm-tab${mode === 'doc_id' ? ' vm-tab-active' : ''}`}
                 aria-selected={mode === 'doc_id'}
                 onClick={() => { setMode('doc_id'); reset(); setPdfFile(null); }}
               >
-                By Document ID
+                {t('verify.byDocId')}
               </button>
               <button
                 type="button" role="tab"
@@ -417,7 +419,7 @@ export default function VerifyModal({ open, onClose }) {
                 aria-selected={mode === 'upload'}
                 onClick={() => { setMode('upload'); reset(); setDocId(''); }}
               >
-                Upload PDF
+                {t('verify.uploadPdf')}
               </button>
             </div>
 
@@ -439,14 +441,14 @@ export default function VerifyModal({ open, onClose }) {
             <form onSubmit={handleSubmit} noValidate>
               {mode === 'doc_id' && (
                 <div className="vm-field" style={{ marginBottom: 12 }}>
-                  <label htmlFor="vm-doc-id" className="vm-label">Document ID</label>
-                  <p className="vm-hint">Format: DOC-YYYYMMDD-XXXXX — printed on the document</p>
+                  <label htmlFor="vm-doc-id" className="vm-label">{t('verify.docIdLabel')}</label>
+                  <p className="vm-hint">{t('verify.docIdHint')}</p>
                   <input
                     id="vm-doc-id"
                     className="vm-input"
                     value={docId}
                     onChange={(e) => { setDocId(e.target.value); reset(); }}
-                    placeholder="e.g. DOC-20260817-A1B2C"
+                    placeholder={t('verify.docIdPlaceholder')}
                     autoFocus
                     disabled={loading}
                   />
@@ -454,8 +456,8 @@ export default function VerifyModal({ open, onClose }) {
               )}
               {mode === 'upload' && (
                 <div className="vm-field" style={{ marginBottom: 12 }}>
-                  <label htmlFor="vm-pdf" className="vm-label">Upload PDF</label>
-                  <p className="vm-hint">Upload the document to verify its hash against the stored original</p>
+                  <label htmlFor="vm-pdf" className="vm-label">{t('verify.uploadPdf')}</label>
+                  <p className="vm-hint">{t('verify.uploadPdfHint')}</p>
                   <input
                     id="vm-pdf"
                     type="file"
@@ -474,14 +476,14 @@ export default function VerifyModal({ open, onClose }) {
                 aria-busy={loading}
               >
                 {loading
-                  ? <><span className="vm-spinner" aria-hidden="true" />Verifying…</>
+                  ? <><span className="vm-spinner" aria-hidden="true" />{t('verify.verifying')}</>
                   : <>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                         stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
                         strokeLinejoin="round" aria-hidden="true">
                         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                       </svg>
-                      Verify Document
+                      {t('nav.verifyDocument')}
                     </>
                 }
               </button>
@@ -497,16 +499,16 @@ export default function VerifyModal({ open, onClose }) {
                   </div>
                   <div>
                     <div className={`vm-result-title ${verified ? 'vm-result-title-ok' : revoked ? 'vm-result-title-warn' : 'vm-result-title-fail'}`}>
-                      {verified   ? '✓ Document is Authentic & Untampered'
-                      : revoked   ? '⚠ Document has been Revoked'
-                      : notFound  ? 'Document Not Found'
-                      :             '⚠ Document is Corrupt or Forged'}
+                      {verified   ? `✓ ${t('verify.authenticTitle')}`
+                      : revoked   ? `⚠ ${t('verify.revokedTitle')}`
+                      : notFound  ? t('verify.notFoundTitle')
+                      :             `⚠ ${t('verify.corruptTitle')}`}
                     </div>
                     <div className={`vm-result-sub ${verified ? 'vm-result-title-ok' : revoked ? 'vm-result-title-warn' : 'vm-result-title-fail'}`}>
-                      {verified   ? 'Verified against the original stored record.'
-                      : revoked   ? 'This document is no longer valid.'
-                      : notFound  ? 'No document with this ID exists in our records.'
-                      :             'Hash mismatch — content may have been modified.'}
+                      {verified   ? t('verify.authenticSub')
+                      : revoked   ? t('verify.revokedSub')
+                      : notFound  ? t('verify.notFoundSub')
+                      :             t('verify.corruptSub')}
                     </div>
                   </div>
                 </div>
@@ -516,19 +518,19 @@ export default function VerifyModal({ open, onClose }) {
                   <div className="vm-result-body">
                     {result.docId && (
                       <div className="vm-result-row">
-                        <span className="vm-result-key">Document ID</span>
+                        <span className="vm-result-key">{t('verify.resultDocId')}</span>
                         <span className="vm-result-val">{result.docId}</span>
                       </div>
                     )}
                     {result.docStatus && (
                       <div className="vm-result-row">
-                        <span className="vm-result-key">Status</span>
+                        <span className="vm-result-key">{t('common.status')}</span>
                         <span className="vm-result-val vm-result-val-plain">{result.docStatus}</span>
                       </div>
                     )}
                     {(result.generatedAt || result.issuedAt) && (
                       <div className="vm-result-row">
-                        <span className="vm-result-key">Recorded at</span>
+                        <span className="vm-result-key">{t('verify.recordedAt')}</span>
                         <span className="vm-result-val vm-result-val-plain">
                           {new Date(result.generatedAt || result.issuedAt).toLocaleString()}
                         </span>
@@ -536,7 +538,7 @@ export default function VerifyModal({ open, onClose }) {
                     )}
                     {result.revokedAt && (
                       <div className="vm-result-row">
-                        <span className="vm-result-key">Revoked at</span>
+                        <span className="vm-result-key">{t('verify.revokedAt')}</span>
                         <span className="vm-result-val vm-result-val-plain">
                           {new Date(result.revokedAt).toLocaleString()}
                         </span>
@@ -544,7 +546,7 @@ export default function VerifyModal({ open, onClose }) {
                     )}
                     {(tampered || result.hashNote === 'content_hash_mismatch') && (
                       <p className="vm-tamper-warn">
-                        The document may have been modified after generation. Do not rely on its contents.
+                        {t('verify.tamperWarning')}
                       </p>
                     )}
                   </div>
@@ -553,29 +555,29 @@ export default function VerifyModal({ open, onClose }) {
                 {/* Digital signature panel */}
                 {result.docId && (
                   <div className="vm-sig-panel">
-                    <div className="vm-sig-title">Digital Signature</div>
+                    <div className="vm-sig-title">{t('verify.digitalSignature')}</div>
                     {!sigResult && !sigLoading && !sigError && (
                       <button type="button" className="vm-sig-btn" onClick={handleVerifySig}>
-                        Verify Digital Signature
+                        {t('verify.verifyDigitalSignature')}
                       </button>
                     )}
-                    {sigLoading && <p className="vm-sig-muted" aria-live="polite">Verifying signature…</p>}
+                    {sigLoading && <p className="vm-sig-muted" aria-live="polite">{t('verify.verifyingSignature')}</p>}
                     {sigError   && <p className="vm-sig-fail" role="alert">{sigError}</p>}
                     {sigResult  && (
                       <>
                         <p className={sigResult.signatureValid ? 'vm-sig-ok' : sigResult.signed === false ? 'vm-sig-muted' : 'vm-sig-fail'}>
                           {sigResult.signed === false
-                            ? '— Not yet signed'
+                            ? t('verify.notYetSigned')
                             : sigResult.signatureValid
-                              ? '✓ Signature valid'
-                              : '✗ Signature HMAC mismatch'}
+                              ? `✓ ${t('verify.signatureValid')}`
+                              : `✗ ${t('verify.signatureHmacMismatch')}`}
                         </p>
                         {sigResult.signerName && (
-                          <p className="vm-sig-detail">Approver: <strong>{sigResult.signerName}</strong></p>
+                          <p className="vm-sig-detail">{t('verify.approverLabel')} <strong>{sigResult.signerName}</strong></p>
                         )}
                         {sigResult.signedAt && (
                           <p className="vm-sig-detail">
-                            Signed: {new Date(sigResult.signedAt).toLocaleString()}
+                            {t('verify.signedLabel')} {new Date(sigResult.signedAt).toLocaleString()}
                           </p>
                         )}
                       </>

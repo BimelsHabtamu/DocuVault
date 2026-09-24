@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { forgotPassword } from '../services/authService';
 import useFormValidation from '../hooks/useFormValidation';
-import { emailRule } from '../utils/validation';
+import { isRequired, isValidEmail } from '../utils/validation';
 import logo from '/public/logo.png';
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation(['translation', 'auth']);
   const [email,      setEmail]      = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
@@ -15,7 +17,11 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     const isValid = runValidation({
-      email: (v) => emailRule(v, { requiredMsg: 'Please enter your work email.' }),
+      email: (v) => {
+        if (!isRequired(v)) return t('forgotPassword.errors.pleaseEnterWorkEmail');
+        if (!isValidEmail(v)) return t('translation:common.invalidEmail');
+        return '';
+      },
     }, { email });
     if (!isValid) return;
     setServerError(null);
@@ -24,7 +30,7 @@ export default function ForgotPasswordPage() {
       await forgotPassword(email.trim());
       setSent(true);
     } catch (err) {
-      setServerError(err.message || 'Something went wrong. Please try again.');
+      setServerError(err.message || t('forgotPassword.errors.somethingWentWrong'));
     } finally {
       setSubmitting(false);
     }
@@ -346,25 +352,24 @@ export default function ForgotPasswordPage() {
               <div className="fp-brand-logo"><img src={logo} alt=""/></div>
               <div>
                 <div className="fp-brand-name">DocuVault</div>
-                <div className="fp-brand-sub">Enterprise Platform</div>
+                <div className="fp-brand-sub">{t('forgotPassword.brandSub')}</div>
               </div>
             </div>
 
             <div className="fp-hero-body">
-              <div className="fp-hero-label">Account Recovery</div>
+              <div className="fp-hero-label">{t('forgotPassword.heroLabel')}</div>
               <h2 className="fp-hero-heading">
-                Secure<br/><span>Password Reset</span>
+                {t('forgotPassword.heroLine1')}<br/><span>{t('forgotPassword.heroLine2')}</span>
               </h2>
               <p className="fp-hero-desc">
-                We take security seriously. Password resets are delivered over encrypted email
-                and expire within 60 minutes.
+                {t('forgotPassword.heroDescription')}
               </p>
 
               <div className="fp-steps">
                 {[
-                  { n:'1', title:'Enter your email', body:'Provide the work email address linked to your account.' },
-                  { n:'2', title:'Check your inbox', body:'A time-limited reset link will be sent securely to that address.' },
-                  { n:'3', title:'Set a new password', body:'Follow the link to create a new strong password and regain access.' },
+                  { n:'1', title: t('forgotPassword.steps.enterEmail'), body: t('forgotPassword.steps.enterEmailBody') },
+                  { n:'2', title: t('forgotPassword.steps.checkInbox'), body: t('forgotPassword.steps.checkInboxBody') },
+                  { n:'3', title: t('forgotPassword.steps.setNewPassword'), body: t('forgotPassword.steps.setNewPasswordBody') },
                 ].map(s => (
                   <div key={s.n} className="fp-step">
                     <div className="fp-step-num">{s.n}</div>
@@ -375,7 +380,12 @@ export default function ForgotPasswordPage() {
             </div>
 
             <div className="fp-pills">
-              {['Encrypted delivery','60-minute expiry','One-time link','Audit logged'].map(t => (
+              {[
+                t('forgotPassword.pills.encryptedDelivery'),
+                t('forgotPassword.pills.sixtyMinuteExpiry'),
+                t('forgotPassword.pills.oneTimeLink'),
+                t('forgotPassword.pills.auditLogged'),
+              ].map(t => (
                 <span key={t} className="fp-pill">{t}</span>
               ))}
             </div>
@@ -398,30 +408,27 @@ export default function ForgotPasswordPage() {
                     <polyline points="22 4 12 14.01 9 11.01"/>
                   </svg>
                 </div>
-                <h1>Check your email</h1>
+                <h1>{t('forgotPassword.successTitle')}</h1>
                 <p className="fp-success-msg">
-                  If <strong style={{color:'inherit'}}>{email.trim()}</strong> is registered
-                  and eligible for self-service reset, a link has been sent.
-                  The link expires in <strong style={{color:'inherit'}}>60 minutes</strong> and
-                  can only be used once.
+                  {t('forgotPassword.successMessage', { email: email.trim() })}
                 </p>
                 <div className="fp-success-notice">
-                  Super Admin accounts cannot be reset via this flow. Contact your system administrator directly.
+                  {t('forgotPassword.successNotice')}
                 </div>
                 <Link to="/login" className="fp-back" style={{alignSelf:'center'}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="15 18 9 12 15 6"/>
                   </svg>
-                  Back to Sign In
+                  {t('forgotPassword.backToSignIn')}
                 </Link>
               </div>
             ) : (
               /* ── Request form ── */
               <>
-                <h1>Forgot your password?</h1>
+                <h1>{t('forgotPassword.title')}</h1>
                 <p className="fp-card-sub">
-                  Enter your work email and we'll help you securely reset your password.
+                  {t('forgotPassword.subtitle')}
                 </p>
 
                 {serverError && (
@@ -439,14 +446,14 @@ export default function ForgotPasswordPage() {
 
                 <form onSubmit={handleSubmit} noValidate>
                   <div className="fp-field">
-                    <label htmlFor="fp-email" className="fp-lbl">Work Email <span className="fp-req" aria-hidden="true">*</span></label>
+                    <label htmlFor="fp-email" className="fp-lbl">{t('forgotPassword.workEmailLabel')} <span className="fp-req" aria-hidden="true">*</span></label>
                     <input
                       id="fp-email"
                       type="email"
                       className="fp-inp"
                       value={email}
                       onChange={e => { setEmail(e.target.value); setServerError(null); clearFieldError('email'); }}
-                      placeholder="you@yourcompany.com"
+                      placeholder={t('forgotPassword.emailPlaceholder')}
                       autoComplete="username"
                       autoFocus
                       disabled={submitting}
@@ -459,8 +466,8 @@ export default function ForgotPasswordPage() {
                   <button type="submit" className="fp-btn"
                     disabled={submitting} aria-busy={submitting}>
                     {submitting
-                      ? <><span className="fp-spin" aria-hidden="true"/>Sending…</>
-                      : 'SEND RESET LINK'}
+                      ? <><span className="fp-spin" aria-hidden="true"/>{t('forgotPassword.sending')}</>
+                      : t('forgotPassword.sendResetLink')}
                   </button>
                 </form>
 
@@ -469,7 +476,7 @@ export default function ForgotPasswordPage() {
                     stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <polyline points="15 18 9 12 15 6"/>
                   </svg>
-                  Back to Sign In
+                  {t('forgotPassword.backToSignIn')}
                 </Link>
               </>
             )}

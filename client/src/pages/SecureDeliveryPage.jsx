@@ -45,6 +45,40 @@ async function callWorkflowSign(token, signatureText, signaturePhotoBase64 = nul
   return data;
 }
 
+/* ── Uploaded-signature normalisation ───────────────────────────────────────
+   The draw signature is a small canvas PNG, but a photo upload comes through at
+   full camera resolution — as a base64 data URL that can be several MB. That
+   blows MySQL's max_allowed_packet on the server (1MB here), which kills the
+   workflow-sign write and surfaces as a generic "Failed to record signature."
+   So uploaded images are downscaled client-side (same approach as the template
+   editor's image insert) and kept comfortably under the packet limit. */
+const SIG_MAX_DIMENSION = 600; // px — plenty for a crisp signature in the PDF
+const SIG_MAX_FILE_BYTES = 5 * 1024 * 1024; // reject cameras' raw originals
+const SIG_MAX_DATAURL_BYTES = 700 * 1024; // keep ~30% headroom under the 1MB packet cap
+
+function downscaleSignatureImage(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, SIG_MAX_DIMENSION / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.max(1, Math.round(img.width  * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      // White backdrop so a photographed signature never renders see-through in the PDF.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const png = canvas.toDataURL('image/png');
+      if (png.length <= SIG_MAX_DATAURL_BYTES) return resolve(png);
+      // Photo-heavy scans compress far better as JPEG — fall back if PNG ran large.
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 async function callWorkflowRespond(token, response) {
   const res = await fetch(`${API_BASE}/secure-delivery/${encodeURIComponent(token)}/workflow-respond`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -178,8 +212,7 @@ export default function SecureDeliveryPage() {
 
   /* ── Sign step: two-phase (type → submit) ── */
   const [signText,      setSignText]      = useState('');
-  const [signPhotoFile, setSignPhotoFile] = useState(null);  // File object (Upload tab)
-  const [signPhotoUrl,  setSignPhotoUrl]  = useState(null);  // object URL for preview
+  const [signPhotoUrl,  setSignPhotoUrl]  = useState(null);  // downscaled data URL (Upload tab) / preview source
   const [signTab,       setSignTab]       = useState('draw'); // 'draw' | 'upload'
   const [signPreview,   setSignPreview]   = useState(false);  // true after Apply, before Submit
   const [signing,       setSigning]       = useState(false);
@@ -387,20 +420,16 @@ export default function SecureDeliveryPage() {
 
       if (signTab === 'draw') {
         photoBase64 = getCanvasDataUrl(); // PNG data URL from canvas, or null
-      } else if (signPhotoFile) {
-        // Upload tab — encode the File as a base64 data URL
-        photoBase64 = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(signPhotoFile);
-        });
+      } else if (signPhotoUrl) {
+        // Upload tab — the image was already downscaled to a compact data URL
+        // when the file was picked, so submit it directly (see downscaleSignatureImage).
+        photoBase64 = signPhotoUrl;
       }
 
       const r = await callWorkflowSign(token, signText.trim(), photoBase64);
       setWfSignedAt(r.data?.signedAt || new Date().toISOString());
       setSignPreview(false);
-      if (signPhotoUrl) { URL.revokeObjectURL(signPhotoUrl); setSignPhotoUrl(null); }
+      setSignPhotoUrl(null);
     }
     catch (err) { setSignError(err.message || 'Failed to submit signature.'); }
     finally { setSigning(false); }
@@ -1072,7 +1101,7 @@ export default function SecureDeliveryPage() {
                                   />
                                   <button
                                     type="button"
-                                    onClick={() => { setSignPhotoUrl(null); setSignPhotoFile(null); }}
+                                    onClick={() => { setSignPhotoUrl(null); }}
                                     style={{
                                       background: 'none', border: '1px solid #FECACA', borderRadius: 6,
                                       color: '#DC2626', fontSize: '0.78rem', fontWeight: 600,
@@ -1103,13 +1132,21 @@ export default function SecureDeliveryPage() {
                                     accept="image/*"
                                     disabled={ownershipStatus !== 'CONFIRMED'}
                                     style={{ display: 'none' }}
-                                    onChange={e => {
-                                      const file = e.target.files?.[0];
-                                      if (!file) return;
-                                      setSignPhotoFile(file);
-                                      setSignPhotoUrl(URL.createObjectURL(file));
-                                      e.target.value = '';
-                                    }}
+onChange={e => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  if (file.size > SIG_MAX_FILE_BYTES) {
+    setSignError('Signature image is too large (max 5 MB). Please choose a smaller one.');
+    e.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    downscaleSignatureImage(reader.result).then((dataUrl) => setSignPhotoUrl(dataUrl));
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}}
                                   />
                                 </label>
                               )}

@@ -1,8 +1,3 @@
-/**
- * Compact outline icons for the sidebar nav — one per route. Kept as simple,
- * stroke-based SVGs (currentColor) so they inherit the link's text color and
- * react to hover/active state automatically, same as the notification bell.
- */
 const common = {
   width: 17,
   height: 17,

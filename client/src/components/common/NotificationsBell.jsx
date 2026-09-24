@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { notificationService } from '../../services/notificationService';
 import { signatureService } from '../../services/workflowService';
 import { useToast } from '../../hooks/useToast';
 import { useAuth } from '../../hooks/useAuth';
 
-const LABELS = {
-  awaiting_your_signature: 'Awaiting your signature',
-  your_document_approved: 'Your document was approved',
-  your_document_rejected: 'Your document was rejected',
-  ownership_rejected_notify: 'Recipient rejected your document',
-  delivery_confirmed_notify: 'Recipient confirmed ownership',
-};
+const LABELS = (t) => ({
+  awaiting_your_signature: t('notifications.awaitingYourSignature'),
+  your_document_approved: t('notifications.yourDocumentApproved'),
+  your_document_rejected: t('notifications.yourDocumentRejected'),
+  ownership_rejected_notify: t('notifications.recipientRejectedDocument'),
+  delivery_confirmed_notify: t('notifications.recipientConfirmedOwnership'),
+});
 
 /** Notification bell rendered as a crisp inline SVG (was previously the 🔔 emoji,
  *  which renders inconsistently across OS/browser emoji sets). currentColor lets
@@ -51,14 +52,15 @@ function BellIcon({ ringing }) {
 /** Admins see rejection notifications for documents they didn't generate too
  * (both Admins + the generator get told a doc was rejected) — the label needs
  * to read differently in that case since it isn't literally "your" document. */
-function labelFor(n, currentUserId) {
+function labelFor(n, currentUserId, t) {
   if (n.notification_type === 'your_document_rejected' && n.generated_by !== currentUserId) {
-    return 'A document was rejected';
+    return t('notifications.aDocumentWasRejected');
   }
-  return LABELS[n.notification_type] || n.notification_type;
+  return LABELS(t)[n.notification_type] || n.notification_type;
 }
 
 export default function NotificationsBell() {
+  const { t } = useTranslation(['translation', 'layout']);
   const { showToast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -169,11 +171,11 @@ export default function NotificationsBell() {
       const url = await signatureService.viewPdfUrl(n.signature_request_id);
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = url;
-      setViewerDoc({ url, title: n.doc_uuid || LABELS[n.notification_type] || 'Document' });
+      setViewerDoc({ url, title: n.doc_uuid || labelFor(n, user?.id, t) || t('notifications.document') });
       setOpen(false);
       markAsRead();
     } catch (err) {
-      showToast(err.message || 'Failed to open the document.', 'error');
+      showToast(err.message || t('toast.failedToOpenDocument'), 'error');
       // Restore it to the ring since opening actually failed.
       if (wasUnread) setNotifications((prev) => [...prev, n]);
     } finally {
@@ -187,8 +189,8 @@ export default function NotificationsBell() {
         type="button"
         className="notif-bell-btn"
         onClick={() => setOpen((o) => !o)}
-        title="Notifications"
-        aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+        title={t('notifications.title')}
+        aria-label={unreadCount > 0 ? t('notifications.titleUnread', { count: unreadCount }) : t('notifications.title')}
       >
         <BellIcon ringing={unreadCount > 0} />
         {unreadCount > 0 && <span className="notif-badge">{unreadCount}</span>}
@@ -197,7 +199,7 @@ export default function NotificationsBell() {
       {open && (
         <div className="notif-dropdown">
           {unreadNotifications.length === 0 ? (
-            <div className="notif-empty">No new notifications.</div>
+            <div className="notif-empty">{t('notifications.empty')}</div>
           ) : (
             unreadNotifications.map((n) => (
               <button
@@ -207,11 +209,11 @@ export default function NotificationsBell() {
                 onClick={() => handleOpenNotification(n)}
                 disabled={openingId === n.id}
                 style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer' }}
-                title={n.notification_type === 'ownership_rejected_notify' ? 'Click to review and edit & resubmit' : 'Click to view the document'}
+                title={n.notification_type === 'ownership_rejected_notify' ? t('notifications.clickToReviewResubmit') : t('notifications.clickToViewDocument')}
               >
                 <div>
                   <span className="notif-dot" aria-hidden="true" />
-                  <b>{labelFor(n, user?.id)}</b>
+                  <b>{labelFor(n, user?.id, t)}</b>
                 </div>
                 <div>{n.doc_uuid}</div>
                 {n.notification_type === 'ownership_rejected_notify' && n.action_details && (() => {
@@ -219,18 +221,18 @@ export default function NotificationsBell() {
                     const details = typeof n.action_details === 'string' ? JSON.parse(n.action_details) : n.action_details;
                     return details?.reason ? (
                       <div style={{ color: '#EF4444', fontSize: '0.78rem', marginTop: 2 }}>
-                        Reason: {details.reason.length > 60 ? `${details.reason.slice(0, 60)}\u2026` : details.reason}
+                        {t('notifications.reason')} {details.reason.length > 60 ? `${details.reason.slice(0, 60)}\u2026` : details.reason}
                       </div>
                     ) : null;
                   } catch { return null; }
                 })()}
                 {n.notification_type === 'ownership_rejected_notify' && (
                   <div style={{ color: 'var(--brand)', fontSize: '0.78rem', marginTop: 2, fontWeight: 500 }}>
-                    → Edit &amp; Resubmit
+                    → {t('notifications.editAndResubmit')}
                   </div>
                 )}
                 <div style={{ color: '#94A3B8', fontSize: '0.78rem', marginTop: 2 }}>
-                  {openingId === n.id ? 'Opening…' : new Date(n.timestamp).toLocaleString()}
+                  {openingId === n.id ? t('notifications.opening') : new Date(n.timestamp).toLocaleString()}
                 </div>
               </button>
             ))
@@ -243,7 +245,7 @@ export default function NotificationsBell() {
           <div className="modal-panel modal-panel-wide" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>{viewerDoc.title}</h2>
-              <button type="button" className="modal-close-btn" onClick={closeViewer} title="Close">×</button>
+              <button type="button" className="modal-close-btn" onClick={closeViewer} title={t('common.close')}>×</button>
             </div>
             <div className="modal-body" style={{ padding: 0 }}>
               <iframe

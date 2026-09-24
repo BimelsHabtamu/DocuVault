@@ -1786,6 +1786,18 @@ async function workflowSign(req, res) {
   const hasName  = !!(signature_text  && String(signature_text).trim());
   const hasPhoto = !!signature_photo;
 
+  // Guard against MySQL max_allowed_packet blowups: storing a multi-MB base64
+  // photo kills the connection mid-write and surfaces as a generic 500. Clients
+  // now downscale before submitting, but a non-cooperating client must still get
+  // a clear 400 instead of an opaque failure.
+  const photoSizeChars = typeof signature_photo === 'string' ? signature_photo.length : 0;
+  if (hasPhoto && photoSizeChars > 700 * 1024) {
+    return res.status(400).json({
+      success: false,
+      message: 'The signature image is too large to store. Please upload a smaller image (the document page will show a scaled-down version).',
+    });
+  }
+
   // Load template workflow_config once — needed for signatureField and required flags.
   let signatureField = null;
   let allowPhoto     = true;
@@ -1910,6 +1922,8 @@ async function workflowSign(req, res) {
             footerHtml:               signedFooterHtml,
             tamperProofFooterHtml:    pieces.tamperProofFooterHtml    || '',
             deliveryVerificationQrHtml: pieces.deliveryVerificationQrHtml || '',
+            companySealHtml:          pieces.companySealHtml || '',
+            companySealElementHtml:   pieces.companySealElementHtml || '',
             watermarkText: resolveWatermarkForStatus('delivered', pieces.watermarkText),
           });
 

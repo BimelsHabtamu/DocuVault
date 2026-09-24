@@ -117,6 +117,41 @@ export const documentService = {
     URL.revokeObjectURL(url);
   },
   /**
+   * Downloads the ZIP archive for a completed bulk job.
+   * Mirrors the fetch-as-blob pattern used by documentService.download() so
+   * the browser triggers a real Save-As dialog and errors surface as toasts
+   * rather than navigating away to raw JSON.
+   *
+   * The filename is taken from the Content-Disposition header returned by the
+   * server (e.g. "Bulk_Documents_20260916_034500.zip").
+   */
+  downloadBulkZip: async (jobId) => {
+    const res = await fetch(`${BASE_URL}/documents/bulk/${encodeURIComponent(jobId)}/download-zip`, {
+      headers: { Authorization: `Bearer ${getAuthToken()}` },
+    });
+    if (!res.ok) {
+      let message = 'Failed to download the ZIP file.';
+      try {
+        const payload = await res.json();
+        message = payload.message || message;
+      } catch { /* response may not be JSON on certain error paths */ }
+      throw new Error(message);
+    }
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = /filename="?([^"]+)"?/i.exec(disposition);
+    const filename = match ? match[1] : `Bulk_Documents_${jobId}.zip`;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  /**
    * Soft-deletes a generated document (Document Tracking's Delete button). The file is
    * removed on the backend but the record stays verifiable by Doc ID afterwards — see
    * documentController.deleteDocument.

@@ -76,6 +76,9 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
   const [bulkAssignProgress, setBulkAssignProgress] = useState(null); // { done, total }
   const [bulkAssignedJobId, setBulkAssignedJobId] = useState(null);
 
+  // ZIP download state — driven by job.zipStatus returned from the poll endpoint.
+  const [zipDownloading, setZipDownloading] = useState(false);
+
   // Reset the working state whenever the selected template changes — a validation
   // report or job from a different template would be meaningless here.
   useEffect(() => {
@@ -87,6 +90,7 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
     setShowBulkApproverModal(false);
     setBulkAssignProgress(null);
     setBulkAssignedJobId(null);
+    setZipDownloading(false);
   }, [templateId]);
 
   const manualIds = () => manualIdsText.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
@@ -238,19 +242,27 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
     setValidationReport(null);
   };
 
-  // FR-019: poll job progress ("45/100 completed")
+  // FR-019: poll job progress ("45/100 completed").
+  // Continues polling after PDF generation finishes while the ZIP is still being
+  // assembled (zipStatus === 'creating'), so the UI can transition from
+  // "Preparing ZIP…" to the Download ZIP button without a manual refresh.
   useEffect(() => {
-    if (!job || job.status !== 'running') return undefined;
+    if (!job) return undefined;
+    // Keep polling while generation is running OR while ZIP is being created.
+    const stillBusy = job.status === 'running' || job.zipStatus === 'creating';
+    if (!stillBusy) return undefined;
 
     pollRef.current = setInterval(async () => {
       try {
         const res = await documentService.getBulkStatus(job.jobId);
         setJob(res.data);
-        if (res.data.status !== 'running') {
+        const updated = res.data;
+        const nowBusy = updated.status === 'running' || updated.zipStatus === 'creating';
+        if (!nowBusy) {
           clearInterval(pollRef.current);
           // Prompt approver assignment exactly once per completed job, and only if
           // at least one document actually succeeded.
-          if (res.data.completed > 0 && bulkAssignedJobId !== res.data.jobId) {
+          if (updated.completed > 0 && bulkAssignedJobId !== updated.jobId) {
             setShowBulkApproverModal(true);
           }
         }
@@ -260,7 +272,20 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
     }, 2000);
 
     return () => clearInterval(pollRef.current);
-  }, [job?.jobId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [job?.jobId, job?.status, job?.zipStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Streams the bulk ZIP to the user's browser via a fetch-as-blob download. */
+  const handleDownloadZip = async () => {
+    if (!job?.jobId) return;
+    setZipDownloading(true);
+    try {
+      await documentService.downloadBulkZip(job.jobId);
+    } catch (err) {
+      showToast(err.message || 'Failed to download the ZIP file.', 'error');
+    } finally {
+      setZipDownloading(false);
+    }
+  };
 
   /** Sequentially sends a signature request for every successfully-generated doc in the batch. */
   const handleAssignApproverToAll = async (approverId) => {
@@ -298,6 +323,7 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
     if (fileInputRef.current) fileInputRef.current.value = '';
     setValidationReport(null);
     setJob(null);
+    setZipDownloading(false);
   };
 
   const idCount = combinedIds().length;
@@ -415,6 +441,44 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
             <div className="bulk-progress-fill" style={{ width: `${((job.completed + job.failed) / job.total) * 100}%` }} />
           </div>
           {job.failed > 0 && <p className="bulk-row-fail">{job.failed} failed</p>}
+
+          {/* ── ZIP status block ─────────────────────────────────────────── */}
+          {job.status !== 'running' && (
+            <>
+              {/* ZIP still being assembled */}
+              {job.zipStatus === 'creating' && (
+                <p style={{ marginTop: 10, color: 'var(--color-text-muted, #6b7280)' }}>
+                  PDF generation complete. Preparing ZIP…
+                </p>
+              )}
+
+              {/* ZIP ready — show download button */}
+              {job.zipStatus === 'ready' && (
+                <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <span className="bulk-row-ok">
+                    {job.completed} document{job.completed !== 1 ? 's' : ''} generated.
+                    {job.failed > 0 && ` ${job.failed} failed.`}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleDownloadZip}
+                    disabled={zipDownloading}
+                  >
+                    {zipDownloading ? 'Downloading…' : `⬇ Download ZIP (${job.completed} PDF${job.completed !== 1 ? 's' : ''})`}
+                  </button>
+                </div>
+              )}
+
+              {/* ZIP packaging failed (non-fatal — individual PDFs still available) */}
+              {job.zipStatus === 'failed' && (
+                <p className="bulk-row-fail" style={{ marginTop: 10 }}>
+                  ZIP packaging failed: {job.zipError || 'unknown error'}.
+                  Individual documents are still available in Document Tracking.
+                </p>
+              )}
+            </>
+          )}
 
           {job.status !== 'running' && job.completed > 0 && bulkAssignedJobId === job.jobId && (
             <p className="bulk-row-ok" style={{ marginTop: 10 }}>Approver assigned to this batch.</p>

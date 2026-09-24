@@ -1,41 +1,6 @@
-// Single source of truth for page size/padding — see the file itself for why this
-// exists. Both this file and TemplateViewer.jsx (the on-screen "View" preview) read
-// from the exact same JSON, so the printed PDF and the preview can never disagree on
-// how big the page is or how much margin surrounds it on any of its 4 sides again.
 const pageSpec = require('../../../client/src/shared/documentPageSpec.json');
-
-/**
- * Wraps rendered header/body/footer into a complete, styled A4 HTML document
- * ready for either on-screen preview or Puppeteer PDF rendering.
- * FR-017: watermark (DRAFT/CONFIDENTIAL/FINAL) rendered as a diagonal overlay.
- *
- * Layout parity with the "View" preview (TemplateViewer.jsx) is deliberate and
- * load-bearing here — anything the preview doesn't do, this must not do either, or
- * "View" and the actual PDF silently diverge:
- *   - page padding: uniform on all 4 sides, taken from pageSpec (previously 20mm
- *     top/bottom vs 18mm left/right here — asymmetric AND a different size than the
- *     preview's own uniform 40px, so the PDF was never actually the same size as
- *     what the admin reviewed on the View page)
- *   - header/body/footer are concatenated exactly like the preview's combinedHtml
- *     (`${headerHtml}${bodyHtml}${automaticDateHtml}${footerHtml}`, see
- *     documentController.js) — no extra margin-bottom on the header, no artificial
- *     min-height forcing the body taller than its actual content, and no forced
- *     font-size/color on the author's own footer text. All three of those existed
- *     here before and pushed/shrunk/recolored content in ways the preview never
- *     showed, so a document that looked right on the View page could still come out
- *     of PDF generation with different spacing or a grayed-out footer.
- *   - the verification stamp (tamperProofFooterHtml/signatureHtml) is generation-only
- *     content the preview never renders at all (see previewDocument in
- *     documentController.js), so ITS small/gray styling now lives in its own
- *     `.doc-footer-meta` wrapper, separate from `.doc-footer` — so it can keep looking
- *     like a stamp without leaking that styling onto the template author's own footer
- *     content, which must render exactly as authored/previewed.
- */
-function assembleDocumentHtml({ headerHtml, bodyHtml, footerHtml, tamperProofFooterHtml, deliveryVerificationQrHtml, watermarkText, signatureHtml }) {
-  // FR-017 color coding: DRAFT stays red (unapproved/in-progress), FINAL is green
-  // (approved/complete) so the two are never visually confusable. Anything else
-  // (e.g. a legacy CONFIDENTIAL value already saved on an old template row) falls
-  // back to the original neutral red.
+function assembleDocumentHtml({ headerHtml, bodyHtml, footerHtml, tamperProofFooterHtml, deliveryVerificationQrHtml, watermarkText, signatureHtml, companySealHtml }) {
+  // color coding: DRAFT stays red (unapproved/in-progress), FINAL is green
   const watermarkClass = watermarkText === 'FINAL'
     ? 'watermark-overlay watermark-final'
     : watermarkText === 'DRAFT'
@@ -121,6 +86,9 @@ function assembleDocumentHtml({ headerHtml, bodyHtml, footerHtml, tamperProofFoo
     padding-top: 8px;
     font-size: 9px;
     color: #555;
+    /* The company seal floats left/right beside the signature text above; never let
+       it collide with the verification QR footer. */
+    clear: both;
   }
   .qr-footer-left  { display:flex; align-items:center; gap:6px; }
   .qr-footer-right { display:flex; align-items:center; gap:6px; }
@@ -163,6 +131,7 @@ function assembleDocumentHtml({ headerHtml, bodyHtml, footerHtml, tamperProofFoo
     <div class="doc-footer">${footerHtml || ''}</div>
     <div class="doc-footer-meta">
       ${signatureHtml || ''}
+      ${companySealHtml || ''}
       <div class="qr-footer-row">
         <div class="qr-footer-left">${tamperProofFooterHtml || ''}</div>
         <div class="qr-footer-right">${deliveryVerificationQrHtml || ''}</div>
@@ -179,20 +148,8 @@ function escapeHtml(str) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
-
-/**
- * FR-017: watermark is status-driven, not just a static template field.
- * Unapproved (draft/pending/rejected) docs always show DRAFT, regardless of what
- * the template's default watermark says. Once signed/delivered, the template's
- * chosen watermark (CONFIDENTIAL or FINAL) applies — defaulting to FINAL if unset.
- *
- * Defensive normalization: templateController now rejects "DRAFT" as a saved
- * template watermark outright (see normalizeWatermarkText), but a template row
- * saved before that validation existed could still have "DRAFT" sitting in the
- * database. Treat that the same as unset here too, so an old row can never make a
- * signed/delivered document show "DRAFT" forever — it falls back to FINAL like any
- * other unset watermark instead.
- */
+//watermark is status-driven, not just a static template field.
+ 
 function resolveWatermarkForStatus(docStatus, templateWatermarkText) {
   const cleanTemplateWatermark =
     templateWatermarkText && String(templateWatermarkText).trim().toUpperCase() !== 'DRAFT'
@@ -208,34 +165,74 @@ function resolveWatermarkForStatus(docStatus, templateWatermarkText) {
   return cleanTemplateWatermark || null;
 }
 
-/**
- * injectSignatureIntoFooter
- *
- * Replaces the `<!-- [[SIGNATURE_FIELD]] --> … <!-- [[/SIGNATURE_FIELD]] -->`
- * block that the Admin embedded in footer_html at template-creation time with
- * the actual signed HTML: the user's typed name, their signature image (base64
- * data URL), and the submission date.
- *
- * This runs on the *stored* `renderPieces.footerHtml` — i.e. the footer HTML
- * after template placeholders have already been substituted for the recipient's
- * data record — so we are only touching the signature placeholder, nothing else.
- *
- * The replacement block is intentionally self-contained inline HTML: no external
- * resources, no classes that depend on the app's CSS, so it renders identically
- * when Puppeteer generates the PDF on any machine.
- *
- * @param {string}      footerHtml  The rendered footer HTML containing the placeholder.
- * @param {string|null} name        User's typed full name (null if not provided).
- * @param {string|null} photoDataUrl Base64 data URL of the signature image (null if none).
- * @param {string}      signedAt    ISO timestamp of when the user signed.
- * @returns {string}  Footer HTML with the placeholder replaced by the filled-in signature.
- *                    If no placeholder is found, returns footerHtml unchanged.
- */
+function buildCompanySealHtml({ companySeal, companyName, docId, dateString }) {
+  if (!companySeal || !companySeal.enabled) return '';
+  const size = Number(companySeal.size) || 110;
+  const position = ['left', 'center', 'right'].includes(companySeal.position)
+    ? companySeal.position
+    : 'right';
+
+  let sealElement;
+  if (companySeal.imageUrl) {
+    // A real uploaded seal — shown as a circular stamp with a subtle double ring.
+    sealElement = `<img src="${companySeal.imageUrl}" alt="Company Seal"
+      style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;display:block;
+             box-shadow:0 0 0 1.5px rgba(15,39,71,0.55), 0 0 0 3px #fff, 0 0 0 4px rgba(15,39,71,0.35);" />`;
+  } else {
+    sealElement = buildGeneratedSealSvg({
+      org: companyName,
+      stampId: docId,
+      stampDate: dateString,
+      size,
+    });
+  }
+
+  // Position the seal against the signature text: float left/right or center above it.
+  const wrapStyle = position === 'left'
+    ? 'float:left;margin:8px 18px 8px 0;'
+    : position === 'center'
+      ? 'display:block;width:100%;text-align:center;margin:8px 0 2px;'
+      : 'float:right;margin:8px 0 8px 18px;';
+
+  return `<div style="${wrapStyle}">${sealElement}</div>`;
+}
+
+/** Builds the auto-generated circular stamp as inline SVG (the "no artwork uploaded" fallback). */
+function buildGeneratedSealSvg({ org, stampId, stampDate, size }) {
+  const name = String(org || '').trim().toUpperCase() || 'OFFICIAL DOCUMENT';
+  const displayName = name.length > 34 ? `${name.slice(0, 33)}…` : name;
+  const id = String(stampId || 'DOC');
+  const date = String(stampDate || '');
+
+  // Two arcs let the rim text read upright on both halves: the top arc sweeps
+  const topArc    = '<path id="sealTop" d="M 22,60 A 38,38 0 1 1 98,60" fill="none" />';
+  const bottomArc = '<path id="sealBottom" d="M 22,60 A 38,38 0 0 0 98,60" fill="none" />';
+
+  return `
+  <svg viewBox="0 0 120 120" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg"
+       role="img" aria-label="Official company seal">
+    <circle cx="60" cy="60" r="58.5" fill="#f8fafc" stroke="#0F2747" stroke-width="2.5"/>
+    <circle cx="60" cy="60" r="49.5" fill="none" stroke="#0F2747" stroke-width="1"/>
+    <circle cx="60" cy="60" r="26" fill="none" stroke="#0F2747" stroke-width="0.8"/>
+    <defs>${topArc}${bottomArc}</defs>
+    <text font-family="Arial, 'Noto Sans', sans-serif" font-size="9" font-weight="bold" fill="#0F2747" letter-spacing="1.5">
+      <textPath href="#sealTop">${escapeHtml(displayName)}</textPath>
+    </text>
+    <text font-family="Arial, 'Noto Sans', sans-serif" font-size="7.5" fill="#0F2747" letter-spacing="1">
+      <textPath href="#sealBottom">OFFICIAL DOCUMENT</textPath>
+    </text>
+    <text x="60" y="61" text-anchor="middle" font-family="Arial, 'Noto Sans', sans-serif"
+          font-size="8.5" font-weight="bold" fill="#0F2747">${escapeHtml(id)}</text>
+    <text x="60" y="73" text-anchor="middle" font-family="Arial, 'Noto Sans', sans-serif"
+          font-size="5.5" fill="#475569">${escapeHtml(date)}</text>
+    <text x="60" y="85" text-anchor="middle" font-family="Arial, 'Noto Sans', sans-serif"
+          font-size="5.5" letter-spacing="2" fill="#0F2747">• VERIFIED •</text>
+  </svg>`;
+}
 function injectSignatureIntoFooter(footerHtml, name, photoDataUrl, signedAt) {
   if (!footerHtml) return footerHtml || '';
 
   // The placeholder block is delimited by these exact HTML comments, which are
-  // part of the block injected by TemplateForm's handleAddSignatureField().
   const START_MARKER = '<!-- [[SIGNATURE_FIELD]] -->';
   const END_MARKER   = '<!-- [[/SIGNATURE_FIELD]] -->';
 
@@ -244,10 +241,8 @@ function injectSignatureIntoFooter(footerHtml, name, photoDataUrl, signedAt) {
 
   if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) {
     // No placeholder found — footer is already signed or template did not use
-    // the footer-field approach. Return unchanged.
     return footerHtml;
   }
-
   // Format the date in a human-readable way for the PDF
   const dateStr = signedAt
     ? new Date(signedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -260,9 +255,6 @@ function injectSignatureIntoFooter(footerHtml, name, photoDataUrl, signedAt) {
     : `<span style="font-size:0.72rem;color:#94A3B8;font-style:italic;">No image provided</span>`;
 
   // The filled-in block that replaces everything from START_MARKER to END_MARKER
-  // (inclusive of both markers and the wrapper div that encloses them).
-  // The outer `<div data-sig-field="1">` that wraps the block in the editor is
-  // preserved visually but replaced with a clean, locked version here.
   const signedBlock = `<!-- [[SIGNATURE_FIELD]] -->
 <table style="width:100%;border-collapse:collapse;font-family:inherit;font-size:12px;color:#1a1a2e;margin-top:4px;">
   <tbody>
@@ -291,11 +283,7 @@ function injectSignatureIntoFooter(footerHtml, name, photoDataUrl, signedAt) {
   </tbody>
 </table>
 <!-- [[/SIGNATURE_FIELD]] -->`;
-
   // Find the outer wrapper `<div ... data-sig-field="1">` that encloses both markers.
-  // We want to replace from the opening of that div to its closing `</div>`.
-  // Strategy: walk backwards from startIdx to find the last `<div` before it,
-  // then forward from endIdx to find the matching `</div>` after END_MARKER.
   let outerStart = footerHtml.lastIndexOf('<div', startIdx);
   let outerEnd   = footerHtml.indexOf('</div>', endIdx + END_MARKER.length);
 
@@ -311,4 +299,4 @@ function injectSignatureIntoFooter(footerHtml, name, photoDataUrl, signedAt) {
   return before + signedBlock + after;
 }
 
-module.exports = { assembleDocumentHtml, resolveWatermarkForStatus, injectSignatureIntoFooter };
+module.exports = { assembleDocumentHtml, resolveWatermarkForStatus, injectSignatureIntoFooter, buildCompanySealHtml };

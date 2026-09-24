@@ -1,10 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { NetworkProvider } from './context/NetworkContext';
 import { useAuth } from './hooks/useAuth';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import Layout from './components/common/Layout';
-import Login from './pages/Login';
+import Login from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import Unauthorized from './pages/Unauthorized';
@@ -44,12 +45,7 @@ import LandingPage from './pages/LandingPage';
 
 import './App.css';
 
-/**
- * Redirect / based on auth + role:
- *   - Not logged in   → /landing (public landing page)
- *   - Recipients      → /my-documents
- *   - All others      → /dashboard
- */
+/** Redirect / based on auth + role: */
 function RootRedirect() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <div className="route-loading">Loading…</div>;
@@ -60,6 +56,7 @@ function RootRedirect() {
 
 export default function App() {
   return (
+    <NetworkProvider>
     <BrowserRouter>
       <ToastProvider>
       <AuthProvider>
@@ -70,9 +67,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
-          {/* Public verify for unauthenticated users (email links, QR scans) —
-              uses a dedicated path so the in-Layout /verify route takes priority
-              for logged-in users. */}
+          {/* Public verify for unauthenticated users*/}
           <Route path="/verify-public" element={<VerifyDocumentPage />} />
           <Route path="/verify-qr/:verificationId" element={<VerifyQrPage />} />
           <Route path="/review/:token" element={<ReviewDocumentPage />} />
@@ -106,7 +101,7 @@ export default function App() {
               }
             />
 
-            {/* M-2: Recipient area — role=recipient only, no admin/approver/generator access */}
+            {/* M-2: Recipient area — role=recipient only*/}
             <Route
               path="/my-documents"
               element={
@@ -187,8 +182,7 @@ export default function App() {
               }
             />
 
-            {/* Document generation — restricted to the 4 roles allowed to generate PDFs:
-                super_admin, system_admin, generator, approver. */}
+            {/* Document generation */}
             <Route
               path="/documents"
               element={
@@ -197,10 +191,7 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
-
-            {/* Document Tracking — same 4 roles as generation; the Doc ID/Template/
-                Record/Status/Generated/Actions table with View, Generate Secure Link,
-                recipient email + Deliver, split out of My Documents. */}
+            {/* Document Tracking  */}
             <Route
               path="/document-tracking"
               element={
@@ -264,11 +255,12 @@ export default function App() {
               }
             />
           </Route>
-
+          
           <Route path="*" element={<RootRedirect />} />
         </Routes>
       </AuthProvider>
       </ToastProvider>
     </BrowserRouter>
+    </NetworkProvider>
   );
 }

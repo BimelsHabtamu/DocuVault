@@ -1,0 +1,39 @@
+{
+  "page": {
+    "settingsTitle": "የስርዓት ቅንብሮች"
+  },
+  "loading": {
+    "settings": "ቅንብሮችን በመጫን ላይ…"
+  },
+  "toasts": {
+    "loadSettingsFailed": "ቅንብሮችን መጫን አልተሳካም።",
+    "settingsSaved": "ቅንብሮች ተቀምጠዋል።",
+    "saveSettingsFailed": "ቅንብሮችን ማስቀመጥ አልተሳካም።",
+    "logoUploadFailed": "የሎጎ ስቅለት አልተሳካም።",
+    "logoUploaded": "ሎጎ ተዘምኗል።",
+    "logoUploadFailedToUpload": "ሎጎን ማስቀመጥ አልተሳካም።"
+  },
+  "branding": {
+    "title": "የድርጅት ስያሜ",
+    "note": "እነዚህ ዝርዝሮች ለተጠቃሚዎች በሚላኩ የስርዓት ኢሜይሎች ላይ ይታያሉ (ለምሳሌ የመለያ ግብዣዎች እና የይለፍ ቃል ዳግም ማስጀመሪያዎች)።",
+    "orgNameLabel": "የድርጅቱ ስም",
+    "optionalDash": "— አስፈላጊ አይደለም",
+    "orgNamePlaceholder": "ለምሳሌ Acme Corporation",
+    "logoLabel": "የድርጅቱ ሎጎ",
+    "logoAlt": "የድርጅቱ ሎጎ",
+    "remove": "አስወግድ",
+    "uploadLogo": "ሎጎ ስቀል"
+  },
+  "lifecycle": {
+    "title": "የሰነድ ዑደት",
+    "escalationLabel": "የማሳወቅ ገደብ (ሰዓቶች)",
+    "archiveYearsLabel": "ከ(ዓመታት) በኋላ ግብዓት",
+    "minutesSavedLabel": "በሰነድ የሚቆጠቡ ደቂቃዎች",
+    "note": "እነዚህ እሴቶች ለ KPI ስሌቶች እና ለራስ-ሰር ማዕቀፍ ይጠቅማሉ።"
+  },
+  "actions": {
+    "saving": "በማስቀመጥ ላይ…",
+    "saveSettings": "ቅንብሮችን አስቀምጥ",
+    "uploading": "በመጫን ላይ…"
+  }
+}

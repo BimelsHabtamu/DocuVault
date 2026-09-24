@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import RichTextEditor from './RichTextEditor';
+import FieldMappingPanel from './FieldMappingPanel';
 import { dataSourceService, externalDbService, templateService } from '../../services/templateService';
 import { useToast } from '../../hooks/useToast';
 
@@ -151,10 +152,73 @@ export default function TemplateForm({
 
   const setWf = (key, value) => setWorkflow(prev => ({ ...prev, [key]: value }));
 
-  // Ref wired to the Footer RichTextEditor's imperative insert function (see
-  // RichTextEditor's insertBlockRef prop). Used so "Add Signature Field" can
-  // inject the locked placeholder HTML into the footer without requiring the
-  // editor to be focused or the admin to place the cursor first.
+  // ── Field Mappings state (FR-003) ─────────────────────────────────────────
+  // Loaded from workflow_config.fieldMappings on edit, empty object on create.
+  // Shape: { [placeholderPath]: { field_path, field_name, data_type } }
+  const [fieldMappings, setFieldMappings] = useState(() => {
+    if (initialData?.workflow_config) {
+      const wf = typeof initialData.workflow_config === 'string'
+        ? JSON.parse(initialData.workflow_config)
+        : initialData.workflow_config;
+      return wf?.fieldMappings || {};
+    }
+    return {};
+  });
+
+  // ── Company Seal state ─────────────────────────────────────────────────────
+  // The company seal/stamp printed on the document footer beside the signature.
+  // Stored in workflow_config.companySeal (persisted even when the workflow steps
+  // are disabled, same as fieldMappings). When imageUrl is null the backend
+  // auto-generates a round "rubber stamp" seal instead. See
+  // documentAssembler.js buildCompanySealHtml.
+  const [companySeal, setCompanySeal] = useState(() => {
+    if (initialData?.workflow_config) {
+      const wf = typeof initialData.workflow_config === 'string'
+        ? JSON.parse(initialData.workflow_config)
+        : initialData.workflow_config;
+      return wf?.companySeal || { enabled: false, imageUrl: null, position: 'right', size: 110 };
+    }
+    return savedDraft?.companySeal || { enabled: false, imageUrl: null, position: 'right', size: 110 };
+  });
+  const setCs = (key, value) => setCompanySeal(prev => ({ ...prev, [key]: value }));
+
+  /**
+   * Extracts placeholder paths from the current HTML in all three editors.
+   * Runs live as the user edits so the mapping panel always reflects the
+   * current template content.  Filters out the auto-injected date tokens
+   * (generation_date, etc.) which are never mapped to a data source column.
+   */
+  const AUTO_DATES = new Set([
+    'generation_date', 'generation_date_gc', 'generation_date_ec',
+    'effective_date',  'effective_date_gc',  'effective_date_ec',
+  ]);
+
+  const livePlaceholders = useMemo(() => {
+    const combined = `${headerHtml || ''}${bodyHtml || ''}${footerHtml || ''}`;
+    const matches  = combined.match(/\{\{\s*([#/]?[\w.]+)[^}]*\}\}/g) || [];
+    const seen     = new Set();
+    const result   = [];
+    for (const raw of matches) {
+      const inner     = raw.replace(/[{}]/g, '').trim();
+      const firstTok  = inner.split(/\s+/)[0];
+      if (firstTok.startsWith('#') || firstTok.startsWith('/')) continue;
+      const clean     = firstTok.split('|')[0];
+      if (AUTO_DATES.has(clean)) continue;
+      if (seen.has(clean)) continue;
+      seen.add(clean);
+      const isLoopable = clean.includes('[]') || clean.toLowerCase().includes('each');
+      result.push({ field_path: clean, data_type: 'string', is_loopable: isLoopable ? 1 : 0 });
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [headerHtml, bodyHtml, footerHtml]);
+
+  // Refs wired to the Header/Footer RichTextEditors' imperative insert functions
+  // (see RichTextEditor's insertBlockRef prop). Used so programmatic insertions
+  // (logo upload into the header, "Add Signature Field" into the footer) go
+  // through the browser's native undo stack, keeping Ctrl+Z working — injecting
+  // via setState instead would rewrite the editor's innerHTML and lose undo.
+  const headerInsertRef = useRef(null);
   const footerInsertRef = useRef(null);
 
   /**
@@ -246,6 +310,7 @@ export default function TemplateForm({
       name, category, description,
       dataSourceTable, dataSourceConnectionId,
       headerHtml, bodyHtml, footerHtml,
+      companySeal,
       savedAt: new Date().toISOString(),
     };
     const timer = setTimeout(() => {
@@ -253,7 +318,7 @@ export default function TemplateForm({
     }, 800);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCreate, name, category, description, dataSourceTable, dataSourceConnectionId, headerHtml, bodyHtml, footerHtml]);
+  }, [isCreate, name, category, description, dataSourceTable, dataSourceConnectionId, headerHtml, bodyHtml, footerHtml, companySeal]);
 
   // Whenever the chosen external connection changes, fetch ONLY that connection's own
   // tables (backend re-enforces this — see listExternalTables). Switching back to
@@ -291,6 +356,8 @@ export default function TemplateForm({
   }, [dataSourceTable, isExternalSource, dataSourceConnectionId]);
 
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPosition, setLogoPosition] = useState('left'); // 'left' | 'center' | 'right'
+  const [uploadingSeal, setUploadingSeal] = useState(false);
 
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -298,13 +365,22 @@ export default function TemplateForm({
     setUploadingLogo(true);
     try {
       const res = await templateService.uploadLogo(file);
-      // Same resizable/alignable wrapper markup the editor's own Image button uses (see
-      // RichTextEditor.jsx) — so a logo/signature uploaded here can immediately be
-      // dragged from its bottom-right corner to resize, or aligned with the header
-      // editor's align buttons, exactly like any other inserted image.
-      const html = `<span class="rte-image-wrap" contenteditable="false" style="display:inline-block;width:180px;resize:both;overflow:hidden;max-width:100%;border:1px dashed transparent;"><img src="${res.data.url}" style="width:100%;height:100%;display:block;" alt="Logo" /></span>&nbsp;`;
-      setHeaderHtml((prev) => `${html}${prev || ''}`); // FR-008: statically embedded in header
-      showToast('Logo uploaded — drag its corner to resize, or use the align buttons above.', 'success');
+      // Wrap the image in a block-level paragraph so text-align controls its
+      // horizontal position inside the header editor — left, center, or right —
+      // without affecting any other content already in the header. The inner
+      // <span class="rte-image-wrap"> keeps it resizable by dragging its corner,
+      // consistent with images inserted via the editor's own Image button.
+      const alignStyle = `text-align:${logoPosition};display:block;`;
+      const html = `<p style="${alignStyle}"><span class="rte-image-wrap" contenteditable="false" style="display:inline-block;width:180px;resize:both;overflow:hidden;max-width:100%;border:1px dashed transparent;"><img src="${res.data.url}" style="width:100%;height:100%;display:block;" alt="Logo" /></span></p>`;
+      if (headerInsertRef.current) {
+        // Insert at the top of the header editor through the native undo stack,
+        // so Ctrl+Z / Ctrl+Y can revert the logo like any other editor action.
+        headerInsertRef.current(html, { at: 'start' });
+      } else {
+        // Fallback: header editor not mounted yet — prepend to state directly.
+        setHeaderHtml((prev) => `${html}${prev || ''}`);
+      }
+      showToast(`Logo uploaded — aligned ${logoPosition}. Drag its corner to resize.`, 'success');
     } catch (err) {
       showToast(err.message || 'Logo upload failed.', 'error');
     } finally {
@@ -315,6 +391,27 @@ export default function TemplateForm({
 
   /** Strips tags/entities down to visible text, so an editor holding only "<p><br></p>" reads as empty. */
   const isEditorEmpty = (html) => !html || !html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, '').trim();
+
+  /** Uploads a company seal image (reuses the logo upload endpoint — same multipart shape). */
+  const handleSealUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingSeal(true);
+    try {
+      const res = await templateService.uploadLogo(file);
+      setCompanySeal(prev => ({ ...prev, enabled: true, imageUrl: res.data.url }));
+      showToast('Company seal uploaded.', 'success');
+    } catch (err) {
+      showToast(err.message || 'Seal upload failed.', 'error');
+    } finally {
+      setUploadingSeal(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveSeal = () => {
+    setCompanySeal(prev => ({ ...prev, imageUrl: null, enabled: false }));
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -338,7 +435,13 @@ export default function TemplateForm({
       header_html: headerHtml,
       body_html: bodyHtml,
       footer_html: footerHtml,
-      workflow_config: workflow.enabled ? workflow : null,
+      // FR-003: fieldMappings are always persisted in workflow_config so they survive
+      // round-trips even when the workflow steps themselves are disabled.
+      workflow_config: {
+        ...(workflow.enabled ? workflow : {}),
+        companySeal: companySeal?.enabled ? companySeal : undefined,
+        fieldMappings: Object.keys(fieldMappings).length > 0 ? fieldMappings : undefined,
+      },
     });
     // Clear the draft — template was saved successfully
     if (isCreate) {
@@ -354,6 +457,7 @@ export default function TemplateForm({
     setName(''); setCategory(CATEGORIES[0]); setDescription('');
     setDataSourceTable(''); setDataSourceConnectionId(INTERNAL_SOURCE);
     setHeaderHtml(''); setBodyHtml(''); setFooterHtml('');
+    setCompanySeal({ enabled: false, imageUrl: null, position: 'right', size: 110 });
   };
 
   return (
@@ -472,15 +576,57 @@ export default function TemplateForm({
         </div>
       )}
 
+      {/* ── FR-003: Field Mapping Panel ────────────────────────────────────────
+          Shows template placeholders (extracted live from current HTML) on the
+          left and data source columns on the right. Drag a column chip onto a
+          placeholder row to create an explicit mapping. Mappings are stored in
+          workflow_config.fieldMappings and persisted with the template.          */}
+      {dataSourceTable && (
+        <div className="form-field">
+          <FieldMappingPanel
+            placeholders={livePlaceholders}
+            fields={fields}
+            mappings={fieldMappings}
+            onChange={setFieldMappings}
+          />
+        </div>
+      )}
+
       <div className="form-field">
         <div className="rte-header-row">
           <label>Header <span className="required-mark">*</span></label>
-          <label className="btn-secondary logo-upload-btn">
-            {uploadingLogo ? 'Uploading…' : '+ Upload Logo / Signature'}
-            <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} style={{ display: 'none' }} />
-          </label>
+          <div className="logo-upload-row" role="group" aria-label="Logo upload controls">
+            {/* Position picker */}
+            <div className="logo-pos-group" role="group" aria-label="Logo position">
+              {[
+                { value: 'left',   title: 'Align left',
+                  icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><line x1="1" y1="4" x2="10" y2="4"/><line x1="1" y1="8" x2="15" y2="8"/><line x1="1" y1="12" x2="8" y2="12"/></svg> },
+                { value: 'center', title: 'Align center',
+                  icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><line x1="3" y1="4" x2="13" y2="4"/><line x1="1" y1="8" x2="15" y2="8"/><line x1="4" y1="12" x2="12" y2="12"/></svg> },
+                { value: 'right',  title: 'Align right',
+                  icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><line x1="6" y1="4" x2="15" y2="4"/><line x1="1" y1="8" x2="15" y2="8"/><line x1="8" y1="12" x2="15" y2="12"/></svg> },
+              ].map(({ value, title, icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  title={title}
+                  aria-label={title}
+                  aria-pressed={logoPosition === value}
+                  className={`logo-pos-btn${logoPosition === value ? ' logo-pos-btn-active' : ''}`}
+                  onClick={() => setLogoPosition(value)}
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+            {/* Upload trigger */}
+            <label className={`btn-secondary logo-upload-btn${uploadingLogo ? ' logo-upload-btn-busy' : ''}`}>
+              {uploadingLogo ? 'Uploading…' : '+ Upload Logo / Signature'}
+              <input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploadingLogo} style={{ display: 'none' }} />
+            </label>
+          </div>
         </div>
-        <RichTextEditor value={headerHtml} onChange={setHeaderHtml} availableFields={fields} region="header" />
+        <RichTextEditor value={headerHtml} onChange={setHeaderHtml} availableFields={fields} region="header" insertBlockRef={headerInsertRef} />
       </div>
 
       <div className="form-field">
@@ -542,6 +688,134 @@ export default function TemplateForm({
             </span>
           </div>
         )}
+      </div>
+
+      {/* ── Company Seal (footer stamp) ────────────────────────────────────── */}
+      <div style={{
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden',
+        marginBottom: 4,
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+          padding: '14px 18px',
+          background: companySeal.enabled ? 'rgba(21,154,156,0.06)' : 'var(--bg-subtle)',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/>
+            </svg>
+            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+              Company Seal
+            </span>
+            {companySeal.enabled && (
+              <span style={{
+                fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em',
+                textTransform: 'uppercase', color: 'var(--accent)',
+                background: 'rgba(21,154,156,0.12)', padding: '2px 8px', borderRadius: 20,
+              }}>Enabled</span>
+            )}
+          </div>
+        </div>
+
+        <div style={{ padding: '16px 20px 20px' }}>
+          <WorkflowToggle
+            id="seal-enabled"
+            label="Add company seal to the document footer"
+            description="Prints the company seal next to the signature line at the bottom of every generated document — alongside the system verification stamp."
+            checked={companySeal.enabled}
+            onChange={(v) => setCs('enabled', v)}
+          />
+
+          {companySeal.enabled && (
+            <div style={{ marginTop: 14, paddingTop: 2, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Seal artwork: uploaded image OR auto-generated fallback */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                {companySeal.imageUrl && (
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <img
+                      src={companySeal.imageUrl}
+                      alt="Company seal"
+                      style={{
+                        width: 80, height: 80, borderRadius: '50%', objectFit: 'cover',
+                        border: '2px solid rgba(15,39,71,0.5)', boxShadow: '0 0 0 3px #fff, 0 0 0 4px rgba(15,39,71,0.25)',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRemoveSeal}
+                      title="Remove uploaded seal (system will auto-generate one instead)"
+                      aria-label="Remove uploaded seal"
+                      style={{
+                        position: 'absolute', top: -6, right: -6,
+                        width: 22, height: 22, borderRadius: '50%', border: 'none',
+                        background: '#DC2626', color: '#fff', fontSize: '0.75rem',
+                        lineHeight: 1, cursor: 'pointer', fontWeight: 700,
+                      }}
+                    >×</button>
+                  </div>
+                )}
+
+                <label className={`btn-secondary logo-upload-btn${uploadingSeal ? ' logo-upload-btn-busy' : ''}`}
+                  style={{ flexShrink: 0 }}>
+                  {companySeal.imageUrl ? 'Replace Seal Image' : uploadingSeal ? 'Uploading…' : '+ Upload Seal Image'}
+                  <input type="file" accept="image/*" onChange={handleSealUpload} disabled={uploadingSeal} style={{ display: 'none' }} />
+                </label>
+              </div>
+
+              <p style={{ margin: 0, fontSize: '0.77rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                {companySeal.imageUrl
+                  ? 'Your uploaded seal will be stamped on the footer in a circular frame.'
+                  : 'No image uploaded — the system will auto-generate a round "rubber stamp" seal with the organization name, document ID and date.'}
+              </p>
+
+              {/* Position + size */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                    Seal position
+                  </div>
+                  <div className="logo-pos-group" role="group" aria-label="Company seal position" style={{ display: 'inline-flex' }}>
+                    {[
+                      { value: 'left',   title: 'Left of the signature' },
+                      { value: 'center', title: 'Centered above the signature' },
+                      { value: 'right',  title: 'Right of the signature' },
+                    ].map(({ value, title }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        title={title}
+                        aria-label={title}
+                        aria-pressed={companySeal.position === value}
+                        className={`logo-pos-btn${companySeal.position === value ? ' logo-pos-btn-active' : ''}`}
+                        onClick={() => setCs('position', value)}
+                      >{value}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="seal-size" style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                    Seal size
+                  </label>
+                  <select
+                    id="seal-size"
+                    value={companySeal.size}
+                    onChange={(e) => setCs('size', Number(e.target.value))}
+                    style={{ width: '100%', maxWidth: 160 }}
+                  >
+                    {[80, 100, 120, 140].map((s) => (
+                      <option key={s} value={s}>{s}px</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── User Workflow Configuration ───────────────────────────────────── */}

@@ -1,0 +1,14 @@
+{
+  "status": {
+    "confirmed": "ተረጋግጧል",
+    "rejected": "ውድቅ ተደርጓል",
+    "pending": "በመጠባበቅ ላይ",
+    "submitted": "ቀርቧል",
+    "approved": "ጸድቋል",
+    "returned": "ተመልሷል",
+    "delivered": "ደርሷል",
+    "revoked": "ተሰርዟል",
+    "sent": "ተልኳል",
+    "opened": "ተከፍቷል"
+  }
+}

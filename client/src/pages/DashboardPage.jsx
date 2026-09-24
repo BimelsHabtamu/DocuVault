@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { auditService, deliveryService } from '../services/workflowService';
@@ -11,18 +12,11 @@ import './Dashboard.css';
 // Shared constants
 // ─────────────────────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
-  draft:     '#94A3B8',  // slate — neutral, intentional
-  pending:   '#F59E0B',  // amber — matches --amber token
-  signed:    '#0F766E',  // deep teal — matches --brand
-  rejected:  '#DC2626',  // red — matches --error-text token
-  delivered: '#14B8A6',  // teal-light — distinct from signed, still on-brand
-};
-const STATUS_LABELS = {
-  draft:     'Draft',
-  pending:   'Pending Approval',
-  signed:    'Approved / Signed',
-  rejected:  'Rejected',
-  delivered: 'Delivered',
+  draft:     '#94A3B8',
+  pending:   '#F59E0B',
+  signed:    '#0F766E',
+  rejected:  '#DC2626',
+  delivered: '#14B8A6',
 };
 
 function fmtRelative(ts) {
@@ -47,7 +41,7 @@ function fmtDate(ts) {
 // Reusable: status badge
 // ─────────────────────────────────────────────────────────────────────────────
 function StatusBadge({ status, sigStatus }) {
-  // Effective display status: if doc status is 'draft' but sig is 'rejected', show rejected.
+  const { t } = useTranslation('layout');
   const effective =
     status === 'draft' && sigStatus === 'rejected' ? 'rejected' : status;
 
@@ -58,11 +52,11 @@ function StatusBadge({ status, sigStatus }) {
     effective === 'rejected'  ? 'red'    : 'slate';
 
   const label =
-    effective === 'signed'    ? 'Approved'        :
-    effective === 'delivered' ? 'Delivered'       :
-    effective === 'pending'   ? 'Pending Approval':
-    effective === 'rejected'  ? 'Rejected'        :
-    effective === 'draft'     ? 'Draft'           : effective;
+    effective === 'signed'    ? t('dashboard.docBadge.approved')       :
+    effective === 'delivered' ? t('dashboard.docBadge.delivered')      :
+    effective === 'pending'   ? t('dashboard.docBadge.pendingApproval'):
+    effective === 'rejected'  ? t('dashboard.docBadge.rejected')       :
+    effective === 'draft'     ? t('dashboard.docBadge.draft')          : effective;
 
   return (
     <span className={`db-badge db-badge-${tone}`}>
@@ -76,6 +70,7 @@ function StatusBadge({ status, sigStatus }) {
 // Reusable: bar chart (14-day generation trend)
 // ─────────────────────────────────────────────────────────────────────────────
 function BarChart({ daily }) {
+  const { t } = useTranslation('layout');
   const width = 540, height = 160;
   const pad = { top: 8, right: 6, bottom: 24, left: 6 };
   const max = Math.max(1, ...daily.map((d) => d.count));
@@ -90,7 +85,7 @@ function BarChart({ daily }) {
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      aria-label="Documents generated per day, last 14 days"
+      aria-label={t('dashboard.barChart.ariaLabel')}
     >
       {daily.map((d, i) => {
         const barH = (d.count / max) * chartH;
@@ -105,7 +100,7 @@ function BarChart({ daily }) {
               height={Math.max(barH, d.count > 0 ? 2 : 0)}
               rx="3" fill="var(--accent)" opacity="0.9"
             >
-              <title>{`${label}: ${d.count} doc(s)`}</title>
+              <title>{t('dashboard.barChart.tooltip', { date: label, count: d.count })}</title>
             </rect>
             {(i % 2 === 0 || daily.length <= 8) && (
               <text
@@ -127,6 +122,16 @@ function BarChart({ daily }) {
 // Reusable: status donut
 // ─────────────────────────────────────────────────────────────────────────────
 function StatusDonut({ statusBreakdown }) {
+  const { t } = useTranslation('layout');
+
+  const STATUS_LABELS = {
+    draft:     t('dashboard.statusLabels.draft'),
+    pending:   t('dashboard.statusLabels.pending'),
+    signed:    t('dashboard.statusLabels.signed'),
+    rejected:  t('dashboard.statusLabels.rejected'),
+    delivered: t('dashboard.statusLabels.delivered'),
+  };
+
   const total = statusBreakdown.reduce((s, r) => s + Number(r.count), 0) || 1;
   let cumulative = 0;
   const stops = statusBreakdown.map((r) => {
@@ -145,7 +150,7 @@ function StatusDonut({ statusBreakdown }) {
       <div className="db-donut-ring-wrap" style={{ background: gradient }}>
         <div className="db-donut-hole">
           <span className="db-donut-total">{total}</span>
-          <span className="db-donut-total-label">total docs</span>
+          <span className="db-donut-total-label">{t('dashboard.statusBreakdown.totalDocs')}</span>
         </div>
       </div>
       <div className="db-donut-legend">
@@ -228,13 +233,6 @@ function IcoAudit() {
     </svg>
   );
 }
-function IcoReports() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4 20V10.5"/><path d="M10 20V4"/><path d="M16 20V13.5"/><path d="M20 20V7.5"/>
-    </svg>
-  );
-}
 function IcoDocTracking() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -295,6 +293,7 @@ function QuickAction({ label, icon, onClick }) {
 function AdminDashboard({ user }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { t } = useTranslation('layout');
 
   const [kpis, setKpis] = useState(null);
   const [trends, setTrends] = useState(null);
@@ -318,12 +317,12 @@ function AdminDashboard({ user }) {
       setAuditLogs(auditRes.data?.slice(0, 10) ?? []);
       setOwnershipReport(ownershipRes?.data ?? null);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard.');
-      showToast(err.message || 'Failed to load dashboard.', 'error');
+      setError(err.message || t('dashboard.failedToLoad'));
+      showToast(err.message || t('dashboard.failedToLoad'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -357,9 +356,9 @@ function AdminDashboard({ user }) {
   if (error) {
     return (
       <div className="db-error">
-        <p className="db-error-title">Couldn't load the dashboard</p>
+        <p className="db-error-title">{t('dashboard.couldntLoad')}</p>
         <p className="db-error-desc">{error}</p>
-        <button type="button" className="db-retry-btn" onClick={load}>Retry</button>
+        <button type="button" className="db-retry-btn" onClick={load}>{t('dashboard.retryBtn')}</button>
       </div>
     );
   }
@@ -369,36 +368,36 @@ function AdminDashboard({ user }) {
       {/* ── KPI Row ── */}
       <div className="db-kpi-row">
         <KpiCard
-          label="Total Documents"
+          label={t('dashboard.kpi.totalDocuments')}
           value={totalDocs}
-          sub="All time"
+          sub={t('dashboard.kpi.allTime')}
           accent="brand"
           icon={<IcoTemplates />}
         />
         <KpiCard
-          label="Generated Today"
+          label={t('dashboard.kpi.generatedToday')}
           value={kpis?.docsGeneratedToday}
-          sub="Live count"
+          sub={t('dashboard.kpi.liveCount')}
           icon={<IcoGenerate />}
         />
         <KpiCard
-          label="Pending Approvals"
+          label={t('dashboard.kpi.pendingApprovals')}
           value={pending}
-          sub="Awaiting review"
+          sub={t('dashboard.kpi.awaitingReview')}
           accent="amber"
           icon={<IcoApprovals />}
         />
         <KpiCard
-          label="Approved / Signed"
+          label={t('dashboard.kpi.approvedSigned')}
           value={signed}
-          sub="Ready for delivery"
+          sub={t('dashboard.kpi.readyForDelivery')}
           accent="green"
           icon={<IcoVerify />}
         />
         <KpiCard
-          label="Delivered"
+          label={t('dashboard.kpi.delivered')}
           value={delivered}
-          sub="Sent to recipients"
+          sub={t('dashboard.kpi.sentToRecipients')}
           accent="indigo"
           icon={<IcoDocTracking />}
         />
@@ -409,15 +408,15 @@ function AdminDashboard({ user }) {
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Generation Trend</h3>
-              <p className="db-card-subtitle">Documents generated — last 14 days</p>
+              <h3 className="db-card-title">{t('dashboard.generationTrend.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.generationTrend.subtitle')}</p>
             </div>
           </div>
           {trends.daily.every((d) => d.count === 0) ? (
             <div className="db-empty">
               <div className="db-empty-icon">📊</div>
-              <p className="db-empty-title">No activity yet</p>
-              <p className="db-empty-desc">Documents generated will appear here.</p>
+              <p className="db-empty-title">{t('dashboard.generationTrend.noActivityTitle')}</p>
+              <p className="db-empty-desc">{t('dashboard.generationTrend.noActivityDesc')}</p>
             </div>
           ) : (
             <BarChart daily={trends.daily} />
@@ -427,14 +426,14 @@ function AdminDashboard({ user }) {
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Status Breakdown</h3>
-              <p className="db-card-subtitle">All documents by current status</p>
+              <h3 className="db-card-title">{t('dashboard.statusBreakdown.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.statusBreakdown.subtitle')}</p>
             </div>
           </div>
           {trends.statusBreakdown.length === 0 ? (
             <div className="db-empty">
               <div className="db-empty-icon">🗂</div>
-              <p className="db-empty-title">No documents yet</p>
+              <p className="db-empty-title">{t('dashboard.statusBreakdown.noDocsTitle')}</p>
             </div>
           ) : (
             <StatusDonut statusBreakdown={trends.statusBreakdown} />
@@ -442,23 +441,23 @@ function AdminDashboard({ user }) {
         </div>
       </div>
 
-      {/* ── Top Templates + Recent Activity ── */}
+      {/* ── Recent Activity + Top Templates ── */}
       <div className="db-section-row" style={{ marginBottom: 20 }}>
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Recent Activity</h3>
-              <p className="db-card-subtitle">Latest audit events across all documents</p>
+              <h3 className="db-card-title">{t('dashboard.recentActivity.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.recentActivity.subtitleAll')}</p>
             </div>
             <button type="button" className="db-card-link" onClick={() => navigate('/audit-logs')}>
-              View all →
+              {t('dashboard.recentActivity.viewAll')}
             </button>
           </div>
           {auditLogs.length === 0 ? (
             <div className="db-empty">
               <div className="db-empty-icon">📋</div>
-              <p className="db-empty-title">No activity yet</p>
-              <p className="db-empty-desc">Audit events will appear here as documents are created and processed.</p>
+              <p className="db-empty-title">{t('dashboard.recentActivity.noActivityTitle')}</p>
+              <p className="db-empty-desc">{t('dashboard.recentActivity.noActivityDesc')}</p>
             </div>
           ) : (
             <div className="db-activity-list">
@@ -472,35 +471,35 @@ function AdminDashboard({ user }) {
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Top 5 Templates</h3>
-              <p className="db-card-subtitle">Most-used templates (all time)</p>
+              <h3 className="db-card-title">{t('dashboard.topTemplates.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.topTemplates.subtitle')}</p>
             </div>
             <button type="button" className="db-card-link" onClick={() => navigate('/templates')}>
-              Manage →
+              {t('dashboard.topTemplates.manage')}
             </button>
           </div>
           {!kpis?.topTemplates?.length ? (
             <div className="db-empty">
               <div className="db-empty-icon">📄</div>
-              <p className="db-empty-title">No documents generated yet</p>
-              <p className="db-empty-desc">Template usage stats will appear once documents are generated.</p>
+              <p className="db-empty-title">{t('dashboard.topTemplates.noDocsTitle')}</p>
+              <p className="db-empty-desc">{t('dashboard.topTemplates.noDocsDesc')}</p>
               <button type="button" className="db-empty-cta" onClick={() => navigate('/templates')}>
-                Manage Templates
+                {t('dashboard.topTemplates.manageTemplates')}
               </button>
             </div>
           ) : (
             <ol className="db-template-list">
-              {kpis.topTemplates.map((t, idx) => {
+              {kpis.topTemplates.map((t_item, idx) => {
                 const maxUsage = kpis.topTemplates[0]?.usageCount || 1;
-                const pct = Math.round((t.usageCount / maxUsage) * 100);
+                const pct = Math.round((t_item.usageCount / maxUsage) * 100);
                 return (
-                  <li key={t.id} className="db-template-item">
+                  <li key={t_item.id} className="db-template-item">
                     <span className="db-template-rank">{idx + 1}</span>
-                    <span className="db-template-name" title={t.name}>{t.name}</span>
+                    <span className="db-template-name" title={t_item.name}>{t_item.name}</span>
                     <div className="db-template-bar-wrap">
                       <div className="db-template-bar" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="db-template-count">{t.usageCount}</span>
+                    <span className="db-template-count">{t_item.usageCount}</span>
                   </li>
                 );
               })}
@@ -516,8 +515,8 @@ function AdminDashboard({ user }) {
             <div className="db-card">
               <div className="db-card-header">
                 <div>
-                  <h3 className="db-card-title">Approval Performance</h3>
-                  <p className="db-card-subtitle">From submission to signed approval</p>
+                  <h3 className="db-card-title">{t('dashboard.approvalPerf.title')}</h3>
+                  <p className="db-card-subtitle">{t('dashboard.approvalPerf.subtitle')}</p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -526,7 +525,7 @@ function AdminDashboard({ user }) {
                     {kpis.avgApprovalTimeMinutes}m
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
-                    Average approval time
+                    {t('dashboard.approvalPerf.avgTime')}
                   </div>
                 </div>
               </div>
@@ -536,19 +535,19 @@ function AdminDashboard({ user }) {
             <div className="db-card">
               <div className="db-card-header">
                 <div>
-                  <h3 className="db-card-title">Secure Delivery</h3>
-                  <p className="db-card-subtitle">Ownership verification status</p>
+                  <h3 className="db-card-title">{t('dashboard.secureDelivery.title')}</h3>
+                  <p className="db-card-subtitle">{t('dashboard.secureDelivery.subtitle')}</p>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
                 {[
-                  { label: 'Delivered', value: ownershipReport.totalDelivered, color: 'var(--accent)' },
-                  { label: 'Confirmed', value: ownershipReport.ownedCount, color: 'var(--success-text)' },
-                  { label: 'Rate', value: `${ownershipReport.confirmationRate}%`, color: 'var(--brand)' },
-                ].map(({ label, value, color }) => (
-                  <div key={label}>
+                  { labelKey: 'dashboard.secureDelivery.delivered', value: ownershipReport.totalDelivered, color: 'var(--accent)' },
+                  { labelKey: 'dashboard.secureDelivery.confirmed', value: ownershipReport.ownedCount, color: 'var(--success-text)' },
+                  { labelKey: 'dashboard.secureDelivery.rate', value: `${ownershipReport.confirmationRate}%`, color: 'var(--brand)' },
+                ].map(({ labelKey, value, color }) => (
+                  <div key={labelKey}>
                     <div style={{ fontSize: '1.8rem', fontWeight: 700, color }}>{value}</div>
-                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: 2 }}>{t(labelKey)}</div>
                   </div>
                 ))}
               </div>
@@ -560,13 +559,13 @@ function AdminDashboard({ user }) {
       {/* ── Quick Actions ── */}
       <div className="db-card" style={{ marginBottom: 0 }}>
         <div className="db-card-header">
-          <h3 className="db-card-title">Quick Actions</h3>
+          <h3 className="db-card-title">{t('dashboard.quickActions.title')}</h3>
         </div>
         <div className="db-actions-grid">
-          <QuickAction label="Generate Document"   icon={<IcoGenerate />}    onClick={() => navigate('/documents')} />
-          <QuickAction label="Manage Templates"    icon={<IcoTemplates />}   onClick={() => navigate('/templates')} />
-          <QuickAction label="Manage Users"        icon={<IcoUsers />}       onClick={() => navigate('/users')} />
-          <QuickAction label="Audit &amp; Reports" icon={<IcoAudit />}       onClick={() => navigate('/audit-logs')} />
+          <QuickAction label={t('dashboard.quickActions.generateDocument')} icon={<IcoGenerate />}    onClick={() => navigate('/documents')} />
+          <QuickAction label={t('dashboard.quickActions.manageTemplates')}  icon={<IcoTemplates />}   onClick={() => navigate('/templates')} />
+          <QuickAction label={t('dashboard.quickActions.manageUsers')}      icon={<IcoUsers />}       onClick={() => navigate('/users')} />
+          <QuickAction label={t('dashboard.quickActions.auditReports')}     icon={<IcoAudit />}       onClick={() => navigate('/audit-logs')} />
         </div>
       </div>
     </>
@@ -579,6 +578,7 @@ function AdminDashboard({ user }) {
 function GeneratorDashboard() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { t } = useTranslation('layout');
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -591,12 +591,12 @@ function GeneratorDashboard() {
       const res = await auditService.getMyDashboardStats();
       setStats(res.data);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard.');
-      showToast(err.message || 'Failed to load dashboard.', 'error');
+      setError(err.message || t('dashboard.failedToLoad'));
+      showToast(err.message || t('dashboard.failedToLoad'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -617,9 +617,9 @@ function GeneratorDashboard() {
   if (error) {
     return (
       <div className="db-error">
-        <p className="db-error-title">Couldn't load your dashboard</p>
+        <p className="db-error-title">{t('dashboard.couldntLoadYours')}</p>
         <p className="db-error-desc">{error}</p>
-        <button type="button" className="db-retry-btn" onClick={load}>Retry</button>
+        <button type="button" className="db-retry-btn" onClick={load}>{t('dashboard.retryBtn')}</button>
       </div>
     );
   }
@@ -629,29 +629,29 @@ function GeneratorDashboard() {
       {/* ── KPI Row ── */}
       <div className="db-kpi-row db-kpi-row-4">
         <KpiCard
-          label="My Documents"
+          label={t('dashboard.kpi.myDocuments')}
           value={stats.totalDocs}
-          sub="All time"
+          sub={t('dashboard.kpi.allTime')}
           accent="brand"
           icon={<IcoTemplates />}
         />
         <KpiCard
-          label="Generated Today"
+          label={t('dashboard.kpi.generatedToday')}
           value={stats.generatedToday}
-          sub="Today's output"
+          sub={t('dashboard.kpi.todaysOutput')}
           icon={<IcoGenerate />}
         />
         <KpiCard
-          label="Pending Approval"
+          label={t('dashboard.kpi.pendingApproval')}
           value={stats.pendingApproval}
-          sub="Awaiting sign-off"
+          sub={t('dashboard.kpi.awaitingSignOff')}
           accent="amber"
           icon={<IcoApprovals />}
         />
         <KpiCard
-          label="Approved"
+          label={t('dashboard.kpi.approved')}
           value={stats.approved}
-          sub="Signed or delivered"
+          sub={t('dashboard.kpi.signedOrDelivered')}
           accent="green"
           icon={<IcoVerify />}
         />
@@ -662,20 +662,20 @@ function GeneratorDashboard() {
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Recent Documents</h3>
-              <p className="db-card-subtitle">Your 5 most recently generated documents</p>
+              <h3 className="db-card-title">{t('dashboard.recentDocs.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.recentDocs.subtitle')}</p>
             </div>
             <button type="button" className="db-card-link" onClick={() => navigate('/document-tracking')}>
-              View all →
+              {t('dashboard.recentDocs.viewAll')}
             </button>
           </div>
           {stats.recentDocs.length === 0 ? (
             <div className="db-empty">
               <div className="db-empty-icon">📄</div>
-              <p className="db-empty-title">No documents yet</p>
-              <p className="db-empty-desc">Documents you generate will appear here.</p>
+              <p className="db-empty-title">{t('dashboard.recentDocs.noDocsTitle')}</p>
+              <p className="db-empty-desc">{t('dashboard.recentDocs.noDocsDesc')}</p>
               <button type="button" className="db-empty-cta" onClick={() => navigate('/documents')}>
-                Generate a Document
+                {t('dashboard.recentDocs.generateCta')}
               </button>
             </div>
           ) : (
@@ -683,10 +683,10 @@ function GeneratorDashboard() {
               <table className="db-table">
                 <thead>
                   <tr>
-                    <th>Doc ID</th>
-                    <th>Template</th>
-                    <th>Status</th>
-                    <th>Generated</th>
+                    <th>{t('dashboard.recentDocs.colDocId')}</th>
+                    <th>{t('dashboard.recentDocs.colTemplate')}</th>
+                    <th>{t('dashboard.recentDocs.colStatus')}</th>
+                    <th>{t('dashboard.recentDocs.colGenerated')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -707,15 +707,15 @@ function GeneratorDashboard() {
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Recent Activity</h3>
-              <p className="db-card-subtitle">Latest events on your documents</p>
+              <h3 className="db-card-title">{t('dashboard.recentActivity.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.recentActivity.subtitleMine')}</p>
             </div>
           </div>
           {stats.recentActivity.length === 0 ? (
             <div className="db-empty">
               <div className="db-empty-icon">📋</div>
-              <p className="db-empty-title">No activity yet</p>
-              <p className="db-empty-desc">Events like approvals, rejections, and deliveries will appear here.</p>
+              <p className="db-empty-title">{t('dashboard.recentActivity.noActivityTitle')}</p>
+              <p className="db-empty-desc">{t('dashboard.recentActivity.noActivityDesc2')}</p>
             </div>
           ) : (
             <div className="db-activity-list">
@@ -745,10 +745,12 @@ function GeneratorDashboard() {
         >
           <div>
             <span style={{ fontWeight: 700, color: 'var(--error-text)' }}>
-              {stats.rejected} rejected document{stats.rejected !== 1 ? 's' : ''}
+              {stats.rejected !== 1
+                ? t('dashboard.rejected.calloutPlural', { count: stats.rejected })
+                : t('dashboard.rejected.callout', { count: stats.rejected })}
             </span>
             <span style={{ fontSize: '0.85rem', color: 'var(--error-text)', marginLeft: 8 }}>
-              need your attention.
+              {t('dashboard.rejected.needAttention')}
             </span>
           </div>
           <button
@@ -757,7 +759,7 @@ function GeneratorDashboard() {
             style={{ background: 'var(--error-text)' }}
             onClick={() => navigate('/document-tracking')}
           >
-            Review &amp; Resubmit
+            {t('dashboard.rejected.reviewResubmit')}
           </button>
         </div>
       )}
@@ -765,12 +767,12 @@ function GeneratorDashboard() {
       {/* ── Quick Actions ── */}
       <div className="db-card" style={{ marginBottom: 0 }}>
         <div className="db-card-header">
-          <h3 className="db-card-title">Quick Actions</h3>
+          <h3 className="db-card-title">{t('dashboard.quickActions.title')}</h3>
         </div>
         <div className="db-actions-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
-          <QuickAction label="Generate New Document" icon={<IcoGenerate />}    onClick={() => navigate('/documents')} />
-          <QuickAction label="My Documents"          icon={<IcoDocTracking />} onClick={() => navigate('/document-tracking')} />
-          <QuickAction label="Verify Document"       icon={<IcoVerify />}      onClick={() => navigate('/verify')} />
+          <QuickAction label={t('dashboard.quickActions.generateNew')} icon={<IcoGenerate />}    onClick={() => navigate('/documents')} />
+          <QuickAction label={t('dashboard.quickActions.myDocuments')} icon={<IcoDocTracking />} onClick={() => navigate('/document-tracking')} />
+          <QuickAction label={t('dashboard.quickActions.verifyDocument')} icon={<IcoVerify />}   onClick={() => navigate('/verify')} />
         </div>
       </div>
     </>
@@ -783,6 +785,7 @@ function GeneratorDashboard() {
 function ApproverDashboard() {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { t } = useTranslation('layout');
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -795,12 +798,12 @@ function ApproverDashboard() {
       const res = await auditService.getMyDashboardStats();
       setStats(res.data);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard.');
-      showToast(err.message || 'Failed to load dashboard.', 'error');
+      setError(err.message || t('dashboard.failedToLoad'));
+      showToast(err.message || t('dashboard.failedToLoad'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -821,9 +824,9 @@ function ApproverDashboard() {
   if (error) {
     return (
       <div className="db-error">
-        <p className="db-error-title">Couldn't load your dashboard</p>
+        <p className="db-error-title">{t('dashboard.couldntLoadYours')}</p>
         <p className="db-error-desc">{error}</p>
-        <button type="button" className="db-retry-btn" onClick={load}>Retry</button>
+        <button type="button" className="db-retry-btn" onClick={load}>{t('dashboard.retryBtn')}</button>
       </div>
     );
   }
@@ -833,30 +836,30 @@ function ApproverDashboard() {
       {/* ── KPI Row ── */}
       <div className="db-kpi-row db-kpi-row-4">
         <KpiCard
-          label="Pending to Review"
+          label={t('dashboard.kpi.pendingToReview')}
           value={stats.pendingToReview}
-          sub="In your approval queue"
+          sub={t('dashboard.kpi.inYourQueue')}
           accent="amber"
           icon={<IcoApprovals />}
         />
         <KpiCard
-          label="Approved"
+          label={t('dashboard.kpi.approved')}
           value={stats.approved}
-          sub="Signed by you or on your behalf"
+          sub={t('dashboard.kpi.signedByYou')}
           accent="green"
           icon={<IcoVerify />}
         />
         <KpiCard
-          label="Rejected"
+          label={t('dashboard.kpi.rejected')}
           value={stats.rejected}
-          sub="Sent back for correction"
+          sub={t('dashboard.kpi.sentBackForCorrection')}
           accent="red"
           icon={<IcoDocTracking />}
         />
         <KpiCard
-          label="My Documents"
+          label={t('dashboard.kpi.myDocuments')}
           value={stats.totalDocs}
-          sub="Total generated by me"
+          sub={t('dashboard.kpi.totalGeneratedByMe')}
           accent="brand"
           icon={<IcoTemplates />}
         />
@@ -867,22 +870,22 @@ function ApproverDashboard() {
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Documents Awaiting Your Approval</h3>
+              <h3 className="db-card-title">{t('dashboard.awaitingApproval.title')}</h3>
               <p className="db-card-subtitle">
                 {stats.pendingToReview > 5
-                  ? `Showing 5 of ${stats.pendingToReview} — go to Pending Approvals to see all`
-                  : 'Documents routed to you for review'}
+                  ? t('dashboard.awaitingApproval.subtitleOverflow', { count: stats.pendingToReview })
+                  : t('dashboard.awaitingApproval.subtitleNormal')}
               </p>
             </div>
             <button type="button" className="db-card-link" onClick={() => navigate('/approvals')}>
-              View all →
+              {t('dashboard.awaitingApproval.viewAll')}
             </button>
           </div>
           {stats.pendingQueue.length === 0 ? (
             <div className="db-empty">
               <div className="db-empty-icon">✅</div>
-              <p className="db-empty-title">All caught up!</p>
-              <p className="db-empty-desc">No documents are waiting for your review right now.</p>
+              <p className="db-empty-title">{t('dashboard.awaitingApproval.allCaughtUp')}</p>
+              <p className="db-empty-desc">{t('dashboard.awaitingApproval.noPendingDesc')}</p>
             </div>
           ) : (
             <div className="db-queue-list">
@@ -892,7 +895,7 @@ function ApproverDashboard() {
                     <div className="db-queue-item-uuid">{req.doc_uuid}</div>
                     <div className="db-queue-item-template">{req.template_name}</div>
                     <div className="db-queue-item-by">
-                      From {req.generator_name} · {fmtRelative(req.created_at)}
+                      {t('dashboard.awaitingApproval.from')} {req.generator_name} · {fmtRelative(req.created_at)}
                     </div>
                   </div>
                   <button
@@ -900,7 +903,7 @@ function ApproverDashboard() {
                     className="db-queue-review-btn"
                     onClick={() => navigate(`/approvals?open=${req.id}`)}
                   >
-                    Review
+                    {t('dashboard.awaitingApproval.review')}
                   </button>
                 </div>
               ))}
@@ -911,15 +914,15 @@ function ApproverDashboard() {
         <div className="db-card">
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">Recent Activity</h3>
-              <p className="db-card-subtitle">Latest events on documents you generated</p>
+              <h3 className="db-card-title">{t('dashboard.recentActivity.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.recentActivity.subtitleGenerated')}</p>
             </div>
           </div>
           {stats.recentActivity.length === 0 ? (
             <div className="db-empty">
               <div className="db-empty-icon">📋</div>
-              <p className="db-empty-title">No activity yet</p>
-              <p className="db-empty-desc">Approvals, rejections, and deliveries will appear here.</p>
+              <p className="db-empty-title">{t('dashboard.recentActivity.noActivityTitle')}</p>
+              <p className="db-empty-desc">{t('dashboard.recentActivity.noActivityDesc2')}</p>
             </div>
           ) : (
             <div className="db-activity-list">
@@ -936,21 +939,21 @@ function ApproverDashboard() {
         <div className="db-card" style={{ marginBottom: 20 }}>
           <div className="db-card-header">
             <div>
-              <h3 className="db-card-title">My Recent Documents</h3>
-              <p className="db-card-subtitle">Documents you have generated</p>
+              <h3 className="db-card-title">{t('dashboard.myRecentDocs.title')}</h3>
+              <p className="db-card-subtitle">{t('dashboard.myRecentDocs.subtitle')}</p>
             </div>
             <button type="button" className="db-card-link" onClick={() => navigate('/document-tracking')}>
-              View all →
+              {t('dashboard.myRecentDocs.viewAll')}
             </button>
           </div>
           <div className="db-table-wrap">
             <table className="db-table">
               <thead>
                 <tr>
-                  <th>Doc ID</th>
-                  <th>Template</th>
-                  <th>Status</th>
-                  <th>Generated</th>
+                  <th>{t('dashboard.myRecentDocs.colDocId')}</th>
+                  <th>{t('dashboard.myRecentDocs.colTemplate')}</th>
+                  <th>{t('dashboard.myRecentDocs.colStatus')}</th>
+                  <th>{t('dashboard.myRecentDocs.colGenerated')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -971,12 +974,12 @@ function ApproverDashboard() {
       {/* ── Quick Actions ── */}
       <div className="db-card" style={{ marginBottom: 0 }}>
         <div className="db-card-header">
-          <h3 className="db-card-title">Quick Actions</h3>
+          <h3 className="db-card-title">{t('dashboard.quickActions.title')}</h3>
         </div>
         <div className="db-actions-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
-          <QuickAction label="Pending Approvals" icon={<IcoApprovals />}   onClick={() => navigate('/approvals')} />
-          <QuickAction label="View Documents"    icon={<IcoDocTracking />} onClick={() => navigate('/document-tracking')} />
-          <QuickAction label="Verify Document"   icon={<IcoVerify />}      onClick={() => navigate('/verify')} />
+          <QuickAction label={t('dashboard.quickActions.pendingApprovals')} icon={<IcoApprovals />}   onClick={() => navigate('/approvals')} />
+          <QuickAction label={t('dashboard.quickActions.viewDocuments')}    icon={<IcoDocTracking />} onClick={() => navigate('/document-tracking')} />
+          <QuickAction label={t('dashboard.quickActions.verifyDocument')}   icon={<IcoVerify />}      onClick={() => navigate('/verify')} />
         </div>
       </div>
     </>
@@ -988,25 +991,25 @@ function ApproverDashboard() {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { t } = useTranslation('layout');
 
   if (!user) return null;
 
   const role = user.role;
-  const isAdmin  = role === ROLES.SUPER_ADMIN || role === ROLES.SYSTEM_ADMIN;
+  const isAdmin    = role === ROLES.SUPER_ADMIN || role === ROLES.SYSTEM_ADMIN;
   const isApprover = role === ROLES.APPROVER;
 
-  // Greeting
   const firstName = user.full_name?.split(' ')[0] || user.email;
   const hour = new Date().getHours();
   const greeting =
-    hour < 12 ? 'Good morning' :
-    hour < 17 ? 'Good afternoon' : 'Good evening';
+    hour < 12 ? t('dashboard.goodMorning')  :
+    hour < 17 ? t('dashboard.goodAfternoon') : t('dashboard.goodEvening');
 
   const roleLabel =
-    role === ROLES.SUPER_ADMIN   ? 'Super Admin'   :
-    role === ROLES.SYSTEM_ADMIN  ? 'System Admin'  :
-    role === ROLES.GENERATOR     ? 'Generator'     :
-    role === ROLES.APPROVER      ? 'Approver'      : role;
+    role === ROLES.SUPER_ADMIN  ? t('roles.superAdmin')  :
+    role === ROLES.SYSTEM_ADMIN ? t('roles.systemAdmin') :
+    role === ROLES.GENERATOR    ? t('roles.generator')   :
+    role === ROLES.APPROVER     ? t('roles.approver')    : role;
 
   return (
     <div className="db-page">
@@ -1014,11 +1017,11 @@ export default function DashboardPage() {
       <div className="db-header">
         <div className="db-header-left">
           <h1>{greeting}, {firstName}.</h1>
-          <p>Here's an overview of your DocuVault workspace.</p>
+          <p>{t('dashboard.overview')}</p>
         </div>
         <div className="db-header-meta">
           <span className="db-live-dot" aria-hidden="true" />
-          Live data · {roleLabel}
+          {t('dashboard.liveData')} · {roleLabel}
         </div>
       </div>
 

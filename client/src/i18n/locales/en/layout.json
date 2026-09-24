@@ -1,0 +1,664 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "templates": "Templates",
+    "myDocuments": "My Documents",
+    "documentTracking": "Document Tracking",
+    "pendingApprovals": "Pending Approvals",
+    "verifyDocument": "Verify Document",
+    "auditReports": "Audit & Reports",
+    "administration": "Administration",
+    "userManagement": "User Management",
+    "systemSettings": "System Settings",
+    "databaseConnections": "Database Connections",
+    "externalDataSources": "External Data Sources",
+    "mySettings": "My Settings",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "faqHelpCenter": "FAQ & Help Center",
+    "supportAndSettings": "Support & Settings",
+    "toggleSidebar": "Toggle sidebar",
+    "landing": "Go to Landing Page",
+    "logout": "Logout"
+  },
+  "sidebar": {
+    "close": "Close sidebar"
+  },
+  "theme": {
+    "switchToLight": "Switch to Light mode",
+    "switchToDark": "Switch to Dark mode",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode"
+  },
+  "roles": {
+    "superAdmin": "Super Admin",
+    "systemAdmin": "System Admin",
+    "generator": "Generator",
+    "approver": "Approver",
+    "recipient": "Recipient"
+  },
+  "userMenu": {
+    "account": "Account",
+    "myProfile": "My Profile"
+  },
+  "profile": {
+    "closeProfile": "Close profile",
+    "changePhoto": "Change photo",
+    "clickCameraToChangePhoto": "Click the camera icon to change your photo",
+    "discard": "Discard",
+    "saving": "Saving…",
+    "savePhoto": "Save Photo",
+    "removing": "Removing…",
+    "removeCurrentPhoto": "Remove current photo",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New",
+    "hidePassword": "Hide password",
+    "showPassword": "Show password",
+    "strengthWeak": "Weak",
+    "strengthFair": "Fair",
+    "strengthGood": "Good",
+    "strengthStrong": "Strong",
+    "reqMinLength": "At least 8 characters",
+    "reqLetters": "Contains letters",
+    "reqUppercase": "Uppercase (A–Z)",
+    "reqNumber": "Number (0–9)",
+    "reqSymbol": "Symbol (!@#$…)",
+    "passwordsMatch": "Passwords match",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "updatePassword": "Update Password",
+    "errCurrentPasswordRequired": "Please enter your current password.",
+    "errPasswordTooShort": "New password must be at least 8 characters.",
+    "errPasswordNeedLetter": "Password must contain at least one letter.",
+    "errPasswordsDoNotMatch": "Passwords do not match.",
+    "errFailedToUpdatePassword": "Failed to update password."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "titleUnread": "Notifications ({{count}} unread)",
+    "empty": "No new notifications.",
+    "awaitingYourSignature": "Awaiting your signature",
+    "yourDocumentApproved": "Your document was approved",
+    "yourDocumentRejected": "Your document was rejected",
+    "aDocumentWasRejected": "A document was rejected",
+    "recipientRejectedDocument": "Recipient rejected your document",
+    "recipientConfirmedOwnership": "Recipient confirmed ownership",
+    "clickToViewDocument": "Click to view the document",
+    "clickToReviewResubmit": "Click to review and edit & resubmit",
+    "reason": "Reason:",
+    "editAndResubmit": "Edit & Resubmit",
+    "opening": "Opening…",
+    "document": "Document"
+  },
+  "confirm": {
+    "areYouSure": "Are you sure?",
+    "delete": "Delete",
+    "deleteItem": "Delete this item?",
+    "cannotBeUndone": "This action cannot be undone.",
+    "deleting": "Deleting…"
+  },
+  "verify": {
+    "subtitle": "Confirm authenticity without leaving your workspace",
+    "methodLabel": "Verification method",
+    "byDocId": "By Document ID",
+    "uploadPdf": "Upload PDF",
+    "docIdLabel": "Document ID",
+    "docIdHint": "Format: DOC-YYYYMMDD-XXXXX — printed on the document",
+    "docIdPlaceholder": "e.g. DOC-20260817-A1B2C",
+    "uploadPdfHint": "Upload the document to verify its hash against the stored original",
+    "verifying": "Verifying…",
+    "errSelectPdf": "Please select a PDF file.",
+    "errEnterDocId": "Please enter a Document ID.",
+    "verificationFailed": "Verification failed.",
+    "verificationFailedRetry": "Verification failed. Please try again.",
+    "sigFailed": "Signature verification failed.",
+    "authenticTitle": "Document is Authentic & Untampered",
+    "revokedTitle": "Document has been Revoked",
+    "notFoundTitle": "Document Not Found",
+    "corruptTitle": "Document is Corrupt or Forged",
+    "authenticSub": "Verified against the original stored record.",
+    "revokedSub": "This document is no longer valid.",
+    "notFoundSub": "No document with this ID exists in our records.",
+    "corruptSub": "Hash mismatch — content may have been modified.",
+    "resultDocId": "Document ID",
+    "recordedAt": "Recorded at",
+    "revokedAt": "Revoked at",
+    "tamperWarning": "The document may have been modified after generation. Do not rely on its contents.",
+    "digitalSignature": "Digital Signature",
+    "verifyDigitalSignature": "Verify Digital Signature",
+    "verifyingSignature": "Verifying signature…",
+    "notYetSigned": "— Not yet signed",
+    "signatureValid": "Signature valid",
+    "signatureHmacMismatch": "Signature HMAC mismatch",
+    "approverLabel": "Approver:",
+    "signedLabel": "Signed:"
+  },
+  "toast": {
+    "profilePhotoUpdated": "Profile photo updated.",
+    "uploadFailed": "Upload failed.",
+    "photoRemoved": "Photo removed.",
+    "failed": "Failed.",
+    "passwordUpdated": "Password updated.",
+    "failedToOpenDocument": "Failed to open the document."
+  },
+  "dashboard": {
+    "goodMorning": "Good morning",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
+    "overview": "Here's an overview of your DocuVault workspace.",
+    "liveData": "Live data",
+    "retryBtn": "Retry",
+    "couldntLoad": "Couldn't load the dashboard",
+    "couldntLoadYours": "Couldn't load your dashboard",
+    "failedToLoad": "Failed to load dashboard.",
+    "kpi": {
+      "totalDocuments": "Total Documents",
+      "allTime": "All time",
+      "generatedToday": "Generated Today",
+      "liveCount": "Live count",
+      "todaysOutput": "Today's output",
+      "pendingApprovals": "Pending Approvals",
+      "awaitingReview": "Awaiting review",
+      "awaitingSignOff": "Awaiting sign-off",
+      "approvedSigned": "Approved / Signed",
+      "readyForDelivery": "Ready for delivery",
+      "signedOrDelivered": "Signed or delivered",
+      "delivered": "Delivered",
+      "sentToRecipients": "Sent to recipients",
+      "myDocuments": "My Documents",
+      "pendingToReview": "Pending to Review",
+      "inYourQueue": "In your approval queue",
+      "approved": "Approved",
+      "signedByYou": "Signed by you or on your behalf",
+      "rejected": "Rejected",
+      "sentBackForCorrection": "Sent back for correction",
+      "totalGeneratedByMe": "Total generated by me",
+      "pendingApproval": "Pending Approval"
+    },
+    "generationTrend": {
+      "title": "Generation Trend",
+      "subtitle": "Documents generated — last 14 days",
+      "noActivityTitle": "No activity yet",
+      "noActivityDesc": "Documents generated will appear here."
+    },
+    "statusBreakdown": {
+      "title": "Status Breakdown",
+      "subtitle": "All documents by current status",
+      "noDocsTitle": "No documents yet",
+      "totalDocs": "total docs"
+    },
+    "statusLabels": {
+      "draft": "Draft",
+      "pending": "Pending Approval",
+      "signed": "Approved / Signed",
+      "rejected": "Rejected",
+      "delivered": "Delivered"
+    },
+    "docBadge": {
+      "approved": "Approved",
+      "delivered": "Delivered",
+      "pendingApproval": "Pending Approval",
+      "rejected": "Rejected",
+      "draft": "Draft"
+    },
+    "recentActivity": {
+      "title": "Recent Activity",
+      "subtitleAll": "Latest audit events across all documents",
+      "subtitleMine": "Latest events on your documents",
+      "subtitleGenerated": "Latest events on documents you generated",
+      "noActivityTitle": "No activity yet",
+      "noActivityDesc": "Audit events will appear here as documents are created and processed.",
+      "noActivityDesc2": "Events like approvals, rejections, and deliveries will appear here.",
+      "viewAll": "View all →"
+    },
+    "topTemplates": {
+      "title": "Top 5 Templates",
+      "subtitle": "Most-used templates (all time)",
+      "noDocsTitle": "No documents generated yet",
+      "noDocsDesc": "Template usage stats will appear once documents are generated.",
+      "manageTemplates": "Manage Templates",
+      "manage": "Manage →"
+    },
+    "approvalPerf": {
+      "title": "Approval Performance",
+      "subtitle": "From submission to signed approval",
+      "avgTime": "Average approval time"
+    },
+    "secureDelivery": {
+      "title": "Secure Delivery",
+      "subtitle": "Ownership verification status",
+      "delivered": "Delivered",
+      "confirmed": "Confirmed",
+      "rate": "Rate"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "generateDocument": "Generate Document",
+      "generateNew": "Generate New Document",
+      "manageTemplates": "Manage Templates",
+      "manageUsers": "Manage Users",
+      "auditReports": "Audit & Reports",
+      "myDocuments": "My Documents",
+      "verifyDocument": "Verify Document",
+      "pendingApprovals": "Pending Approvals",
+      "viewDocuments": "View Documents"
+    },
+    "recentDocs": {
+      "title": "Recent Documents",
+      "subtitle": "Your 5 most recently generated documents",
+      "noDocsTitle": "No documents yet",
+      "noDocsDesc": "Documents you generate will appear here.",
+      "generateCta": "Generate a Document",
+      "viewAll": "View all →",
+      "colDocId": "Doc ID",
+      "colTemplate": "Template",
+      "colStatus": "Status",
+      "colGenerated": "Generated"
+    },
+    "awaitingApproval": {
+      "title": "Documents Awaiting Your Approval",
+      "subtitleOverflow": "Showing 5 of {{count}} — go to Pending Approvals to see all",
+      "subtitleNormal": "Documents routed to you for review",
+      "allCaughtUp": "All caught up!",
+      "noPendingDesc": "No documents are waiting for your review right now.",
+      "from": "From",
+      "review": "Review",
+      "viewAll": "View all →"
+    },
+    "myRecentDocs": {
+      "title": "My Recent Documents",
+      "subtitle": "Documents you have generated",
+      "viewAll": "View all →",
+      "colDocId": "Doc ID",
+      "colTemplate": "Template",
+      "colStatus": "Status",
+      "colGenerated": "Generated"
+    },
+    "rejected": {
+      "callout": "{{count}} rejected document",
+      "calloutPlural": "{{count}} rejected documents",
+      "needAttention": "need your attention.",
+      "reviewResubmit": "Review & Resubmit"
+    },
+    "barChart": {
+      "ariaLabel": "Documents generated per day, last 14 days",
+      "tooltip": "{{date}}: {{count}} doc(s)"
+    }
+  },
+  "userManagement": {
+    "title": "User Management",
+    "subtitleLoading": "Loading accounts…",
+    "subtitle": "{{total}} account · {{active}} active",
+    "subtitlePlural": "{{total}} accounts · {{active}} active",
+    "createUser": "+ Create User",
+    "cancel": "Cancel",
+    "searchPlaceholder": "Search by name or email…",
+    "searchAriaLabel": "Search users",
+    "loadingUsers": "Loading users…",
+    "noUsersSearch": "No users match your search.",
+    "noUsersEmpty": "No users yet — create the first account above.",
+    "colUser": "User",
+    "colRole": "Role",
+    "colStatus": "Status",
+    "colActions": "Actions",
+    "active": "Active",
+    "inactive": "Inactive",
+    "statusActive": "active",
+    "statusInactive": "inactive",
+    "viewBtn": "View",
+    "editBtn": "Edit",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "deleteBtn": "Delete",
+    "working": "Working…",
+    "form": {
+      "emailLabel": "Email",
+      "emailPlaceholder": "name@organization.com",
+      "fullNameLabel": "Full Name",
+      "fullNamePlaceholder": "e.g. Lij Grma",
+      "orgLabel": "Organization / Company / Institution",
+      "orgPlaceholder": "Your organization will appear on the invite email",
+      "roleLabel": "Role",
+      "phoneLabel": "Phone",
+      "phonePlaceholder": "+251 9XX XXX XXX",
+      "welcomeEmailNote": "A welcome email with a set-password link will be sent automatically to the address above. No password needs to be entered here.",
+      "setPasswordLink": "set-password link",
+      "creating": "Creating…",
+      "createBtn": "Create Account & Send Welcome Email"
+    },
+    "roleOptions": {
+      "systemAdmin": "System Admin",
+      "generator": "Document Generator",
+      "approver": "Approver"
+    },
+    "roleLabels": {
+      "superAdmin": "Super Admin",
+      "systemAdmin": "System Admin",
+      "generator": "Document Generator",
+      "approver": "Approver",
+      "recipient": "Recipient"
+    },
+    "viewModal": {
+      "title": "User details: {{name}}",
+      "labelEmail": "Email",
+      "labelRole": "Role",
+      "labelStatus": "Status",
+      "labelPhone": "Phone",
+      "labelOrg": "Organization",
+      "labelMemberSince": "Member since",
+      "closeBtn": "Close",
+      "closeAriaLabel": "Close"
+    },
+    "editModal": {
+      "title": "Edit User",
+      "fullNameLabel": "Full Name",
+      "roleLabel": "Role",
+      "phoneLabel": "Phone",
+      "fullNameRequired": "Full name is required.",
+      "cancel": "Cancel",
+      "update": "Update…",
+      "updateChanges": "Update Changes",
+      "successMsg": "User updated successfully.",
+      "failedMsg": "Failed to update user."
+    },
+    "deleteModal": {
+      "title": "Delete user?",
+      "message": "Delete {{name}} ({{email}})?",
+      "cancelLabel": "Cancel",
+      "confirmLabel": "Delete"
+    },
+    "toasts": {
+      "loadFailed": "Failed to load users.",
+      "created": "User created.",
+      "createFailed": "Failed to create user.",
+      "updated": "Updated.",
+      "updateStatusFailed": "Failed to update status.",
+      "deleted": "User deleted.",
+      "deleteFailed": "Failed to delete user."
+    }
+  },
+  "approvals": {
+    "title": "Pending Approvals",
+    "subtitle": "Documents routed to you for review, OTP-confirmed approval, or rejection.",
+    "loading": "Loading pending approvals…",
+    "stats": {
+      "awaitingYou": "Awaiting You",
+      "templates": "Templates"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search by Doc ID, template, or generator…",
+      "allTemplates": "All templates",
+      "clearFilters": "Clear"
+    },
+    "dateFilter": {
+      "allTime": "All time",
+      "today": "Today",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days"
+    },
+    "empty": {
+      "noPending": "Nothing awaiting your signature right now.",
+      "noMatch": "No approvals match your search/filters.",
+      "clearFilters": "Clear filters"
+    },
+    "card": {
+      "actionRequired": "Action Required",
+      "templateLabel": "Template:",
+      "generatedByLabel": "Generated by:",
+      "recordLabel": "Record:",
+      "requestedLabel": "Requested:",
+      "pendingBadge": "Pending Approval",
+      "from": "From",
+      "viewPdf": "View PDF",
+      "opening": "Opening…",
+      "approve": "Approve",
+      "reject": "Reject",
+      "delete": "Delete"
+    },
+    "approveModal": {
+      "title": "Enter OTP to Approve",
+      "document": "Document:",
+      "viewPdfBtn": "View PDF in Browser",
+      "otpLabel": "6-digit OTP (sent to your email, expires in 5 minutes)",
+      "otpPlaceholder": "123456",
+      "otpPlaceholderSending": "Sending OTP…",
+      "resendOtp": "Resend OTP",
+      "sending": "Sending…",
+      "confirmSign": "Confirm & Sign",
+      "verifying": "Verifying…",
+      "otpRequired": "Enter the OTP code sent to your email.",
+      "approved": "Document approved and signed.",
+      "failed": "Approval failed.",
+      "otpSent": "OTP sent.",
+      "otpFailed": "Failed to send OTP."
+    },
+    "rejectModal": {
+      "title": "Reject Document",
+      "document": "Document:",
+      "reasonLabel": "Reason for rejection (required)",
+      "confirmReject": "Confirm Rejection",
+      "submitting": "Submitting…",
+      "reasonRequired": "A rejection reason is required.",
+      "recipientRequired": "Select at least one person to send the rejection to.",
+      "rejected": "Document rejected.",
+      "failed": "Rejection failed."
+    },
+    "deleteModal": {
+      "title": "Delete Document?",
+      "message": "Delete {{docUuid}}?",
+      "detail": "The pending approval request will be cancelled and the document will be permanently removed from Document Tracking. The Doc ID can still be used on the Verify Document page.",
+      "confirm": "Yes, Delete",
+      "deleting": "Deleting…",
+      "cancel": "Cancel",
+      "deleted": "Document deleted.",
+      "failed": "Failed to delete document."
+    },
+    "deepLink": {
+      "staleWarning": "That approval is no longer pending — showing your current approvals instead."
+    },
+    "loadFailed": "Failed to load pending approvals.",
+    "recipientsFailed": "Failed to load recipients."
+  },
+  "docTracking": {
+    "title": "Document Tracking",
+    "loading": "Loading documents…",
+    "subtitle": "Track your generated documents through approval, signing, and delivery.",
+    "stats": {
+      "total": "Total",
+      "pending": "Pending",
+      "approved": "Approved",
+      "delivered": "Delivered",
+      "rejected": "Rejected"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search by Doc ID, template, or record…",
+      "allStatuses": "All statuses",
+      "allTemplates": "All templates",
+      "allTime": "All time",
+      "today": "Today",
+      "last7Days": "Last 7 days",
+      "last30Days": "Last 30 days",
+      "clearFilters": "Clear filters",
+      "statusPending": "Pending Approval",
+      "statusApproved": "Approved",
+      "statusDelivered": "Delivered",
+      "statusDraft": "Draft",
+      "statusRejected": "Rejected"
+    },
+    "empty": {
+      "noDocs": "No documents yet.",
+      "noMatch": "No documents match your filters.",
+      "clearFilters": "Clear filters"
+    },
+    "card": {
+      "record": "Record:",
+      "generated": "Generated:",
+      "approver": "Approver:",
+      "notAssigned": "Not assigned",
+      "viewPdf": "View PDF",
+      "opening": "Opening…",
+      "assignApprover": "Assign Approver",
+      "reassignApprover": "Reassign Approver",
+      "deliver": "Deliver",
+      "editResubmit": "Edit & Resubmit",
+      "revokeDoc": "Revoke",
+      "delete": "Delete",
+      "rejectedBy": "Rejected by {{name}}",
+      "reason": "Reason:",
+      "deliveredTo": "Delivered to {{email}}",
+      "ownershipConfirmed": "Ownership confirmed",
+      "ownershipPending": "Ownership pending",
+      "recipientRejected": "Recipient rejected",
+      "badgeDraft": "Draft",
+      "badgePendingApproval": "Pending Approval",
+      "badgeApproved": "Approved",
+      "badgeDelivered": "Delivered",
+      "badgeRejected": "Rejected"
+    },
+    "revokeModal": {
+      "title": "Revoke Document?",
+      "message": "Revoke {{docUuid}}? This will invalidate the document and it can no longer be verified as authentic.",
+      "confirm": "Yes, Revoke",
+      "revoking": "Revoking…",
+      "cancel": "Cancel",
+      "revoked": "Document revoked.",
+      "failed": "Failed to revoke document."
+    },
+    "deleteModal": {
+      "title": "Delete Document?",
+      "message": "Permanently delete {{docUuid}}? This cannot be undone.",
+      "confirm": "Yes, Delete",
+      "deleting": "Deleting…",
+      "cancel": "Cancel",
+      "deleted": "Document deleted.",
+      "failed": "Failed to delete document."
+    },
+    "loadFailed": "Failed to load documents.",
+    "openFailed": "Failed to open the document.",
+    "approverAssigned": "Approver assigned.",
+    "approverFailed": "Failed to assign approver."
+  },
+  "myDocuments": {
+    "title": "My Documents",
+    "generateTitle": "Generate Document",
+    "selectTemplate": "Select a Template",
+    "noTemplates": "No active templates available.",
+    "loadingTemplates": "Loading templates…",
+    "recordIdLabel": "Record ID",
+    "recordIdPlaceholder": "e.g. EMP-001",
+    "previewBtn": "Preview",
+    "previewing": "Previewing…",
+    "generateBtn": "Generate PDF",
+    "generating": "Generating…",
+    "singleMode": "Single",
+    "multipleMode": "Multiple",
+    "bulkMode": "Bulk",
+    "enterRecordId": "Enter a record ID first.",
+    "previewFailed": "Preview failed.",
+    "generateFailed": "Failed to generate document.",
+    "generatedSuccess": "Document generated successfully.",
+    "resubmit": {
+      "title": "Edit & Resubmit",
+      "recordIdLabel": "Record ID",
+      "noteLabel": "What was fixed?",
+      "notePlaceholder": "Briefly describe what was corrected…",
+      "previewBtn": "Preview",
+      "previewing": "Previewing…",
+      "submitBtn": "Resubmit & Deliver",
+      "submitting": "Submitting…",
+      "cancelBtn": "Cancel",
+      "enterRecordId": "Enter a record ID.",
+      "enterNote": "Write a short note on what was fixed before resubmitting.",
+      "failed": "Resubmit failed.",
+      "success": "Document resubmitted and delivered."
+    }
+  },
+  "faq": {
+    "title": "FAQ & Help Center",
+    "subtitle": "Frequently asked questions about using DocuVault.",
+    "items": {
+      "generateDoc": {
+        "q": "How do I generate a document?",
+        "a": "Go to \"My Documents\" in the sidebar. Select an active template from the dropdown, enter the Record ID for the person the document is for, click \"Preview\" to see the filled-in content, then click \"Generate\" to produce the final PDF. A dialog will ask you to assign an approver — complete that step so the document can move forward."
+      },
+      "requestEsign": {
+        "q": "How do I request an e-signature (send for approval)?",
+        "a": "After generating a document you are prompted to select an approver right away. If you skipped that step, open \"Document Tracking\", find the document with status Draft, and click the \"Assign Approver\" action. The system sends the approver a one-time secure review link by email."
+      },
+      "otpApproval": {
+        "q": "How does OTP approval work?",
+        "a": "When a document is sent for approval, the assigned approver receives an email with a one-time review link. Opening that link asks for a 6-digit OTP that is emailed separately. After entering the correct OTP the approver can read the full PDF, then choose Approve or Reject. The OTP expires after 15 minutes; after 3 failed attempts the link is locked for 15 minutes."
+      },
+      "approveReject": {
+        "q": "How do I approve or reject a document?",
+        "a": "Approvers see pending requests under \"Pending Approvals\" in the sidebar, or by clicking the link in the notification email. Open the request, enter the OTP, review the PDF, then click Approve or Reject. A rejection requires a reason which is forwarded to the document generator."
+      },
+      "secureDelivery": {
+        "q": "How does Secure Delivery work?",
+        "a": "After a document is approved and signed, the generator can send it to the recipient via \"Document Tracking → Deliver\". The recipient receives a one-time secure link by email. They open the link, verify their identity with an OTP, preview the PDF, confirm or reject ownership, then download the document. The link is single-use and expires after 7 days."
+      },
+      "verifyDoc": {
+        "q": "How do I verify a document?",
+        "a": "Go to \"Verify Document\" in the sidebar (no account required). You can verify by typing the Document ID printed in the PDF footer (format: DOC-YYYYMMDD-XXXXX), or by uploading the PDF file itself. The system recomputes the SHA-256 hash and compares it to the original — reporting Authentic, Tampered, or Revoked."
+      },
+      "qrCode": {
+        "q": "What does the QR code on the document mean?",
+        "a": "Every generated PDF contains two QR codes in the footer. The left QR encodes a JSON payload containing the Document ID, the issue timestamp, a SHA-256 content hash, and the verification URL — scanning it lets anyone verify the document's authenticity. The right QR encodes an opaque delivery ID and reports VALID / REVOKED / INVALID instantly when scanned."
+      },
+      "profilePassword": {
+        "q": "How do I change my profile or password?",
+        "a": "Click \"My Settings → Profile\" in the sidebar (visible to every role). You can upload a new profile photo, update your name, email address, or phone number, and change your password. Your current password is required to set a new one. Changes take effect immediately."
+      },
+      "themeSwitch": {
+        "q": "How do I switch between Light and Dark mode?",
+        "a": "Click \"Theme\" at the bottom of the sidebar, or use the toggle button (☀/🌙) in the top navigation bar. Your preference is saved locally and persists across sessions and page refreshes."
+      },
+      "support": {
+        "q": "Who do I contact for system support?",
+        "a": "Contact your System Administrator. They can manage user accounts, reset passwords, configure templates, and adjust system settings. If you do not know who that is, contact your organisation's IT department."
+      }
+    }
+  },
+  "recipient": {
+    "title": "My Documents",
+    "subtitle": "Documents delivered to you",
+    "loading": "Loading your documents…",
+    "loadFailed": "Failed to load your documents.",
+    "empty": "No documents have been delivered to you yet.",
+    "colDocument": "Document",
+    "colTemplate": "Template",
+    "colDeliveredAt": "Delivered At",
+    "colOwnership": "Ownership",
+    "colActions": "Actions",
+    "downloadBtn": "Download",
+    "downloading": "Downloading…",
+    "verifyBtn": "Verify",
+    "verifying": "Verifying…",
+    "authentic": "✓ Authentic",
+    "integrityFailed": "✗ Integrity check failed",
+    "downloadFailed": "Download failed.",
+    "verifyFailed": "Verify failed."
+  },
+  "auditLogs": {
+    "title": "Audit & Reports",
+    "tabs": {
+      "trail": "Audit Trail",
+      "reports": "Reports & Search",
+      "kpi": "KPI Dashboard",
+      "archive": "Archive Management"
+    },
+    "loading": "Loading…",
+    "loadFailed": "Failed to load audit data."
+  },
+  "notificationsPage": {
+    "title": "All Notifications",
+    "empty": "No notifications yet.",
+    "loading": "Loading notifications…",
+    "loadFailed": "Failed to load notifications.",
+    "markAllRead": "Mark all as read",
+    "tabAll": "All",
+    "tabUnread": "Unread",
+    "tabRead": "Read"
+  }
+}

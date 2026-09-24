@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { resetPassword } from '../services/authService';
 import useFormValidation from '../hooks/useFormValidation';
-import { validateMatch, validateMinLength } from '../utils/validation';
 import logo from '/public/logo.png';
 
 function EyeIcon({ off }) {
@@ -23,6 +23,7 @@ function EyeIcon({ off }) {
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation(['translation', 'auth']);
   const [searchParams]              = useSearchParams();
   const navigate                    = useNavigate();
   const token                       = searchParams.get('token') || '';
@@ -40,16 +41,16 @@ export default function ResetPasswordPage() {
     e.preventDefault();
     setServerError(null);
     if (!token) {
-      setServerError('This reset link is missing its token — please use the link from your email.');
+      setServerError(t('resetPassword.errors.missingToken'));
       return;
     }
     const isValid = runValidation({
       newPw: (v) => {
-        if (v.length < 8) return 'Password must be at least 8 characters.';
-        if (!/[a-zA-Z]/.test(v)) return 'Password must contain at least one letter — numbers only is not secure.';
+        if (v.length < 8) return t('resetPassword.errors.minLength');
+        if (!/[a-zA-Z]/.test(v)) return t('resetPassword.errors.mustContainLetter');
         return '';
       },
-      confirmPw: (v) => validateMatch(v, newPw, 'Passwords'),
+      confirmPw: (v) => v === newPw ? '' : t('resetPassword.errors.passwordsMismatch'),
     }, { newPw, confirmPw });
     if (!isValid) return;
     setSubmitting(true);
@@ -57,7 +58,7 @@ export default function ResetPasswordPage() {
       await resetPassword(token, newPw);
       setDone(true);
     } catch (err) {
-      setServerError(err.message || 'Failed to reset password. The link may have expired.');
+      setServerError(err.message || t('resetPassword.errors.failed'));
     } finally {
       setSubmitting(false);
     }
@@ -460,27 +461,26 @@ export default function ResetPasswordPage() {
               <div className="rp-brand-logo"><img src={logo} alt=""/></div>
               <div>
                 <div className="rp-brand-name">DocuVault</div>
-                <div className="rp-brand-sub">Enterprise Platform</div>
+                <div className="rp-brand-sub">{t('resetPassword.brandSub')}</div>
               </div>
             </div>
 
             {/* centre */}
             <div className="rp-centre">
-              <div className="rp-hero-label">Account Security</div>
+              <div className="rp-hero-label">{t('resetPassword.heroLabel')}</div>
               <h2 className="rp-headline">
-                Protect Your<br/><span>Account</span>
+                {t('resetPassword.heroLine1')}<br/><span>{t('resetPassword.heroLine2')}</span>
               </h2>
               <p className="rp-desc">
-                Choose a strong, unique password to keep your DocuVault
-                workspace secure.
+                {t('resetPassword.heroDescription')}
               </p>
 
               <div className="rp-reqs">
                 {[
-                  { title: '8+ characters',      body: 'Use at least 8 characters — longer is stronger.' },
-                  { title: 'Mix it up',           body: 'Combine uppercase, lowercase, numbers, and symbols.' },
-                  { title: 'Keep it unique',      body: "Don't reuse a password you've used on other sites." },
-                  { title: 'One-time link',       body: 'This reset link expires after use and cannot be reused.' },
+                  { title: t('resetPassword.requirements.lengthTitle'),      body: t('resetPassword.requirements.lengthBody') },
+                  { title: t('resetPassword.requirements.mixTitle'),           body: t('resetPassword.requirements.mixBody') },
+                  { title: t('resetPassword.requirements.uniqueTitle'),      body: t('resetPassword.requirements.uniqueBody') },
+                  { title: t('resetPassword.requirements.oneTimeTitle'),       body: t('resetPassword.requirements.oneTimeBody') },
                 ].map(r => (
                   <div key={r.title} className="rp-req">
                     <div className="rp-req-icon">
@@ -500,7 +500,12 @@ export default function ResetPasswordPage() {
 
             {/* pills */}
             <div className="rp-pills">
-              {['End-to-end encrypted','One-time token','Audit logged','Expires on use'].map(t => (
+              {[
+                t('resetPassword.pills.endToEndEncrypted'),
+                t('resetPassword.pills.oneTimeToken'),
+                t('resetPassword.pills.auditLogged'),
+                t('resetPassword.pills.expiresOnUse'),
+              ].map(t => (
                 <span key={t} className="rp-pill">{t}</span>
               ))}
             </div>
@@ -516,7 +521,7 @@ export default function ResetPasswordPage() {
             <div className="rp-clogo">
               <div className="rp-clogo-icon"><img src={logo} alt="DocuVault"/></div>
               <div className="rp-clogo-name">DocuVault</div>
-              <span className="rp-clogo-tag">Secure Portal</span>
+              <span className="rp-clogo-tag">{t('resetPassword.securePortal')}</span>
             </div>
 
             {done ? (
@@ -530,30 +535,29 @@ export default function ResetPasswordPage() {
                     <polyline points="22 4 12 14.01 9 11.01"/>
                   </svg>
                 </div>
-                <h1>Password set!</h1>
+                <h1>{t('resetPassword.successTitle')}</h1>
                 <p className="rp-success-msg">
-                  Your password has been saved securely.<br/>
-                  You can now sign in with your new password.
+                  {t('resetPassword.successMessage')}
                 </p>
                 <div className="rp-success-notice">
-                  This reset link has been invalidated and cannot be used again.
+                  {t('resetPassword.successNotice')}
                 </div>
                 <button
                   type="button"
                   className="rp-btn"
                   onClick={() => navigate('/login', { replace: true })}
                 >
-                  Go to Sign In
+                  {t('resetPassword.goToSignIn')}
                 </button>
               </div>
             ) : (
               /* ── Form ── */
               <>
-                <h1>{token ? 'Set your password' : 'Reset your password'}</h1>
+                <h1>{token ? t('resetPassword.setYourPassword') : t('resetPassword.resetYourPassword')}</h1>
                 <p className="rp-sub">
                   {token
-                    ? 'Choose a strong password for your account.'
-                    : 'Enter a new password below.'}
+                    ? t('resetPassword.setMessage')
+                    : t('resetPassword.resetMessage')}
                 </p>
 
                 {/* No token warning */}
@@ -566,8 +570,8 @@ export default function ResetPasswordPage() {
                       <line x1="12" y1="9" x2="12" y2="13"/>
                       <line x1="12" y1="17" x2="12.01" y2="17"/>
                     </svg>
-                    No token found. Please use the link from your email or{' '}
-                    <Link to="/forgot-password" style={{color:'inherit',fontWeight:600}}>request a new one</Link>.
+                    {t('resetPassword.noTokenWarning')}
+                    <Link to="/forgot-password" style={{color:'inherit',fontWeight:600}}>{t('resetPassword.requestNewOne')}</Link>.
                   </div>
                 )}
 
@@ -588,7 +592,7 @@ export default function ResetPasswordPage() {
 
                   {/* New password */}
                   <div className="rp-field">
-                    <label htmlFor="rp-new" className="rp-lbl">New Password</label>
+                    <label htmlFor="rp-new" className="rp-lbl">{t('resetPassword.newPasswordLabel')}</label>
                     <div className="rp-wrap">
                       <input
                         id="rp-new"
@@ -596,14 +600,14 @@ export default function ResetPasswordPage() {
                         className="rp-inp"
                         value={newPw}
                         onChange={e => { setNewPw(e.target.value); setError(null); }}
-                        placeholder="At least 8 characters"
+                        placeholder={t('resetPassword.newPasswordPlaceholder')}
                         autoComplete="new-password"
                         autoFocus
                         disabled={!token || submitting}
                       />
                       <button type="button" className="rp-eye"
                         onClick={() => setShowNew(v => !v)}
-                        aria-label={showNew ? 'Hide password' : 'Show password'}>
+                        aria-label={showNew ? t('resetPassword.hidePassword') : t('resetPassword.showPassword')}>
                         <EyeIcon off={showNew}/>
                       </button>
                     </div>
@@ -623,15 +627,15 @@ export default function ResetPasswordPage() {
                       if (hasLetters && hasSymbol) score++;
                       // numbers/symbols only — cap at Weak
                       if (!hasLetters) score = Math.min(score, 1);
-                      const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+                      const labels = ['', t('resetPassword.strength.weak'), t('resetPassword.strength.fair'), t('resetPassword.strength.good'), t('resetPassword.strength.strong')];
                       const cls    = ['', 'weak', 'fair', 'good', 'strong'];
                       const colors = ['', '#F87171', '#FBBF24', '#34D399', '#0F766E'];
                       const reqs = [
-                        { met: longEnough,  text: 'At least 8 characters' },
-                        { met: hasLetters,  text: 'Contains letters' },
-                        { met: hasUpper,    text: 'Uppercase letter (A–Z)' },
-                        { met: hasNumber,   text: 'Number (0–9)' },
-                        { met: hasSymbol,   text: 'Symbol (!@#$…)' },
+                        { met: longEnough,  text: t('resetPassword.strength.length') },
+                        { met: hasLetters,  text: t('resetPassword.strength.letters') },
+                        { met: hasUpper,    text: t('resetPassword.strength.uppercase') },
+                        { met: hasNumber,   text: t('resetPassword.strength.number') },
+                        { met: hasSymbol,   text: t('resetPassword.strength.symbol') },
                       ];
                       return (
                         <>
@@ -659,7 +663,7 @@ export default function ResetPasswordPage() {
 
                   {/* Confirm password */}
                   <div className="rp-field">
-                    <label htmlFor="rp-conf" className="rp-lbl">Confirm Password</label>
+                    <label htmlFor="rp-conf" className="rp-lbl">{t('resetPassword.confirmPasswordLabel')}</label>
                     <div className="rp-wrap">
                       <input
                         id="rp-conf"
@@ -667,13 +671,13 @@ export default function ResetPasswordPage() {
                         className="rp-inp"
                         value={confirmPw}
                         onChange={e => { setConfirmPw(e.target.value); setError(null); }}
-                        placeholder="Repeat your new password"
+                        placeholder={t('resetPassword.confirmPasswordPlaceholder')}
                         autoComplete="new-password"
                         disabled={!token || submitting}
                       />
                       <button type="button" className="rp-eye"
                         onClick={() => setShowConf(v => !v)}
-                        aria-label={showConf ? 'Hide password' : 'Show password'}>
+                        aria-label={showConf ? t('resetPassword.hidePassword') : t('resetPassword.showPassword')}>
                         <EyeIcon off={showConf}/>
                       </button>
                     </div>
@@ -683,7 +687,7 @@ export default function ResetPasswordPage() {
                         fontSize:'0.67rem', marginTop:3, textAlign:'right',
                         color: newPw === confirmPw ? '#10B981' : '#F87171'
                       }}>
-                        {newPw === confirmPw ? '✓ Passwords match' : '✗ Passwords do not match'}
+                        {newPw === confirmPw ? t('resetPassword.passwordsMatch') : t('resetPassword.passwordsDontMatch')}
                       </div>
                     )}
                   </div>
@@ -691,8 +695,8 @@ export default function ResetPasswordPage() {
                   <button type="submit" className="rp-btn"
                     disabled={submitting || !token} aria-busy={submitting}>
                     {submitting
-                      ? <><span className="rp-spin" aria-hidden="true"/>Saving…</>
-                      : 'SET PASSWORD'}
+                      ? <><span className="rp-spin" aria-hidden="true"/>{t('resetPassword.saving')}</>
+                      : t('resetPassword.setPassword')}
                   </button>
 
                 </form>
@@ -704,7 +708,7 @@ export default function ResetPasswordPage() {
                     strokeLinejoin="round" aria-hidden="true">
                     <polyline points="15 18 9 12 15 6"/>
                   </svg>
-                  Back to Sign In
+                  {t('resetPassword.backToSignIn')}
                 </Link>
               </>
             )}

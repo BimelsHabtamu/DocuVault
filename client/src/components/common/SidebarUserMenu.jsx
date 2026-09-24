@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { userService } from '../../services/userService';
+import { ROLE_LABELS } from '../../utils/roles';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers 
 function initialsFor(n) {
   if (!n) return '?';
   const p = n.trim().split(/\s+/);
@@ -42,7 +44,7 @@ const IconEyeOff = () => <Ic d="M3 3l18 18M9.9 5.3C10.6 5.1 11.3 5 12 5c4 0 7.5 
 
 const emptyPw = { current: '', next: '', confirm: '' };
 
-// ── Shared input style ────────────────────────────────────────────────────────
+// Shared input style 
 const inputStyle = {
   width: '100%', padding: '8px 38px 8px 11px',
   border: '1.5px solid var(--border-strong)', borderRadius: 8,
@@ -51,15 +53,15 @@ const inputStyle = {
   boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.15s',
 };
 
-// ── Thin button base ──────────────────────────────────────────────────────────
+//Thin button base 
 const btnBase = {
   border: 'none', borderRadius: 7, fontFamily: 'inherit',
   fontWeight: 600, cursor: 'pointer', fontSize: '0.82rem',
   padding: '8px 0', transition: 'opacity 0.15s',
 };
 
-// =============================================================================
 export default function SidebarUserMenu() {
+  const { t } = useTranslation(['translation', 'layout']);
   const { user, logout, updateUser } = useAuth();
   const { showToast }                = useToast();
   const navigate                     = useNavigate();
@@ -98,7 +100,7 @@ export default function SidebarUserMenu() {
 
   if (!user) return null;
 
-  // ── Helpers ─────────────────────────────────────────────────────────────────
+  //  Helpers 
   const resetPhoto = () => {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null); setPreview(null);
@@ -131,10 +133,10 @@ export default function SidebarUserMenu() {
     try {
       const res = await userService.uploadAvatar(file);
       updateUser({ avatar_url: res.data.avatar_url });
-      showToast('Profile photo updated.', 'success');
+      showToast(t('toast.profilePhotoUpdated'), 'success');
       resetPhoto();
     } catch (err) {
-      showToast(err.message || 'Upload failed.', 'error');
+      showToast(err.message || t('toast.uploadFailed'), 'error');
     } finally { setSavingPh(false); }
   };
 
@@ -144,55 +146,55 @@ export default function SidebarUserMenu() {
     try {
       await userService.removeAvatar();
       updateUser({ avatar_url: null });
-      showToast('Photo removed.', 'success');
+      showToast(t('toast.photoRemoved'), 'success');
     } catch (err) {
-      showToast(err.message || 'Failed.', 'error');
+      showToast(err.message || t('toast.failed'), 'error');
     } finally { setRemovePh(false); }
   };
 
   const submitPw = async (e) => {
     e.preventDefault(); setPwErr(null);
-    if (!pw.current.trim())        return setPwErr('Please enter your current password.');
-    if (pw.next.length < 8)        return setPwErr('New password must be at least 8 characters.');
-    if (!/[a-zA-Z]/.test(pw.next)) return setPwErr('Password must contain at least one letter.');
-    if (pw.next !== pw.confirm)    return setPwErr('Passwords do not match.');
+    if (!pw.current.trim())        return setPwErr(t('profile.errCurrentPasswordRequired'));
+    if (pw.next.length < 8)        return setPwErr(t('profile.errPasswordTooShort'));
+    if (!/[a-zA-Z]/.test(pw.next)) return setPwErr(t('profile.errPasswordNeedLetter'));
+    if (pw.next !== pw.confirm)    return setPwErr(t('profile.errPasswordsDoNotMatch'));
     setPwBusy(true);
     try {
       await userService.changeOwnPassword(pw.current, pw.next);
-      showToast('Password updated.', 'success');
+      showToast(t('toast.passwordUpdated'), 'success');
       resetPw();
     } catch (err) {
-      setPwErr(err.message || 'Failed to update password.');
+      setPwErr(err.message || t('profile.errFailedToUpdatePassword'));
     } finally { setPwBusy(false); }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render 
   return (
     <div className="sidebar-user-menu" ref={wrapRef} style={{ position: 'relative' }}>
 
-      {/* ── Trigger ─────────────────────────────────────────────────────── */}
+      {/* ── Trigger  */}
       <button
         type="button"
         className="sidebar-user-trigger"
         onClick={() => setView((v) => v === 'closed' ? 'menu' : 'closed')}
         aria-expanded={view !== 'closed'}
-        title="Account"
-      >
+        title={t('userMenu.account')}>
+      
         <Avatar user={user} size={34} />
         <span className="sidebar-user-trigger-text">
           <span className="sidebar-user-trigger-name">{user.full_name}</span>
-          <span className="sidebar-user-trigger-role">{user.role.replace(/_/g, ' ')}</span>
+          <span className="sidebar-user-trigger-role">{t(ROLE_LABELS[user.role] || user.role.replace(/_/g, ' '))}</span>
         </span>
         <svg
           className={`sidebar-user-chevron${view !== 'closed' ? ' sidebar-user-chevron-open' : ''}`}
-          width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"
-        >
+          width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        
           <path d="M6 15L12 9L18 15" stroke="currentColor" strokeWidth="2.2"
             strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
 
-      {/* ── Compact dropdown — appears below the trigger in the navbar ── */}
+      {/*  Compact dropdown — appears below the trigger in the navbar  */}
       {view === 'menu' && (
         <div style={{
           position: 'absolute', top: '100%', right: 0,
@@ -213,7 +215,7 @@ export default function SidebarUserMenu() {
                 {user.full_name}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize', marginTop: 1 }}>
-                {user.role.replace(/_/g, ' ')}
+                {t(ROLE_LABELS[user.role] || user.role.replace(/_/g, ' '))}
               </div>
             </div>
           </div>
@@ -225,7 +227,7 @@ export default function SidebarUserMenu() {
             onClick={() => { closeAll(); navigate('/profile'); }}
           >
             <span className="sidebar-user-dropdown-item-icon"><IconPerson /></span>
-            My Profile
+            {t('userMenu.myProfile')}
           </button>
 
           {/* Logout */}
@@ -235,7 +237,7 @@ export default function SidebarUserMenu() {
             onClick={handleLogout}
           >
             <span className="sidebar-user-dropdown-item-icon"><IconPower /></span>
-            Logout
+            {t('nav.logout')}
           </button>
         </div>
       )}
@@ -264,8 +266,8 @@ export default function SidebarUserMenu() {
             borderBottom: '1px solid var(--border)',
             flexShrink: 0,
           }}>
-            <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>My Profile</span>
-            <button type="button" onClick={closeAll} aria-label="Close profile"
+            <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{t('userMenu.myProfile')}</span>
+            <button type="button" onClick={closeAll} aria-label={t('profile.closeProfile')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, borderRadius: 6, display: 'flex' }}
               onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-subtle)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
@@ -287,7 +289,7 @@ export default function SidebarUserMenu() {
             <div style={{ position: 'relative', display: 'inline-flex' }}>
               <Avatar user={user} previewUrl={preview} size={80} />
               <button type="button" onClick={pickFile} disabled={savingPh}
-                title="Change photo" aria-label="Change photo"
+                title={t('profile.changePhoto')} aria-label={t('profile.changePhoto')}
                 style={{
                   position: 'absolute', bottom: 0, right: -2,
                   width: 26, height: 26, borderRadius: '50%',
@@ -304,13 +306,13 @@ export default function SidebarUserMenu() {
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{user.full_name}</div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'capitalize', marginTop: 2 }}>
-                {user.role.replace(/_/g, ' ')}
+                {t(ROLE_LABELS[user.role] || user.role.replace(/_/g, ' '))}
               </div>
               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{user.email}</div>
             </div>
 
             <p style={{ margin: 0, fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center' }}>
-              Click the camera icon to change your photo
+              {t('profile.clickCameraToChangePhoto')}
             </p>
 
             {/* Only show Save button when a file is staged; camera badge handles picking */}
@@ -320,13 +322,13 @@ export default function SidebarUserMenu() {
                   onClick={resetPhoto}
                   disabled={savingPh}
                   style={{ ...btnBase, flex: 1, background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                  Discard
+                  {t('profile.discard')}
                 </button>
                 <button type="button"
                   onClick={savePhoto}
                   disabled={savingPh}
                   style={{ ...btnBase, flex: 1, background: 'var(--accent)', color: '#fff', opacity: savingPh ? 0.6 : 1 }}>
-                  {savingPh ? 'Saving…' : 'Save Photo'}
+                  {savingPh ? t('profile.saving') : t('profile.savePhoto')}
                 </button>
               </div>
             )}
@@ -334,7 +336,7 @@ export default function SidebarUserMenu() {
             {user.avatar_url && !file && (
               <button type="button" onClick={removePhoto} disabled={removePh}
                 style={{ background: 'none', border: 'none', fontSize: '0.72rem', color: 'var(--error-text)', cursor: 'pointer', padding: 0, fontWeight: 600 }}>
-                {removePh ? 'Removing…' : 'Remove current photo'}
+                {removePh ? t('profile.removing') : t('profile.removeCurrentPhoto')}
               </button>
             )}
           </div>
@@ -342,7 +344,7 @@ export default function SidebarUserMenu() {
           {/* ── Change Password section ── */}
           <form onSubmit={submitPw} noValidate style={{ padding: '16px', flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: '0.76rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-              Change Password
+              {t('profile.changePassword')}
             </div>
 
             {pwErr && (
@@ -373,12 +375,12 @@ export default function SidebarUserMenu() {
                 return { score, longEnough, hasLetters, hasUpper, hasNumber, hasSymbol };
               };
               const scoreColors = ['', '#F87171', '#FBBF24', '#34D399', '#0F766E'];
-              const scoreLabels = ['', 'Weak',    'Fair',    'Good',    'Strong'];
+              const scoreLabels = ['', t('profile.strengthWeak'), t('profile.strengthFair'), t('profile.strengthGood'), t('profile.strengthStrong')];
 
               const fields = [
-                { id: 'cur', label: 'Current Password', val: pw.current, show: showCur, toggle: setShowCur, field: 'current', ac: 'current-password' },
-                { id: 'new', label: 'New Password',     val: pw.next,    show: showNew, toggle: setShowNew, field: 'next',    ac: 'new-password' },
-                { id: 'con', label: 'Confirm New',      val: pw.confirm, show: showCon, toggle: setShowCon, field: 'confirm', ac: 'new-password' },
+                { id: 'cur', label: t('profile.currentPassword'), val: pw.current, show: showCur, toggle: setShowCur, field: 'current', ac: 'current-password' },
+                { id: 'new', label: t('profile.newPassword'),     val: pw.next,    show: showNew, toggle: setShowNew, field: 'next',    ac: 'new-password' },
+                { id: 'con', label: t('profile.confirmNewPassword'), val: pw.confirm, show: showCon, toggle: setShowCon, field: 'confirm', ac: 'new-password' },
               ];
 
               return fields.map(({ id, label, val, show, toggle, field, ac }) => {
@@ -407,7 +409,7 @@ export default function SidebarUserMenu() {
                         onBlur={(e)  => (e.target.style.borderColor = 'var(--border-strong)')}
                       />
                       <button type="button" onClick={() => toggle((s) => !s)}
-                        aria-label={show ? 'Hide password' : 'Show password'}
+                        aria-label={show ? t('profile.hidePassword') : t('profile.showPassword')}
                         style={{ position: 'absolute', right: 9, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', padding: 2 }}>
                         {show ? <IconEyeOff /> : <IconEye />}
                       </button>
@@ -417,11 +419,11 @@ export default function SidebarUserMenu() {
                     {isNew && val.length > 0 && (() => {
                       const { score, longEnough, hasLetters, hasUpper, hasNumber, hasSymbol } = st;
                       const reqs = [
-                        { met: longEnough, text: 'At least 8 characters' },
-                        { met: hasLetters, text: 'Contains letters' },
-                        { met: hasUpper,   text: 'Uppercase (A–Z)' },
-                        { met: hasNumber,  text: 'Number (0–9)' },
-                        { met: hasSymbol,  text: 'Symbol (!@#$…)' },
+                        { met: longEnough, text: t('profile.reqMinLength') },
+                        { met: hasLetters, text: t('profile.reqLetters') },
+                        { met: hasUpper,   text: t('profile.reqUppercase') },
+                        { met: hasNumber,  text: t('profile.reqNumber') },
+                        { met: hasSymbol,  text: t('profile.reqSymbol') },
                       ];
                       return (
                         <div style={{ marginTop: 6 }}>
@@ -467,7 +469,7 @@ export default function SidebarUserMenu() {
                         color: pw.next === val ? '#0F766E' : '#F87171',
                       }}>
                         <span>{pw.next === val ? '✓' : '✗'}</span>
-                        {pw.next === val ? 'Passwords match' : 'Passwords do not match'}
+                        {pw.next === val ? t('profile.passwordsMatch') : t('profile.passwordsDoNotMatch')}
                       </div>
                     )}
                   </div>
@@ -482,11 +484,11 @@ export default function SidebarUserMenu() {
                 onClick={closeAll}
                 disabled={pwBusy}
                 style={{ ...btnBase, flex: 1, background: 'var(--bg-subtle)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                Cancel
+                {t('common.cancel')}
               </button>
               <button type="submit" disabled={pwBusy}
                 style={{ ...btnBase, flex: 1, background: 'var(--accent)', color: '#fff', opacity: pwBusy ? 0.6 : 1 }}>
-                {pwBusy ? 'Saving…' : 'Update Password'}
+                {pwBusy ? t('profile.saving') : t('profile.updatePassword')}
               </button>
             </div>
           </form>

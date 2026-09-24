@@ -2,6 +2,8 @@ const app = require('./app');
 const { verifyConnection, ensureSchema } = require('./config/db');
 const { startScheduler } = require('./utils/scheduler');
 const { checkUnicodeFontsAvailable } = require('./utils/pdfGenerator');
+const { checkRedisReachable } = require('./queues/bulkQueue');
+const { startBulkWorker, stopBulkWorker } = require('./queues/bulkWorker');
 require('dotenv').config();
 
 // Last-resort safety net: without these, ANY unexpected async error anywhere in the
@@ -29,6 +31,11 @@ const PORT = process.env.PORT || 5000;
   await verifyConnection();
   await ensureSchema();
 
+  // FR-019 / NFR-004: verify Redis is reachable before starting the HTTP server.
+  // If Redis is down, this throws with a clear message — fail fast rather than
+  // starting the server with a silently broken bulk generation queue.
+  await checkRedisReachable();
+
   const server = app.listen(PORT, () => {
     console.log(`\n✅ [server] Running on http://localhost:${PORT}`);
     console.log(`   Frontend: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
@@ -36,8 +43,9 @@ const PORT = process.env.PORT || 5000;
   });
 
   // Graceful shutdown on Ctrl+C / nodemon restart
-  const shutdown = (signal) => {
+  const shutdown = async (signal) => {
     console.log(`\n[server] ${signal} received — shutting down gracefully…`);
+    await stopBulkWorker();
     server.close(() => {
       console.log('[server] Closed. Bye.\n');
       process.exit(0);
@@ -48,6 +56,10 @@ const PORT = process.env.PORT || 5000;
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT',  () => shutdown('SIGINT'));
 
+  // Start the BullMQ worker — picks up bulk PDF generation jobs from Redis.
+  startBulkWorker();
+
   startScheduler();
   checkUnicodeFontsAvailable(); // fire-and-forget diagnostic, never blocks boot
 })();
+

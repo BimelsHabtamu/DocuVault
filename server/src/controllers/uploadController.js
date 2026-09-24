@@ -69,10 +69,87 @@ const avatarUpload = multer({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Company seal & authorized-signatory signature images (document footer stamping)
+// — stored in their own sub-directories inside storage/ so they are clearly
+// separated from template branding logos (storage/logos/) and user profile photos
+// (storage/avatars/). Both directories are served statically via /uploads/seal
+// and /uploads/authsig (see app.js) so Puppeteer / the browser can resolve them
+// as plain <img src> URLs at PDF-render time.
+// ---------------------------------------------------------------------------
+
+const SEAL_STORAGE_DIR = path.join(__dirname, '..', '..', 'storage', 'seal');
+if (!fs.existsSync(SEAL_STORAGE_DIR)) fs.mkdirSync(SEAL_STORAGE_DIR, { recursive: true });
+
+const sealStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, SEAL_STORAGE_DIR),
+  filename:    (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.png';
+    cb(null, `${crypto.randomBytes(12).toString('hex')}${ext}`);
+  },
+});
+
+const sealUpload = multer({
+  storage: sealStorage,
+  limits:  { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files are accepted.'));
+    cb(null, true);
+  },
+});
+
+/** POST /api/settings/upload-seal */
+function handleSealUpload(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded (field name must be "seal").' });
+  }
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+  const publicUrl  = `${backendUrl}/uploads/seal/${req.file.filename}`;
+  return res.status(201).json({ success: true, message: 'Seal uploaded successfully.', data: { url: publicUrl, filename: req.file.filename } });
+}
+
+// ---------------------------------------------------------------------------
+
+const AUTHSIG_STORAGE_DIR = path.join(__dirname, '..', '..', 'storage', 'authsig');
+if (!fs.existsSync(AUTHSIG_STORAGE_DIR)) fs.mkdirSync(AUTHSIG_STORAGE_DIR, { recursive: true });
+
+const authSigStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, AUTHSIG_STORAGE_DIR),
+  filename:    (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.png';
+    cb(null, `${crypto.randomBytes(12).toString('hex')}${ext}`);
+  },
+});
+
+const authSigUpload = multer({
+  storage: authSigStorage,
+  limits:  { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image files are accepted.'));
+    cb(null, true);
+  },
+});
+
+/** POST /api/settings/upload-authsig */
+function handleAuthSigUpload(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ success: false, message: 'No file uploaded (field name must be "authsig").' });
+  }
+  const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+  const publicUrl  = `${backendUrl}/uploads/authsig/${req.file.filename}`;
+  return res.status(201).json({ success: true, message: 'Authorized signature uploaded successfully.', data: { url: publicUrl, filename: req.file.filename } });
+}
+
 module.exports = {
   logoUpload,
   handleLogoUpload,
   LOGO_STORAGE_DIR,
   avatarUpload,
   AVATAR_STORAGE_DIR,
+  sealUpload,
+  handleSealUpload,
+  SEAL_STORAGE_DIR,
+  authSigUpload,
+  handleAuthSigUpload,
+  AUTHSIG_STORAGE_DIR,
 };

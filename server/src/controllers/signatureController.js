@@ -76,6 +76,25 @@ async function runInitiateSignature({ docId, approverId, userId, req, note }) {
     return { ok: false, status: 409, message: `Document is already "${doc.status}" — cannot initiate signing.` };
   }
 
+  // BR-002: block signing requests for documents larger than 5 MB.
+  // Checked here at initiation so the generator gets immediate feedback before
+  // an OTP is issued or an email is sent to the approver. The same check also
+  // runs inside applyApproval as a belt-and-braces safety net.
+  try {
+    const { size } = fs.statSync(doc.file_path);
+    const MAX_SIGN_BYTES = 5 * 1024 * 1024;
+    if (size > MAX_SIGN_BYTES) {
+      const sizeMb = (size / (1024 * 1024)).toFixed(2);
+      return {
+        ok: false,
+        status: 413,
+        message: `Document cannot be sent for signing: file size ${sizeMb} MB exceeds the 5 MB limit (BR-002).`,
+      };
+    }
+  } catch {
+    return { ok: false, status: 404, message: 'Document file not found on disk.' };
+  }
+
   // BR-003: an approver cannot approve their own generated document
   if (doc.generated_by === Number(approverId)) {
     return { ok: false, status: 403, message: 'Self-approval is not allowed: the approver cannot be the document generator.' };
@@ -430,6 +449,28 @@ async function resendOtp(req, res) {
 async function applyApproval(sigReq) {
   const [[doc]] = await pool.query('SELECT * FROM generated_docs WHERE id = ?', [sigReq.doc_id]);
   const [[approver]] = await pool.query('SELECT id, full_name FROM users WHERE id = ?', [sigReq.approver_id]);
+
+  // BR-002: a document cannot be signed if its file size exceeds 5 MB.
+  // Checked here — the single convergence point for both the authenticated route
+  // (approveSignature → runApproval → applyApproval) and the public token route
+  // (approveSignatureByToken → runApprovalPreVerified → applyApproval) — so neither
+  // path can bypass the limit. We stat the file rather than reading it into memory,
+  // so there is no cost beyond a single syscall.
+  const MAX_SIGN_BYTES = 5 * 1024 * 1024; // 5 MB
+  try {
+    const { size } = fs.statSync(doc.file_path);
+    if (size > MAX_SIGN_BYTES) {
+      const sizeMb = (size / (1024 * 1024)).toFixed(2);
+      return {
+        ok: false,
+        status: 413,
+        message: `Document cannot be signed: file size ${sizeMb} MB exceeds the 5 MB limit (BR-002).`,
+      };
+    }
+  } catch (statErr) {
+    // File missing from disk — surface a clear error rather than crashing later on fs.writeFileSync.
+    return { ok: false, status: 404, message: 'Document file not found on disk. Contact an administrator.' };
+  }
 
   // FR-026: NTP-synced timestamp; source is logged so the audit trail records
   // whether this signing time came from NTP or fell back to the system clock.

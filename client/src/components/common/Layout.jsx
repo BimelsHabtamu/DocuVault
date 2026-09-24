@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 
@@ -7,6 +8,7 @@ import Navbar from './Navbar';
 const DESKTOP_BP = 1024;
 
 export default function Layout() {
+  const { t } = useTranslation(['translation', 'layout']);
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window === 'undefined' || window.innerWidth >= DESKTOP_BP
   );

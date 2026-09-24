@@ -1,0 +1,14 @@
+{
+  "status": {
+    "confirmed": "Confirmed",
+    "rejected": "Rejected",
+    "pending": "Pending",
+    "submitted": "Submitted",
+    "approved": "Approved",
+    "returned": "Returned",
+    "delivered": "Delivered",
+    "revoked": "Revoked",
+    "sent": "Sent",
+    "opened": "Opened"
+  }
+}

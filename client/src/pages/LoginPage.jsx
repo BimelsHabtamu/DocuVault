@@ -1,15 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
 import useFormValidation from '../hooks/useFormValidation';
-import { emailRule, requiredRule } from '../utils/validation';
+import { isRequired, isValidEmail } from '../utils/validation';
 import { ROLES } from '../utils/roles';
 import logo from '/public/logo.png';
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────────────────────────────────────── */
-
+/*   HELPERS */
 function defaultRouteForRole(role) {
   switch (role) {
     case ROLES.SUPER_ADMIN:
@@ -69,11 +66,8 @@ function ShieldIcon() {
     </svg>
   );
 }
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   WORKFLOW STEPS — Clean CSS-driven pipeline (replaces the SVG illustration)
-───────────────────────────────────────────────────────────────────────────── */
-const STEPS = [
+/*  WORKFLOW STEPS — Clean CSS-driven pipeline (replaces the SVG illustration) */
+const STEPS = (t) => [
   {
     icon: (
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -85,8 +79,8 @@ const STEPS = [
         <polyline points="10 9 9 9 8 9"/>
       </svg>
     ),
-    label: 'Generate',
-    desc:  'Create documents from smart templates',
+    label: t('login.steps.generate'),
+    desc:  t('login.steps.generateDesc'),
   },
   {
     icon: (
@@ -96,8 +90,8 @@ const STEPS = [
         <polyline points="22 4 12 14.01 9 11.01"/>
       </svg>
     ),
-    label: 'Approve',
-    desc:  'Route for structured review & sign-off',
+    label: t('login.steps.approve'),
+    desc:  t('login.steps.approveDesc'),
   },
   {
     icon: (
@@ -106,8 +100,8 @@ const STEPS = [
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
       </svg>
     ),
-    label: 'Sign',
-    desc:  'Apply tamper-proof digital signatures',
+    label: t('login.steps.sign'),
+    desc:  t('login.steps.signDesc'),
   },
   {
     icon: (
@@ -117,31 +111,29 @@ const STEPS = [
         <polygon points="22 2 15 22 11 13 2 9 22 2"/>
       </svg>
     ),
-    label: 'Deliver',
-    desc:  'Secure, verifiable delivery to recipients',
+    label: t('login.steps.deliver'),
+    desc:  t('login.steps.deliverDesc'),
   },
 ];
 
-const TRUST_BADGES = [
-  'End-to-end encryption',
-  'Role-based access',
-  'Full audit trail',
-  'Digital signatures',
+const TRUST_BADGES = (t) => [
+  t('login.trustBadges.encryption'),
+  t('login.trustBadges.roleAccess'),
+  t('login.trustBadges.auditTrail'),
+  t('login.trustBadges.digitalSignatures'),
 ];
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   MAIN COMPONENT
-───────────────────────────────────────────────────────────────────────────── */
-export default function Login() {
-  // ─── PRESENTATION MODE ──────────────────────────────────────────────────────
-  // Set to FALSE before a presentation so the login button does nothing.
-  // When you are ready to demo the login, flip this to TRUE → login works.
-  const LOGIN_ENABLED = true;
-  // ────────────────────────────────────────────────────────────────────────────
 
+export default function Login() {
+  const LOGIN_ENABLED = true;
+
+  const { t } = useTranslation(['translation', 'auth']);
   const { login }      = useAuth();
   const navigate       = useNavigate();
   const location       = useLocation();
+
+  const steps       = STEPS(t);
+  const trustBadges = TRUST_BADGES(t);
 
   const [email,        setEmail]        = useState('');
   const [password,     setPassword]     = useState('');
@@ -157,8 +149,12 @@ export default function Login() {
     if (!LOGIN_ENABLED) return;
 
     const isValid = runValidation({
-      email:    (v) => emailRule(v, { requiredMsg: 'Please enter your work email.' }),
-      password: (v) => requiredRule(v, 'the password'),
+      email: (v) => {
+        if (!isRequired(v)) return t('login.errors.requiredWorkEmail');
+        if (!isValidEmail(v)) return t('translation:common.invalidEmail');
+        return '';
+      },
+      password: (v) => !isRequired(v) ? t('login.errors.requiredPassword') : '',
     }, { email, password });
     if (!isValid) return;
 
@@ -169,7 +165,7 @@ export default function Login() {
       const to = location.state?.from?.pathname || defaultRouteForRole(u.role);
       navigate(to, { replace: true, state: location.state?.from?.state });
     } catch (err) {
-      setServerError(err.message || 'Invalid email or password. Please try again.');
+      setServerError(err.message || t('login.errors.invalidCredentials'));
     } finally {
       setSubmitting(false);
     }
@@ -177,10 +173,7 @@ export default function Login() {
 
   return (
     <>
-      {/* ══════════════════════════════════════════════════════════════════════
-          STYLES — scoped via .lp- prefix; dark mode via html.dark class
-          (matches the app-wide useTheme hook — no separate dark mechanism)
-      ═══════════════════════════════════════════════════════════════════════ */}
+    
       <style>{`
         /* ── reset ── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -384,9 +377,6 @@ export default function Login() {
           border: 1px solid rgba(255,255,255,0.09);
         }
 
-        /* ════════════════════════════════════════
-           RIGHT PANEL — 48%
-        ════════════════════════════════════════ */
         .lp-right {
           flex: 1;
           display: flex;
@@ -400,8 +390,6 @@ export default function Login() {
         html.dark .lp-right {
           background: #080F1A;
         }
-
-        /* Subtle right-panel texture */
         .lp-right::before {
           content: '';
           position: absolute; inset: 0;
@@ -414,7 +402,6 @@ export default function Login() {
                             radial-gradient(circle at 75% 80%, rgba(245,158,11,0.04) 0%, transparent 45%);
         }
 
-        /* ── Login Card ── */
         .lp-card {
           position: relative;
           width: 100%;
@@ -759,9 +746,7 @@ export default function Login() {
         }
         html.dark .lp-back-top:focus-visible { outline-color: #14B8A6; }
 
-        /* ════════════════════════════════════════
-           RESPONSIVE
-        ════════════════════════════════════════ */
+      
         @media (max-width: 960px) {
           .lp { flex-direction: column; min-height: 100vh; }
 
@@ -810,9 +795,6 @@ export default function Login() {
 
       <div className="lp">
 
-        {/* ══════════════════════════════════════════════════════════════════
-            LEFT HERO — Branding & Workflow
-        ══════════════════════════════════════════════════════════════════ */}
         <aside className="lp-hero" aria-hidden="true">
           <div className="lp-orb1" />
           <div className="lp-orb2" />
@@ -828,7 +810,7 @@ export default function Login() {
               </div>
               <div className="lp-brand-text">
                 <div className="lp-brand-name">DocuVault</div>
-                <div className="lp-brand-tagline">Enterprise Document Platform</div>
+                <div className="lp-brand-tagline">{t('login.brandTagline')}</div>
               </div>
             </div>
 
@@ -836,24 +818,22 @@ export default function Login() {
             <div className="lp-centre">
               <div className="lp-eyebrow">
                 <span className="lp-eyebrow-dot" />
-                Document Intelligence Platform
+                {t('login.eyebrow')}
               </div>
 
               <h2 className="lp-headline">
-                Streamline.<br />
-                <span className="lp-headline-accent">Automate.</span><br />
-                Execute.
+                {t('login.headlineLine1')}<br />
+                <span className="lp-headline-accent">{t('login.headlineLine2')}</span><br />
+                {t('login.headlineLine3')}
               </h2>
 
               <p className="lp-desc">
-                The intelligent platform that takes your documents from creation to
-                verified delivery — with full governance, traceability, and
-                digital-signature compliance built in.
+                {t('login.description')}
               </p>
 
               {/* Workflow steps */}
               <div className="lp-steps" role="list">
-                {STEPS.map((step) => (
+                {steps.map((step) => (
                   <div className="lp-step" key={step.label} role="listitem">
                     <div className="lp-step-icon-wrap">{step.icon}</div>
                     <div className="lp-step-body">
@@ -867,7 +847,7 @@ export default function Login() {
 
             {/* Trust badges */}
             <div className="lp-badges" role="list">
-              {TRUST_BADGES.map((badge) => (
+              {trustBadges.map((badge) => (
                 <span className="lp-badge" key={badge} role="listitem">
                   <ShieldIcon />
                   {badge}
@@ -878,9 +858,9 @@ export default function Login() {
           </div>
         </aside>
 
-        {/* ══════════════════════════════════════════════════════════════════
-            RIGHT PANEL — Login form
-        ══════════════════════════════════════════════════════════════════ */}
+        {
+            // RIGHT PANEL — Login form
+  }
         <main className="lp-right">
 
           {/* Back to Home — top-left of right panel */}
@@ -889,7 +869,7 @@ export default function Login() {
               strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Back to Home
+            {t('login.backToHome')}
           </Link>
           <div className="lp-card">
 
@@ -901,8 +881,8 @@ export default function Login() {
                 </div>
                 <span className="lp-card-brand-name">DocuVault</span>
               </div>
-              <h1 className="lp-card-title">Welcome back</h1>
-              <p className="lp-card-sub">Sign in to your DocuVault workspace.</p>
+              <h1 className="lp-card-title">{t('login.welcomeBack')}</h1>
+              <p className="lp-card-sub">{t('login.cardSubtitle')}</p>
             </header>
 
             {/* Server-side error */}
@@ -926,7 +906,7 @@ export default function Login() {
               {/* Email */}
               <div className="lp-field">
                 <label htmlFor="lp-email" className="lp-lbl">
-                  Email address
+                  {t('login.emailLabel')}
                 </label>
                 <div className="lp-inp-wrap">
                   <span className="lp-inp-prefix"><EmailIcon /></span>
@@ -940,7 +920,7 @@ export default function Login() {
                       setServerError(null);
                       clearFieldError('email');
                     }}
-                    placeholder="you@yourcompany.com"
+                    placeholder={t('login.emailPlaceholder')}
                     autoComplete="username"
                     autoFocus
                     aria-invalid={errors.email ? true : undefined}
@@ -964,7 +944,7 @@ export default function Login() {
               {/* Password */}
               <div className="lp-field">
                 <label htmlFor="lp-pw" className="lp-lbl">
-                  Password
+                  {t('login.passwordLabel')}
                 </label>
                 <div className="lp-inp-wrap">
                   <span className="lp-inp-prefix"><LockIcon /></span>
@@ -978,7 +958,7 @@ export default function Login() {
                       setServerError(null);
                       clearFieldError('password');
                     }}
-                    placeholder="Enter your password"
+                    placeholder={t('login.passwordPlaceholder')}
                     autoComplete="current-password"
                     aria-invalid={errors.password ? true : undefined}
                     aria-describedby={
@@ -989,7 +969,7 @@ export default function Login() {
                     type="button"
                     className="lp-eye"
                     onClick={() => setShowPw((v) => !v)}
-                    aria-label={showPw ? 'Hide password' : 'Show password'}
+                    aria-label={showPw ? t('login.hidePassword') : t('login.showPassword')}
                   >
                     <EyeIcon off={showPw} />
                   </button>
@@ -1014,12 +994,12 @@ export default function Login() {
                     className="lp-chk"
                     checked={remember}
                     onChange={(e) => setRemember(e.target.checked)}
-                    aria-label="Keep me signed in"
+                    aria-label={t('login.keepMeSignedIn')}
                   />
-                  Remember me
+                  {t('login.rememberMe')}
                 </label>
                 <Link to="/forgot-password" className="lp-forgot">
-                  Forgot password?
+                  {t('login.forgotPassword')}
                 </Link>
               </div>
 
@@ -1033,10 +1013,10 @@ export default function Login() {
                 {submitting ? (
                   <>
                     <span className="lp-spin" aria-hidden="true" />
-                    Signing in…
+                    {t('login.signingIn')}
                   </>
                 ) : (
-                  'Sign In'
+                  t('login.signIn')
                 )}
               </button>
 

@@ -5,34 +5,15 @@ import { documentService } from '../services/templateService';
 import { useAuth } from '../hooks/useAuth';
 import './WorkflowResult.css';
 
-/**
- * WorkflowResultPage
- *
- * Dedicated full-page view opened when the Generator arrives via the
- * "View Submitted Document" email link. Renders inside the authenticated
- * Layout shell (sidebar + navbar + full system theme) — no public page,
- * no slide-in drawer, no hidden panel.
- *
- * The Generator sees the submitted document and every detail the User
- * submitted in one focused, readable page:
- *   • Recipient full name, email, delivery timestamp
- *   • Acknowledgement status + timestamp
- *   • User response / message
- *   • Submitted signature (typed name + drawn/uploaded image)
- *   • Full-size PDF of the submitted document
- *
- * Route: /workflow-result?doc=<internalDocId>
- *   (navigated to by WorkflowTrackingPage after auto-login)
- */
+/**WorkflowResultPage */
 export default function WorkflowResultPage() {
   const [searchParams] = useSearchParams();
   const navigate       = useNavigate();
   const { user }       = useAuth();
 
-  const docId = searchParams.get('doc'); // internal numeric doc id
-
+  const docId = searchParams.get('doc'); 
   const [delivery,   setDelivery]   = useState(null);
-  const [docMeta,    setDocMeta]    = useState(null); // doc_uuid, template_name etc.
+  const [docMeta,    setDocMeta]    = useState(null); 
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
 
@@ -41,7 +22,7 @@ export default function WorkflowResultPage() {
   const [pdfError,   setPdfError]   = useState(null);
   const pdfBlobRef = useRef(null);
 
-  // ── Load delivery + document metadata ───────────────────────────────────
+  //Load delivery + document metadata 
   useEffect(() => {
     if (!docId) {
       setError('No document specified.');
@@ -52,7 +33,7 @@ export default function WorkflowResultPage() {
 
     Promise.all([
       deliveryService.listDeliveries(docId),
-      documentService.viewUrl(docId).catch(() => null), // non-fatal
+      documentService.viewUrl(docId).catch(() => null), 
     ])
       .then(([deliveryRes, blobUrl]) => {
         if (cancelled) return;
@@ -82,8 +63,7 @@ export default function WorkflowResultPage() {
       if (pdfBlobRef.current) { URL.revokeObjectURL(pdfBlobRef.current); pdfBlobRef.current = null; }
     };
   }, [docId]);
-
-  // ── Load PDF separately if it wasn't already resolved above ─────────────
+  //Load PDF separately if it wasn't already resolved above 
   useEffect(() => {
     if (pdfUrl || pdfLoading || !docId) return;
     let cancelled = false;
@@ -112,7 +92,7 @@ export default function WorkflowResultPage() {
     catch { return null; }
   })();
 
-  // ── Error / loading states ───────────────────────────────────────────────
+  //Error / loading states 
   if (loading) {
     return (
       <div className="wfr-loading">
@@ -143,7 +123,7 @@ export default function WorkflowResultPage() {
     );
   }
 
-  // ── Main render ──────────────────────────────────────────────────────────
+  //Main render 
   return (
     <div className="wfr-page">
       <style>{`@keyframes wfr-spin{to{transform:rotate(360deg)}}`}</style>

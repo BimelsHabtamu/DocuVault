@@ -9,6 +9,7 @@ const {
   validateBulkGeneration,
   getBulkStatus,
   downloadDocument,
+  downloadBulkZip,
   deleteDocument,
   resubmitDocument,
 } = require('../controllers/documentController');
@@ -21,6 +22,9 @@ router.post('/validate-bulk', requireAuth, canGenerate, validateBulkGeneration);
 router.post('/generate', requireAuth, canGenerate, generateDocument);
 router.post('/generate/bulk', requireAuth, canGenerate, generateBulkDocuments);
 router.get('/bulk-status/:jobId', requireAuth, canGenerate, getBulkStatus);
+// Streams the completed ZIP archive for a bulk job. Auth required; authz enforced
+// inside the controller (owner-or-admin, same pattern as single-doc download).
+router.get('/bulk/:jobId/download-zip', requireAuth, canGenerate, downloadBulkZip);
 router.get('/:id/download', requireAuth, downloadDocument); // C-1/P-7: per-role check inside controller
 // C-1/P-7 RBAC: super/system_admin=any doc, approver=signed docs only,
 // generator=own docs only, recipient=denied (uses secure-delivery flow).

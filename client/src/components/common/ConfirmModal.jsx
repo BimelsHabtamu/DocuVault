@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 /**
  * App-wide confirmation modal, used in place of the native window.confirm()
  * for destructive actions (delete template, delete user, etc). Native browser
@@ -14,29 +16,35 @@
  * @param onConfirm    () => void
  * @param onCancel     () => void
  */
+
 export default function ConfirmModal({
-  title = 'Are you sure?',
+  title,
   message,
   itemName,
-  confirmLabel = 'Delete',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   tone = 'danger',
   busy = false,
   onConfirm,
   onCancel,
 }) {
+  const { t } = useTranslation(['translation', 'layout']);
+  const resolvedTitle   = title ?? t('confirm.areYouSure');
+  const resolvedConfirm = confirmLabel ?? t('common.delete');
+  const resolvedCancel  = cancelLabel ?? t('common.cancel');
+
   return (
     <div className="modal-overlay" onClick={busy ? undefined : onCancel}>
       <div className="confirm-modal-panel" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-labelledby="confirm-modal-title">
         <div className={`confirm-modal-icon${tone === 'danger' ? '' : ' confirm-modal-icon-neutral'}`} aria-hidden="true" />
-        <h3 id="confirm-modal-title" className="confirm-modal-title">{title}</h3>
+        <h3 id="confirm-modal-title" className="confirm-modal-title">{resolvedTitle}</h3>
         <p className="confirm-modal-message">
-          {message || (itemName ? <>Delete <strong>"{itemName}"</strong>?</> : 'Delete this item?')}
+          {message || (itemName ? <>{t('confirm.delete')} <strong>"{itemName}"</strong>?</> : t('confirm.deleteItem'))}
         </p>
-        <p className="confirm-modal-subtext">This action cannot be undone.</p>
+        <p className="confirm-modal-subtext">{t('confirm.cannotBeUndone')}</p>
         <div className="confirm-modal-actions">
           <button type="button" className="btn-secondary" onClick={onCancel} disabled={busy}>
-            {cancelLabel}
+            {resolvedCancel}
           </button>
           <button
             type="button"
@@ -45,7 +53,7 @@ export default function ConfirmModal({
             disabled={busy}
             autoFocus
           >
-            {busy ? 'Deleting…' : confirmLabel}
+            {busy ? t('confirm.deleting') : resolvedConfirm}
           </button>
         </div>
       </div>

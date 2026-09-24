@@ -68,6 +68,7 @@ async function ensureSchema() {
     'DELETE_DOCUMENT',
     'SECURE_DELIVER', 'OTP_VERIFY', 'OWNERSHIP_CONFIRM', 'OWNERSHIP_REJECT',
     'OWNERSHIP_REJECTED_NOTIFY', 'DELIVERY_OWNED_NOTIFY', 'REVOKE_DOCUMENT',
+    'BULK_ZIP_CREATED', 'BULK_ZIP_DOWNLOADED',
   ];
   try {
     const [[col]] = await pool.query(

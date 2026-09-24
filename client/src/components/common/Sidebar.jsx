@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { ROLES } from '../../utils/roles';
@@ -94,7 +95,9 @@ function IconLogout() {
 function IconChevron({ open }) {
   return (
     <svg
-      style={{ transition: 'transform 0.2s', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', flexShrink: 0 }}
+      style={{ transition: 'transform 0.2s', 
+        transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
+         flexShrink: 0 }}
       width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"
       stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="9 18 15 12 9 6"/>
@@ -102,8 +105,9 @@ function IconChevron({ open }) {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main component 
 export default function Sidebar({ open, onClose }) {
+  const { t } = useTranslation(['translation', 'layout']);
   const { user, logout } = useAuth();
   const { dark, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -122,7 +126,7 @@ export default function Sidebar({ open, onClose }) {
   const isApprover    = role === ROLES.APPROVER;
   const isRecipient   = role === ROLES.RECIPIENT;
 
-  // On narrow screens the sidebar acts as an overlay drawer — picking a link closes it.
+  // On narrow screens the sidebar acts as an overlay drawer it.
   const handleNavClick = () => {
     if (typeof window !== 'undefined' && window.innerWidth <= 900) onClose?.();
   };
@@ -142,16 +146,22 @@ export default function Sidebar({ open, onClose }) {
     <aside className={`sidebar ${open ? 'sidebar-open' : 'sidebar-closed'}`}>
       {/* ── Brand ── */}
       <div className="sidebar-brand">
-        <span className="sidebar-brand-text">
+        <button
+          type="button"
+          className="sidebar-brand-text sidebar-brand-btn"
+          onClick={() => { onClose?.(); navigate('/landing'); }}
+          title={t('nav.landing')}
+          aria-label={t('nav.landing')}
+        >
           <img src={logo} alt="" className="sidebar-brand-logo" />
           DocuVault
-        </span>
+        </button>
         <button
           type="button"
           className="sidebar-close-btn"
           onClick={onClose}
-          title="Close sidebar"
-          aria-label="Close sidebar"
+          title={t('sidebar.close')}
+          aria-label={t('sidebar.close')}
         >
           ×
         </button>
@@ -164,25 +174,25 @@ export default function Sidebar({ open, onClose }) {
         {isAdmin && (
           <>
             <NavLink to="/dashboard" className="sidebar-link">
-              <IconDashboard /> <span>Dashboard</span>
+              <IconDashboard /> <span>{t('nav.dashboard')}</span>
             </NavLink>
             <NavLink to="/templates" className="sidebar-link">
-              <IconTemplates /> <span>Templates</span>
+              <IconTemplates /> <span>{t('nav.templates')}</span>
             </NavLink>
             <NavLink to="/documents" className="sidebar-link">
-              <IconMyDocuments /> <span>My Documents</span>
+              <IconMyDocuments /> <span>{t('nav.myDocuments')}</span>
             </NavLink>
             <NavLink to="/document-tracking" className="sidebar-link">
-              <IconDocumentTracking /> <span>Document Tracking</span>
+              <IconDocumentTracking /> <span>{t('nav.documentTracking')}</span>
             </NavLink>
             <NavLink to="/approvals" className="sidebar-link">
-              <IconApprovals /> <span>Pending Approvals</span>
+              <IconApprovals /> <span>{t('nav.pendingApprovals')}</span>
             </NavLink>
             <NavLink to="/verify" className="sidebar-link">
-              <IconVerify /> <span>Verify Document</span>
+              <IconVerify /> <span>{t('nav.verifyDocument')}</span>
             </NavLink>
             <NavLink to="/audit-logs" className="sidebar-link">
-              <IconAudit /> <span>Audit &amp; Reports</span>
+              <IconAudit /> <span>{t('nav.auditReports')}</span>
             </NavLink>
           </>
         )}
@@ -190,18 +200,18 @@ export default function Sidebar({ open, onClose }) {
         {/* Super Admin only: Administration section */}
         {isSuperAdmin && (
           <>
-            <div className="sidebar-section-label">Administration</div>
+            <div className="sidebar-section-label">{t('nav.administration')}</div>
             <NavLink to="/users" className="sidebar-link">
-              <IconUsers /> <span>User Management</span>
+              <IconUsers /> <span>{t('nav.userManagement')}</span>
             </NavLink>
             <NavLink to="/settings" end className="sidebar-link">
-              <IconSettings /> <span>System Settings</span>
+              <IconSettings /> <span>{t('nav.systemSettings')}</span>
             </NavLink>
             <NavLink to="/settings/database" className="sidebar-link">
-              <IconDatabase /> <span>Database Connections</span>
+              <IconDatabase /> <span>{t('nav.databaseConnections')}</span>
             </NavLink>
             <NavLink to="/settings/external-databases" className="sidebar-link">
-              <IconExternalData /> <span>External Data Sources</span>
+              <IconExternalData /> <span>{t('nav.externalDataSources')}</span>
             </NavLink>
           </>
         )}
@@ -210,16 +220,16 @@ export default function Sidebar({ open, onClose }) {
         {isGenerator && (
           <>
             <NavLink to="/dashboard" className="sidebar-link">
-              <IconDashboard /> <span>Dashboard</span>
+              <IconDashboard /> <span>{t('nav.dashboard')}</span>
             </NavLink>
             <NavLink to="/documents" className="sidebar-link">
-              <IconMyDocuments /> <span>My Documents</span>
+              <IconMyDocuments /> <span>{t('nav.myDocuments')}</span>
             </NavLink>
             <NavLink to="/document-tracking" className="sidebar-link">
-              <IconDocumentTracking /> <span>Document Tracking</span>
+              <IconDocumentTracking /> <span>{t('nav.documentTracking')}</span>
             </NavLink>
             <NavLink to="/verify" className="sidebar-link">
-              <IconVerify /> <span>Verify Document</span>
+              <IconVerify /> <span>{t('nav.verifyDocument')}</span>
             </NavLink>
           </>
         )}
@@ -228,19 +238,19 @@ export default function Sidebar({ open, onClose }) {
         {isApprover && (
           <>
             <NavLink to="/dashboard" className="sidebar-link">
-              <IconDashboard /> <span>Dashboard</span>
+              <IconDashboard /> <span>{t('nav.dashboard')}</span>
             </NavLink>
             <NavLink to="/documents" className="sidebar-link">
-              <IconMyDocuments /> <span>My Documents</span>
+              <IconMyDocuments /> <span>{t('nav.myDocuments')}</span>
             </NavLink>
             <NavLink to="/document-tracking" className="sidebar-link">
-              <IconDocumentTracking /> <span>Document Tracking</span>
+              <IconDocumentTracking /> <span>{t('nav.documentTracking')}</span>
             </NavLink>
             <NavLink to="/approvals" className="sidebar-link">
-              <IconApprovals /> <span>Pending Approvals</span>
+              <IconApprovals /> <span>{t('nav.pendingApprovals')}</span>
             </NavLink>
             <NavLink to="/verify" className="sidebar-link">
-              <IconVerify /> <span>Verify Document</span>
+              <IconVerify /> <span>{t('nav.verifyDocument')}</span>
             </NavLink>
           </>
         )}
@@ -249,10 +259,10 @@ export default function Sidebar({ open, onClose }) {
         {isRecipient && (
           <>
             <NavLink to="/my-documents" className="sidebar-link">
-              <IconMyReceivedDocs /> <span>My Documents</span>
+              <IconMyReceivedDocs /> <span>{t('nav.myDocuments')}</span>
             </NavLink>
             <NavLink to="/verify" className="sidebar-link">
-              <IconVerify /> <span>Verify Document</span>
+              <IconVerify /> <span>{t('nav.verifyDocument')}</span>
             </NavLink>
           </>
         )}
@@ -265,6 +275,9 @@ export default function Sidebar({ open, onClose }) {
         {/* Divider */}
         <div className="sidebar-bottom-divider" />
 
+        {/* Section label — mirrors ADMINISTRATION/ADMIN group */}
+        <div className="sidebar-section-label">{t('nav.supportAndSettings')}</div>
+
         {/* My Settings — expandable */}
         <button
           type="button"
@@ -273,7 +286,7 @@ export default function Sidebar({ open, onClose }) {
           aria-expanded={settingsOpen}
         >
           <span className="sidebar-bottom-item-icon"><IconGear /></span>
-          <span className="sidebar-bottom-item-label">My Settings</span>
+          <span className="sidebar-bottom-item-label">{t('nav.mySettings')}</span>
           <IconChevron open={settingsOpen} />
         </button>
 
@@ -284,14 +297,14 @@ export default function Sidebar({ open, onClose }) {
               onClick={() => navTo('/notifications')}>
               <span className="sidebar-submenu-tree">├</span>
               <span className="sidebar-submenu-icon"><IconBell /></span>
-              <span>Notifications</span>
+              <span>{t('nav.notifications')}</span>
             </button>
             <button type="button"
               className={`sidebar-submenu-item${location.pathname === '/profile' ? ' sidebar-submenu-item-active' : ''}`}
               onClick={() => navTo('/profile')}>
               <span className="sidebar-submenu-tree">└</span>
               <span className="sidebar-submenu-icon"><IconPerson /></span>
-              <span>Profile</span>
+              <span>{t('nav.profile')}</span>
             </button>
           </div>
         )}
@@ -301,18 +314,18 @@ export default function Sidebar({ open, onClose }) {
           className={`sidebar-bottom-item${location.pathname === '/faq' ? ' sidebar-bottom-item-active' : ''}`}
           onClick={() => navTo('/faq')}>
           <span className="sidebar-bottom-item-icon"><IconHelp /></span>
-          <span className="sidebar-bottom-item-label">FAQ &amp; Help Center</span>
+          <span className="sidebar-bottom-item-label">{t('nav.faqHelpCenter')}</span>
         </button>
 
         {/* Theme toggle — action button, no active state */}
         <button type="button" className="sidebar-bottom-item"
           onClick={toggleTheme}
-          title={dark ? 'Switch to Light mode' : 'Switch to Dark mode'}>
+          title={t(dark ? 'theme.switchToLight' : 'theme.switchToDark')}>
           <span className="sidebar-bottom-item-icon">
             {dark ? <IconSun /> : <IconMoon />}
           </span>
           <span className="sidebar-bottom-item-label">
-            {dark ? 'Light Mode' : 'Dark Mode'}
+            {dark ? t('theme.lightMode') : t('theme.darkMode')}
           </span>
         </button>
 
@@ -320,7 +333,7 @@ export default function Sidebar({ open, onClose }) {
         <button type="button" className="sidebar-bottom-item sidebar-bottom-item-danger"
           onClick={handleLogout}>
           <span className="sidebar-bottom-item-icon"><IconLogout /></span>
-          <span className="sidebar-bottom-item-label">Logout</span>
+          <span className="sidebar-bottom-item-label">{t('nav.logout')}</span>
         </button>
 
       </div>

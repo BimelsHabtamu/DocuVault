@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
 
 /**
@@ -10,10 +11,11 @@ import { useAuth } from '../../hooks/useAuth';
  * </ProtectedRoute>
  */
 export default function ProtectedRoute({ children, allowedRoles }) {
+  const { t } = useTranslation(['translation', 'layout']);
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div className="route-loading">Loading…</div>;
+    return <div className="route-loading">{t('common.loading')}</div>;
   }
 
   if (!user) {

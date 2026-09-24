@@ -5,12 +5,16 @@ const { fetchRecordById: fetchInternalRecordById } = require('./dataSourceContro
 const { loadConnectionConfig } = require('./externalDbController');
 const { fetchRecordById: fetchExternalRecordById } = require('../utils/externalDbClients');
 const { renderTemplate, withAutoDates } = require('../utils/templateRenderer');
-const { assembleDocumentHtml, resolveWatermarkForStatus } = require('../utils/documentAssembler');
+const { assembleDocumentHtml, resolveWatermarkForStatus, buildCompanySealHtml, buildSealElement, SEAL_MARKER } = require('../utils/documentAssembler');
 const { sha256, generateDocId, buildTamperProofFooterHtml, buildDeliveryVerificationQrHtml } = require('../utils/documentIntegrity');
 const { generateVerificationId } = require('../utils/secureDeliveryToken');
 const { htmlToPdfBuffer } = require('../utils/pdfGenerator');
 const { buildFileName, buildStoragePath, buildRandomStorageFileName } = require('../utils/fileStorage');
-const { createJob, updateJobProgress, getJob } = require('../utils/bulkJobTracker');
+const { getAppSettings } = require('../utils/appSettings');
+const {
+  createJob, getJob,
+  toClientShape,
+} = require('../utils/bulkJobTracker');
 const { recordAudit } = require('../utils/auditLog');
 const { sendMail, templates } = require('../utils/emailService');
 const { validateRecipientEmail } = require('../utils/recipientValidation');
@@ -73,6 +77,12 @@ function parseJsonLikeFields(record) {
 
 /** Builds the rendered HTML pieces (not yet PDF) shared by preview and generate. */
 async function buildRenderedDocument(template, recordId) {
+  // Input hygiene: a record id sent with stray whitespace (e.g. " EMP001" pasted into
+  // the single-record box) would fail the exact-match DB lookup below and surface as a
+  // confusing "not found" error. Normalize it once here — this single choke point
+  // serves preview, single generate, and the bulk worker alike.
+  recordId = String(recordId ?? '').trim();
+
   if (template.status !== 'active') {
     throw Object.assign(new Error('Only "Active" templates can be used for generation.'), { status: 409 }); // BR-001
   }
@@ -90,14 +100,21 @@ async function buildRenderedDocument(template, recordId) {
   const singularKey = template.data_source_table.replace(/s$/, '');
   const dataContext = withAutoDates({ [singularKey]: record, [template.data_source_table]: record, ...record });
 
+  // The company seal can be pinned to an exact spot in the template via {{company_seal}}
+  // (e.g. centered between two signature columns). The seal HTML only exists at assembly
+  // time (it needs the doc id/date), so its token is pre-swapped for an invisible marker
+  // here — this keeps the renderer from flagging it as a missing field and lets
+  // assembleDocumentHtml fill in the real seal later.
+  const maskCompanySeal = (html) => String(html || '').replace(/\{\{\s*company_seal\s*\}\}/g, SEAL_MARKER);
+
   // Each region gets its own warnings bucket so a broken placeholder can be traced back
   // to exactly which part of the template (header/body/footer) it lives in.
   const headerWarnings = [];
   const bodyWarnings = [];
   const footerWarnings = [];
-  const headerHtml = renderTemplate(template.header_html, dataContext, headerWarnings);
-  const bodyHtml = renderTemplate(template.body_html, dataContext, bodyWarnings);
-  const footerHtml = renderTemplate(template.footer_html, dataContext, footerWarnings);
+  const headerHtml = renderTemplate(maskCompanySeal(template.header_html), dataContext, headerWarnings);
+  const bodyHtml = renderTemplate(maskCompanySeal(template.body_html), dataContext, bodyWarnings);
+  const footerHtml = renderTemplate(maskCompanySeal(template.footer_html), dataContext, footerWarnings);
 
   const placeholderWarnings = [
     ...headerWarnings.map((w) => ({ ...w, region: 'header' })),
@@ -196,6 +213,36 @@ async function generateSingleDocument({ template, recordId, userId }) {
   const docId = generateDocId(); // FR-015
   const issuedAt = new Date();   // generation timestamp — passed into QR footer
 
+  // ── Company seal (footer stamp) ─────────────────────────────────────────────
+  // Reads the template's workflow_config.companySeal. When enabled, the seal is
+  // rendered on the document footer beside the signature line — either the uploaded
+  // seal image or, when none was provided, an auto-generated round stamp (see
+  // buildCompanySealHtml). The ready-built HTML is stored in renderPieces so the
+  // later signing/embed re-stamps (approval signature, workflow signature) keep the
+  // seal without recomputing it from the template.
+  let companySeal = null;
+  if (template.workflow_config) {
+    const wf = typeof template.workflow_config === 'string'
+      ? JSON.parse(template.workflow_config)
+      : template.workflow_config;
+    companySeal = wf?.companySeal || null;
+  }
+  const sealDateString = issuedAt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const companySealHtml = buildCompanySealHtml({
+    companySeal,
+    companyName: getAppSettings().orgName,
+    docId,
+    dateString: sealDateString,
+  });
+  // Bare seal element — used to fill {{company_seal}} markers pinned by the author
+  // (e.g. between two signature columns). Stored in renderPieces too, so the signing
+  // re-stamps can swap the marker the same way instead of dropping the seal.
+  const companySealElementHtml = buildSealElement({
+    companySeal,
+    companyName: getAppSettings().orgName,
+    dateString: sealDateString,
+  });
+
   // FR-016 / C-2: compute the content hash BEFORE building the QR footer so there
   // is no circular dependency. The content hash covers the fully-rendered document
   // HTML (header + body + footer + automatic dates), which is everything the reader
@@ -220,6 +267,8 @@ async function generateSingleDocument({ template, recordId, userId }) {
     tamperProofFooterHtml: hashVerifyFooterHtml,
     deliveryVerificationQrHtml: deliveryVerifyFooterHtml,
     watermarkText: resolveWatermarkForStatus('draft', template.watermark_text), // FR-017: always DRAFT at first generation
+    companySealHtml,
+    companySealElementHtml,
   });
 
   const pdfBuffer = await htmlToPdfBuffer(fullHtml);
@@ -246,7 +295,7 @@ async function generateSingleDocument({ template, recordId, userId }) {
       issuedAt: issuedAt.toISOString(),
       // Persisted so the e-signature step (Phase 4) can regenerate the PDF with a
       // visual signature block appended, without re-fetching the source record.
-      renderPieces: { headerHtml, bodyHtml: `${bodyHtml}${automaticDateHtml}`, footerHtml, tamperProofFooterHtml: hashVerifyFooterHtml, deliveryVerificationQrHtml: deliveryVerifyFooterHtml, watermarkText: template.watermark_text },
+      renderPieces: { headerHtml, bodyHtml: `${bodyHtml}${automaticDateHtml}`, footerHtml, tamperProofFooterHtml: hashVerifyFooterHtml, deliveryVerificationQrHtml: deliveryVerifyFooterHtml, watermarkText: template.watermark_text, companySealHtml, companySealElementHtml },
     })]
   );
 
@@ -291,7 +340,10 @@ async function generateDocument(req, res) {
 /**
  * POST /api/documents/generate/bulk   body: { template_id, record_ids: [...] }
  * FR-010 (bulk batch), FR-012 (mapping validation report), FR-019 (background job w/ progress).
- * Runs as a fire-and-forget async job; client polls GET /api/documents/bulk-status/:jobId.
+ * Stage 2 (FR-019 / NFR-004): enqueues the job in Redis via BullMQ.
+ * The Worker (bulkWorker.js) picks it up asynchronously, processes each record,
+ * creates the ZIP, and persists all state in Redis so it survives restarts.
+ * Client polls GET /api/documents/bulk-status/:jobId for progress.
  * Each record_id (e.g. from a pasted list or an uploaded .csv) is rendered against its own
  * source record, so every generated document gets that record's own placeholder values —
  * one PDF per ID, all produced in the same batch.
@@ -303,109 +355,133 @@ async function generateBulkDocuments(req, res) {
     return res.status(400).json({ success: false, message: 'template_id and a non-empty record_ids array are required.' });
   }
 
-  const template = await loadTemplate(template_id);
-  if (!template) {
-    return res.status(404).json({ success: false, message: 'Template not found.' });
-  }
-  if (template.status !== 'active') {
-    return res.status(409).json({ success: false, message: 'Only "Active" templates can be used for generation.' });
-  }
-
-  const jobId = createJob(record_ids.length);
-  const userId = req.user.id;
-  const MAX_RETRIES = 2;
-
-  // Fire-and-forget: process sequentially so we don't overload Chromium with concurrent pages.
-  // (Swap for a real worker pool / Bull queue at higher volume — see bulkJobTracker.js note.)
-  (async () => {
-    for (const recordId of record_ids) {
-      // ── Per-record email validation ───────────────────────────────────────
-      // Before generating a PDF for this record, confirm the record actually has
-      // a valid email address in the template's data source table. This is the
-      // same cross-check that initiateSecureDelivery runs before sending — doing
-      // it here means every document produced by bulk generation is guaranteed to
-      // have a deliverable recipient, and misconfigured records (missing or invalid
-      // email column) are surfaced as clear per-record errors in the job results
-      // instead of silently generating PDFs that can never be delivered.
-      let recordEmail = null;
-      let emailValidationError = null;
-      try {
-        const rawRecord = await fetchTemplateRecord(template, recordId).catch(() => null);
-        if (!rawRecord) {
-          emailValidationError = `Record "${recordId}" not found in "${template.data_source_table}".`;
-        } else {
-          // Locate the email column by name convention (same as recipientValidation.js).
-          const emailKey = Object.keys(rawRecord).find((k) => /email/i.test(k));
-          if (!emailKey || !rawRecord[emailKey]) {
-            emailValidationError = `Record "${recordId}" has no email address on file — cannot generate a deliverable document.`;
-          } else {
-            recordEmail = String(rawRecord[emailKey]).trim();
-            // Basic format check — rejects clearly broken values before PDF generation.
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recordEmail)) {
-              emailValidationError = `Record "${recordId}" has an invalid email address (${recordEmail}) — fix it in the data source before generating.`;
-            }
-          }
-        }
-      } catch (fetchErr) {
-        emailValidationError = `Could not validate email for record "${recordId}": ${fetchErr.message}`;
-      }
-
-      if (emailValidationError) {
-        // Email validation is deterministic — skip retry entirely.
-        updateJobProgress(jobId, { recordId, success: false, error: emailValidationError, attempts: 1 });
-        continue;
-      }
-
-      let lastError = null;
-      let succeeded = false;
-
-      for (let attempt = 0; attempt <= MAX_RETRIES && !succeeded; attempt++) {
-        try {
-          if (attempt > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // simple backoff (NFR-004: retry on transient failure)
-          }
-          const doc = await generateSingleDocument({ template, recordId, userId });
-          // docId: the human-facing DOC-YYYYMMDD-XXXXX uuid (FR-015) for display.
-          // dbId: the numeric generated_docs.id — needed to initiate a signature request
-          // (POST /api/signatures expects doc_id = generated_docs.id, not the uuid).
-          updateJobProgress(jobId, {
-            recordId,
-            success: true,
-            docId: doc.docUuid,
-            dbId: doc.id,
-            recipientEmail: recordEmail, // surface validated email in job results
-            attempts: attempt + 1,
-          });
-          succeeded = true;
-        } catch (err) {
-          lastError = err;
-          // Placeholder problems (422) and "record not found" (404) are deterministic —
-          // retrying with the same data will fail the same way every time, so don't
-          // burn the retry budget/backoff delay on them.
-          if (err.status === 422 || err.status === 404) break;
-        }
-      }
-
-      if (!succeeded) {
-        updateJobProgress(jobId, { recordId, success: false, error: lastError?.message, attempts: MAX_RETRIES + 1 });
-      }
+  try {
+    const template = await loadTemplate(template_id);
+    if (!template) {
+      return res.status(404).json({ success: false, message: 'Template not found.' });
     }
-  })();
+    if (template.status !== 'active') {
+      return res.status(409).json({ success: false, message: 'Only "Active" templates can be used for generation.' });
+    }
 
-  return res.status(202).json({
-    success: true,
-    message: `Bulk generation started for ${record_ids.length} record(s).`,
-    data: { jobId, total: record_ids.length },
-  });
+    const userId = req.user.id;
+
+    // Stage 2 (FR-019 / NFR-004): enqueue the job in Redis via BullMQ.
+    // createJob() writes the initial job state to Redis and returns the jobId
+    // immediately — the Worker picks it up asynchronously so this endpoint
+    // responds 202 without waiting for a single PDF to be generated.
+    // The job survives a server restart and is retried automatically (3 attempts,
+    // exponential backoff) if a transient error causes it to fail.
+    const jobId = await createJob(record_ids.length, userId, {
+      templateId: template.id,
+      recordIds:  record_ids,
+    });
+
+    return res.status(202).json({
+      success: true,
+      message: `Bulk generation started for ${record_ids.length} record(s).`,
+      data: { jobId, total: record_ids.length },
+    });
+  } catch (err) {
+    console.error('[documents] generateBulkDocuments error:', err);
+    // Surface a clear message if Redis is down so the user doesn't see a raw 500.
+    const isRedisError = err.message && (
+      err.message.includes('Redis') ||
+      err.message.includes('ECONNREFUSED') ||
+      err.message.includes('Connection is closed')
+    );
+    return res.status(503).json({
+      success: false,
+      message: isRedisError
+        ? 'Bulk generation is temporarily unavailable — the job queue (Redis) is not reachable. Please try again shortly.'
+        : (err.message || 'Failed to start bulk generation.'),
+    });
+  }
 }
 
 /** GET /api/documents/bulk-status/:jobId */
 async function getBulkStatus(req, res) {
-  const job = getJob(req.params.jobId);
+  const job = await getJob(req.params.jobId);
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job not found (it may have expired or the server restarted).' });
   }
-  return res.status(200).json({ success: true, message: 'Job status fetched.', data: job });
+  // toClientShape strips the internal zipPath — only zipStatus, zipFileName,
+  // zipError, and the rest of the public fields go to the client.
+  return res.status(200).json({ success: true, message: 'Job status fetched.', data: toClientShape(job) });
+}
+
+/**
+ * GET /api/documents/bulk/:jobId/download-zip
+ * Streams the ZIP archive for a completed bulk job to the authenticated user.
+ *
+ * Authorization rules (requirement §8 / security §13):
+ *   - User must be authenticated (requireAuth middleware on the route).
+ *   - super_admin / system_admin may download any job's ZIP (admin oversight).
+ *   - generator / approver may only download ZIPs from jobs they created
+ *     (job.createdBy === req.user.id).
+ *   - recipient role is denied entirely (they have no bulk-generation access).
+ *
+ * HTTP error map:
+ *   400  jobId param missing or malformed
+ *   403  authenticated but not authorized for this job
+ *   404  job not found / ZIP file missing on disk
+ *   409  job still running or ZIP not yet ready
+ *   500  filesystem / stream error
+ */
+async function downloadBulkZip(req, res) {
+  const { jobId } = req.params;
+
+  // Basic input guard — jobId comes from the URL, not the DB, so validate the
+  // format here to prevent path traversal or obviously bogus lookups.
+  if (!jobId || !/^job_\d+_[a-z0-9]+$/.test(jobId)) {
+    return res.status(400).json({ success: false, message: 'Invalid job ID.' });
+  }
+
+  const job = await getJob(jobId);
+  if (!job) {
+    return res.status(404).json({ success: false, message: 'Job not found (it may have expired or the server restarted).' });
+  }
+
+  // Authorization check (requirement §8 / security §13).
+  const { role, id: userId } = req.user;
+  if (role === 'recipient') {
+    return res.status(403).json({ success: false, message: 'Access denied.' });
+  }
+  if (role !== 'super_admin' && role !== 'system_admin' && job.createdBy !== userId) {
+    return res.status(403).json({ success: false, message: 'You are not authorized to download this bulk ZIP.' });
+  }
+
+  // State checks.
+  if (job.status === 'running' || job.zipStatus === null || job.zipStatus === 'creating') {
+    return res.status(409).json({ success: false, message: 'The bulk job has not finished yet. Please wait and try again.' });
+  }
+  if (job.zipStatus === 'failed') {
+    return res.status(409).json({ success: false, message: `ZIP creation failed: ${job.zipError || 'unknown error'}` });
+  }
+  if (job.zipStatus !== 'ready' || !job.zipPath) {
+    return res.status(404).json({ success: false, message: 'No ZIP file is available for this job.' });
+  }
+
+  if (!fs.existsSync(job.zipPath)) {
+    return res.status(404).json({ success: false, message: 'ZIP file no longer exists on disk.' });
+  }
+
+  try {
+    await recordAudit({
+      userId,
+      action: 'BULK_ZIP_DOWNLOADED',
+      details: { jobId, zipFileName: job.zipFileName },
+      req,
+    });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${job.zipFileName}"`);
+
+    fs.createReadStream(job.zipPath).pipe(res);
+  } catch (err) {
+    console.error('[bulkZip] download error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to stream the ZIP file.' });
+  }
 }
 
 /** GET /api/documents/:id/download — role-gated file download (all roles except approver). */
@@ -1066,12 +1142,19 @@ async function resubmitDocument(req, res) {
 }
 
 module.exports = {
+  // Internal helpers exposed for the BullMQ worker (bulkWorker.js).
+  // These are not HTTP route handlers — the worker calls them directly to
+  // avoid duplicating PDF generation logic.
+  generateSingleDocument,
+  fetchTemplateRecord,
+  // HTTP route handlers
   previewDocument,
   generateDocument,
   generateBulkDocuments,
   validateBulkGeneration,
   getBulkStatus,
   downloadDocument,
+  downloadBulkZip,
   deleteDocument,
   resubmitDocument,
   viewDocumentByNotifyToken,

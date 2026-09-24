@@ -1,0 +1,39 @@
+{
+  "page": {
+    "settingsTitle": "System Settings"
+  },
+  "loading": {
+    "settings": "Loading settings…"
+  },
+  "toasts": {
+    "loadSettingsFailed": "Failed to load settings.",
+    "settingsSaved": "Settings saved.",
+    "saveSettingsFailed": "Failed to save settings.",
+    "logoUploadFailed": "Logo upload failed.",
+    "logoUploaded": "Logo updated.",
+    "logoUploadFailedToUpload": "Failed to upload logo."
+  },
+  "branding": {
+    "title": "Organisation Branding",
+    "note": "These details appear on system emails sent to users (e.g. account invitations and password resets).",
+    "orgNameLabel": "Organisation Name",
+    "optionalDash": "— optional",
+    "orgNamePlaceholder": "e.g. Acme Corporation",
+    "logoLabel": "Organisation Logo",
+    "logoAlt": "Organisation logo",
+    "remove": "Remove",
+    "uploadLogo": "Upload Logo"
+  },
+  "lifecycle": {
+    "title": "Document Lifecycle",
+    "escalationLabel": "Escalation threshold (hours)",
+    "archiveYearsLabel": "Archive after (years)",
+    "minutesSavedLabel": "Minutes saved per document",
+    "note": "These values are used for KPI calculations and automated archiving."
+  },
+  "actions": {
+    "saving": "Saving…",
+    "saveSettings": "Save Settings",
+    "uploading": "Uploading…"
+  }
+}
