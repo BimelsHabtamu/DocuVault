@@ -58,7 +58,7 @@ export default function SettingsPage() {
       });
       const payload = await res.json();
       if (!res.ok) throw new Error(payload.message || t('toasts.logoUploadFailed'));
-      setSettings((prev) => ({ ...prev, orgLogoUrl: payload.data.url }));
+      setSettings((prev) => ({ ...prev, orgLogoUrl: payload.data.dataUrl || payload.data.url }));
       showToast(t('toasts.logoUploaded'), 'success');
     } catch (err) {
       showToast(err.message || t('toasts.logoUploadFailedToUpload'), 'error');

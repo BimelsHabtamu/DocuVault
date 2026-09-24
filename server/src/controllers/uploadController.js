@@ -34,11 +34,12 @@ function handleLogoUpload(req, res) {
 
   const backendUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5000}`;
   const publicUrl = `${backendUrl}/uploads/logos/${req.file.filename}`;
+  const dataUrl = `data:${req.file.mimetype};base64,${fs.readFileSync(req.file.path).toString('base64')}`;
 
   return res.status(201).json({
     success: true,
     message: 'Logo uploaded successfully.',
-    data: { url: publicUrl, filename: req.file.filename },
+    data: { url: publicUrl, dataUrl, filename: req.file.filename },
   });
 }
 
