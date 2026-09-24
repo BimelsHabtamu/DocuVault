@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { ROLES } from '../../utils/roles';
-const logo = '/logo.png';
 import {
   IconDashboard,
   IconTemplates,
@@ -153,7 +152,6 @@ export default function Sidebar({ open, onClose }) {
           title={t('nav.landing')}
           aria-label={t('nav.landing')}
         >
-          <img src={logo} alt="" className="sidebar-brand-logo" />
           DocuVault
         </button>
         <button
@@ -167,7 +165,7 @@ export default function Sidebar({ open, onClose }) {
         </button>
       </div>
 
-      {/* ── Role-specific navigation (scrollable) ── */}
+      {/* ── Role-specific navigation (scrollable, includes support section) ── */}
       <nav className="sidebar-nav sidebar-nav-scroll" onClick={handleNavClick}>
 
         {/* ── ADMIN (super_admin + system_admin) ── */}
@@ -267,57 +265,62 @@ export default function Sidebar({ open, onClose }) {
           </>
         )}
 
+        {/* ── Shared SUPPORT & SETTINGS — all roles, flows inline ── */}
+        <div className="sidebar-bottom">
+
+
+
+          {/* Section label */}
+          <div className="sidebar-section-label">{t('nav.supportAndSettings')}</div>
+
+          {/* My Settings — expandable */}
+          <button
+            type="button"
+            className={`sidebar-bottom-item${['/notifications', '/profile'].includes(location.pathname) ? ' sidebar-bottom-item-active' : ''}`}
+            onClick={() => setSettingsOpen((o) => !o)}
+            aria-expanded={settingsOpen}
+          >
+            <span className="sidebar-bottom-item-icon"><IconGear /></span>
+            <span className="sidebar-bottom-item-label">{t('nav.mySettings')}</span>
+            <IconChevron open={settingsOpen} />
+          </button>
+
+          {settingsOpen && (
+            <div className="sidebar-submenu">
+              <button type="button"
+                className={`sidebar-submenu-item${location.pathname === '/notifications' ? ' sidebar-submenu-item-active' : ''}`}
+                onClick={() => navTo('/notifications')}>
+                <span className="sidebar-submenu-tree">├</span>
+                <span className="sidebar-submenu-icon"><IconBell /></span>
+                <span>{t('nav.notifications')}</span>
+              </button>
+              <button type="button"
+                className={`sidebar-submenu-item${location.pathname === '/profile' ? ' sidebar-submenu-item-active' : ''}`}
+                onClick={() => navTo('/profile')}>
+                <span className="sidebar-submenu-tree">└</span>
+                <span className="sidebar-submenu-icon"><IconPerson /></span>
+                <span>{t('nav.profile')}</span>
+              </button>
+            </div>
+          )}
+
+          {/* FAQ & Help Center */}
+          <button type="button"
+            className={`sidebar-bottom-item${location.pathname === '/faq' ? ' sidebar-bottom-item-active' : ''}`}
+            onClick={() => navTo('/faq')}>
+            <span className="sidebar-bottom-item-icon"><IconHelp /></span>
+            <span className="sidebar-bottom-item-label">{t('nav.faqHelpCenter')}</span>
+          </button>
+
+        </div>
+
       </nav>
 
-      {/* ── Shared bottom section — all 5 roles ── */}
-      <div className="sidebar-bottom">
+      {/* ── Pinned footer — Theme + Logout always visible at bottom ── */}
+      <div className="sidebar-footer">
+        <div className="sidebar-footer-divider" />
 
-        {/* Divider */}
-        <div className="sidebar-bottom-divider" />
-
-        {/* Section label — mirrors ADMINISTRATION/ADMIN group */}
-        <div className="sidebar-section-label">{t('nav.supportAndSettings')}</div>
-
-        {/* My Settings — expandable */}
-        <button
-          type="button"
-          className={`sidebar-bottom-item${['/notifications', '/profile'].includes(location.pathname) ? ' sidebar-bottom-item-active' : ''}`}
-          onClick={() => setSettingsOpen((o) => !o)}
-          aria-expanded={settingsOpen}
-        >
-          <span className="sidebar-bottom-item-icon"><IconGear /></span>
-          <span className="sidebar-bottom-item-label">{t('nav.mySettings')}</span>
-          <IconChevron open={settingsOpen} />
-        </button>
-
-        {settingsOpen && (
-          <div className="sidebar-submenu">
-            <button type="button"
-              className={`sidebar-submenu-item${location.pathname === '/notifications' ? ' sidebar-submenu-item-active' : ''}`}
-              onClick={() => navTo('/notifications')}>
-              <span className="sidebar-submenu-tree">├</span>
-              <span className="sidebar-submenu-icon"><IconBell /></span>
-              <span>{t('nav.notifications')}</span>
-            </button>
-            <button type="button"
-              className={`sidebar-submenu-item${location.pathname === '/profile' ? ' sidebar-submenu-item-active' : ''}`}
-              onClick={() => navTo('/profile')}>
-              <span className="sidebar-submenu-tree">└</span>
-              <span className="sidebar-submenu-icon"><IconPerson /></span>
-              <span>{t('nav.profile')}</span>
-            </button>
-          </div>
-        )}
-
-        {/* FAQ & Help Center */}
-        <button type="button"
-          className={`sidebar-bottom-item${location.pathname === '/faq' ? ' sidebar-bottom-item-active' : ''}`}
-          onClick={() => navTo('/faq')}>
-          <span className="sidebar-bottom-item-icon"><IconHelp /></span>
-          <span className="sidebar-bottom-item-label">{t('nav.faqHelpCenter')}</span>
-        </button>
-
-        {/* Theme toggle — action button, no active state */}
+        {/* Theme toggle */}
         <button type="button" className="sidebar-bottom-item"
           onClick={toggleTheme}
           title={t(dark ? 'theme.switchToLight' : 'theme.switchToDark')}>
@@ -329,14 +332,14 @@ export default function Sidebar({ open, onClose }) {
           </span>
         </button>
 
-        {/* Logout — action button, no active state */}
+        {/* Logout */}
         <button type="button" className="sidebar-bottom-item sidebar-bottom-item-danger"
           onClick={handleLogout}>
           <span className="sidebar-bottom-item-icon"><IconLogout /></span>
           <span className="sidebar-bottom-item-label">{t('nav.logout')}</span>
         </button>
-
       </div>
+
     </aside>
   );
 }

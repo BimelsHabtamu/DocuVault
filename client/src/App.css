@@ -249,7 +249,6 @@ a { font-family: inherit; }
   transition: opacity 0.15s;
 }
 .sidebar-brand-btn:hover { opacity: 0.75; }
-.sidebar-brand-logo { width: 21px; height: 21px; flex-shrink: 0; }
 .sidebar-close-btn {
   display: none; background: none; border: none;
   color: var(--sidebar-text); font-size: 1rem; cursor: pointer;
@@ -259,7 +258,7 @@ a { font-family: inherit; }
 
 .sidebar-nav { display: flex; flex-direction: column; gap: 2px; }
 .sidebar-nav-scroll {
-  flex: 1; overflow: hidden; min-height: 0;
+  flex: 1; overflow-y: auto; min-height: 0;
   scrollbar-width: none; -ms-overflow-style: none;
 }
 .sidebar-nav-scroll::-webkit-scrollbar { display: none; }
@@ -1570,8 +1569,15 @@ body:has(.conn-banner) .app-content {
    SIDEBAR BOTTOM SECTION — shared for all 5 roles
    ============================================================ */
 .sidebar-bottom {
-  flex-shrink: 0;
   padding-bottom: 6px;
+}
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 4px 0 6px;
+}
+.sidebar-footer-divider {
+  border-top: 1px solid var(--border);
+  margin: 0 0 6px;
 }
 .sidebar-bottom-divider {
   border-top: 1px solid var(--border);
@@ -1613,8 +1619,7 @@ body:has(.conn-banner) .app-content {
 .sidebar-submenu-tree { font-size: 0.78rem; color: var(--text-muted); flex-shrink: 0; width: 12px; text-align: center; font-family: monospace; line-height: 1; }
 .sidebar-submenu-icon { display: flex; align-items: center; flex-shrink: 0; opacity: 0.9; }
 
-/* Make the scrollable nav actually scroll when content+bottom exceeds height */
-.sidebar-nav-scroll { overflow-y: auto !important; }
+/* sidebar-nav-scroll overflow is already set above */
 
 /* ============================================================
    NOTIFICATIONS PAGE  (/notifications)

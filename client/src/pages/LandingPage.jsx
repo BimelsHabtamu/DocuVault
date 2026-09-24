@@ -7,9 +7,7 @@ import FaqAccordion from '../components/common/FaqAccordion';
 import LanguageSwitcher from '../components/common/LanguageSwitcher';
 import logo from '/public/logo.png';
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Scroll-reveal hook
-───────────────────────────────────────────────────────────────────────────── */
+/*  Scroll-reveal hook */
 function useReveal() {
   const ref = useRef(null);
   useEffect(() => {
@@ -25,9 +23,7 @@ function useReveal() {
   return ref;
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Slideshow
-───────────────────────────────────────────────────────────────────────────── */
+/*  Slideshow */
 const SLIDES = (t) => [
   { url: '/image1.png', caption: t('landing.slides.autoGen') },
   { url: '/image2.png', caption: t('landing.slides.secureSignatures') },
@@ -39,9 +35,7 @@ const SLIDES = (t) => [
   { url: '/image8.png', caption: t('landing.slides.enterpriseSecurity') },
 ];
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Features
-───────────────────────────────────────────────────────────────────────────── */
+/*   Features */
 const FEATURES = (t) => [
   {
     accent: '#0F766E', bg: 'rgba(15,118,110,0.12)',
@@ -81,9 +75,7 @@ const FEATURES = (t) => [
   },
 ];
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Roles
-───────────────────────────────────────────────────────────────────────────── */
+/* Roles*/
 const ROLES = (t) => [
   { image: '/super.png',     name: t('landing.roles.superAdminName'),   color: '#8B5CF6', desc: t('landing.roles.superAdminDesc'),          perms: [t('landing.roles.superAdminPerm1'), t('landing.roles.superAdminPerm2'), t('landing.roles.superAdminPerm3'), t('landing.roles.superAdminPerm4')] },
   { image: '/system.png',    name: t('landing.roles.systemAdminName'),  color: '#0F766E', desc: t('landing.roles.systemAdminDesc'),               perms: [t('landing.roles.systemAdminPerm1'), t('landing.roles.systemAdminPerm2'), t('landing.roles.systemAdminPerm3'), t('landing.roles.systemAdminPerm4')] },
@@ -92,9 +84,7 @@ const ROLES = (t) => [
   { image: '/Recipient.png', name: t('landing.roles.recipientName'),     color: '#16A34A', desc: t('landing.roles.recipientDesc'),                  perms: [t('landing.roles.recipientPerm1'), t('landing.roles.recipientPerm2'), t('landing.roles.recipientPerm3')] },
 ];
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Workflow steps
-───────────────────────────────────────────────────────────────────────────── */
+/*  Workflow steps*/
 const STEPS = (t) => [
   { num: '01', title: t('landing.steps.createTitle'), desc: t('landing.steps.createDesc') },
   { num: '02', title: t('landing.steps.generateTitle'),    desc: t('landing.steps.generateDesc') },
@@ -104,9 +94,7 @@ const STEPS = (t) => [
   { num: '06', title: t('landing.steps.verifyTitle'),  desc: t('landing.steps.verifyDesc') },
 ];
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Security chain
-───────────────────────────────────────────────────────────────────────────── */
+/*  Security chain */
 const CHAIN = (t) => [
   t('landing.chain.hash'),
   t('landing.chain.hmac'),
@@ -115,9 +103,7 @@ const CHAIN = (t) => [
   t('landing.chain.audit'),
 ];
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   Theme toggle icons
-───────────────────────────────────────────────────────────────────────────── */
+/* Theme toggle icons */
 function IconSun() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

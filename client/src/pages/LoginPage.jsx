@@ -56,74 +56,6 @@ function LockIcon() {
   );
 }
 
-/* Shield check — used in trust badges */
-function ShieldIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      <polyline points="9 12 11 14 15 10"/>
-    </svg>
-  );
-}
-/*  WORKFLOW STEPS — Clean CSS-driven pipeline (replaces the SVG illustration) */
-const STEPS = (t) => [
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-        <polyline points="10 9 9 9 8 9"/>
-      </svg>
-    ),
-    label: t('login.steps.generate'),
-    desc:  t('login.steps.generateDesc'),
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-        <polyline points="22 4 12 14.01 9 11.01"/>
-      </svg>
-    ),
-    label: t('login.steps.approve'),
-    desc:  t('login.steps.approveDesc'),
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      </svg>
-    ),
-    label: t('login.steps.sign'),
-    desc:  t('login.steps.signDesc'),
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-        strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"/>
-        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-    ),
-    label: t('login.steps.deliver'),
-    desc:  t('login.steps.deliverDesc'),
-  },
-];
-
-const TRUST_BADGES = (t) => [
-  t('login.trustBadges.encryption'),
-  t('login.trustBadges.roleAccess'),
-  t('login.trustBadges.auditTrail'),
-  t('login.trustBadges.digitalSignatures'),
-];
-
-
 export default function Login() {
   const LOGIN_ENABLED = true;
 
@@ -131,9 +63,6 @@ export default function Login() {
   const { login }      = useAuth();
   const navigate       = useNavigate();
   const location       = useLocation();
-
-  const steps       = STEPS(t);
-  const trustBadges = TRUST_BADGES(t);
 
   const [email,        setEmail]        = useState('');
   const [password,     setPassword]     = useState('');
@@ -253,6 +182,7 @@ export default function Login() {
         .lp-brand {
           display: flex; align-items: center; gap: 14px;
           margin-bottom: 0; flex-shrink: 0;
+          color: inherit; text-decoration: none;
         }
         .lp-brand-logo-wrap {
           width: 46px; height: 46px;
@@ -285,96 +215,6 @@ export default function Login() {
           justify-content: center;
           padding: 48px 0 32px;
           min-height: 0;
-        }
-
-        .lp-eyebrow {
-          display: inline-flex; align-items: center; gap: 7px;
-          font-size: 0.65rem; font-weight: 700;
-          letter-spacing: 0.18em; text-transform: uppercase;
-          color: rgba(94,234,212,0.80);
-          background: rgba(20,184,166,0.12);
-          border: 1px solid rgba(20,184,166,0.22);
-          border-radius: 20px; padding: 4px 12px;
-          width: fit-content; margin-bottom: 22px;
-        }
-        .lp-eyebrow-dot {
-          width: 5px; height: 5px; border-radius: 50%;
-          background: #14B8A6;
-          box-shadow: 0 0 6px rgba(20,184,166,0.8);
-        }
-
-        .lp-headline {
-          font-size: clamp(1.75rem, 2.6vw, 2.6rem);
-          font-weight: 800;
-          letter-spacing: -0.03em;
-          color: #ffffff;
-          line-height: 1.12;
-          margin-bottom: 18px;
-        }
-        .lp-headline-accent {
-          background: linear-gradient(90deg, #F59E0B 0%, #FDE68A 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-        }
-        .lp-desc {
-          font-size: 0.875rem;
-          color: rgba(204, 251, 241, 0.65);
-          line-height: 1.65;
-          max-width: 360px;
-          margin-bottom: 40px;
-        }
-
-        /* ── Workflow steps ── */
-        .lp-steps {
-          display: flex; flex-direction: column;
-          gap: 0; margin-bottom: 40px;
-        }
-        .lp-step {
-          display: flex; align-items: flex-start;
-          gap: 16px;
-          padding: 14px 0;
-          border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .lp-step:last-child { border-bottom: none; }
-        .lp-step-icon-wrap {
-          flex-shrink: 0;
-          width: 40px; height: 40px;
-          border-radius: 10px;
-          background: rgba(255,255,255,0.07);
-          border: 1px solid rgba(255,255,255,0.12);
-          display: flex; align-items: center; justify-content: center;
-          color: rgba(94,234,212,0.85);
-        }
-        .lp-step:nth-child(2) .lp-step-icon-wrap { color: rgba(134,239,172,0.85); }
-        .lp-step:nth-child(3) .lp-step-icon-wrap { color: rgba(253,230,138,0.85); }
-        .lp-step:nth-child(4) .lp-step-icon-wrap { color: rgba(147,197,253,0.85); }
-        .lp-step-body { display: flex; flex-direction: column; gap: 2px; padding-top: 2px; }
-        .lp-step-label {
-          font-size: 0.825rem; font-weight: 700;
-          color: rgba(255,255,255,0.92);
-          letter-spacing: 0.01em;
-        }
-        .lp-step-desc {
-          font-size: 0.74rem;
-          color: rgba(204,251,241,0.50);
-          line-height: 1.45;
-        }
-
-        /* ── Trust badges (bottom) ── */
-        .lp-badges {
-          display: flex; flex-wrap: wrap; gap: 8px;
-          flex-shrink: 0;
-        }
-        .lp-badge {
-          display: inline-flex; align-items: center; gap: 5px;
-          padding: 4px 11px;
-          border-radius: 6px;
-          font-size: 0.64rem; font-weight: 600;
-          letter-spacing: 0.03em;
-          color: rgba(204,251,241,0.55);
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.09);
         }
 
         .lp-right {
@@ -757,11 +597,6 @@ export default function Login() {
           .lp-centre {
             padding: 20px 0 16px;
           }
-          .lp-steps { display: none; }
-          .lp-desc  { margin-bottom: 4px; max-width: 100%; font-size: 0.82rem; }
-          .lp-eyebrow { margin-bottom: 14px; }
-          .lp-headline { font-size: clamp(1.4rem, 4vw, 2rem); margin-bottom: 10px; }
-
           .lp-right {
             flex: 1;
             padding: 64px 20px 32px;
@@ -776,7 +611,6 @@ export default function Login() {
 
         @media (max-width: 600px) {
           .lp-hero { padding: 18px 20px 16px; }
-          .lp-badges { display: none; }
           .lp-card {
             padding: 32px 26px 28px;
             border-radius: 16px;
@@ -795,7 +629,7 @@ export default function Login() {
 
       <div className="lp">
 
-        <aside className="lp-hero" aria-hidden="true">
+        <aside className="lp-hero">
           <div className="lp-orb1" />
           <div className="lp-orb2" />
           <div className="lp-orb3" />
@@ -804,7 +638,7 @@ export default function Login() {
           <div className="lp-hi">
 
             {/* Brand mark */}
-            <div className="lp-brand">
+            <Link to="/landing" className="lp-brand" aria-label={t('login.backToHome')}>
               <div className="lp-brand-logo-wrap">
                 <img src={logo} alt="" />
               </div>
@@ -812,47 +646,9 @@ export default function Login() {
                 <div className="lp-brand-name">DocuVault</div>
                 <div className="lp-brand-tagline">{t('login.brandTagline')}</div>
               </div>
-            </div>
+            </Link>
 
-            {/* Headline + description */}
             <div className="lp-centre">
-              <div className="lp-eyebrow">
-                <span className="lp-eyebrow-dot" />
-                {t('login.eyebrow')}
-              </div>
-
-              <h2 className="lp-headline">
-                {t('login.headlineLine1')}<br />
-                <span className="lp-headline-accent">{t('login.headlineLine2')}</span><br />
-                {t('login.headlineLine3')}
-              </h2>
-
-              <p className="lp-desc">
-                {t('login.description')}
-              </p>
-
-              {/* Workflow steps */}
-              <div className="lp-steps" role="list">
-                {steps.map((step) => (
-                  <div className="lp-step" key={step.label} role="listitem">
-                    <div className="lp-step-icon-wrap">{step.icon}</div>
-                    <div className="lp-step-body">
-                      <span className="lp-step-label">{step.label}</span>
-                      <span className="lp-step-desc">{step.desc}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Trust badges */}
-            <div className="lp-badges" role="list">
-              {trustBadges.map((badge) => (
-                <span className="lp-badge" key={badge} role="listitem">
-                  <ShieldIcon />
-                  {badge}
-                </span>
-              ))}
             </div>
 
           </div>
