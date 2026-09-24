@@ -41,7 +41,8 @@ const FEATURES = (t) => [
     accent: '#0F766E', bg: 'rgba(15,118,110,0.12)',
     title: t('landing.features.templatesTitle'),
     desc: t('landing.features.templatesDesc'),
-    icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9v12a2 2 0 01-2 2z"/></svg>),
+    icon: (<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 9v12a2 2 0 01-2 2z"/></svg>),
   },
   {
     accent: '#3B82F6', bg: 'rgba(59,130,246,0.12)',

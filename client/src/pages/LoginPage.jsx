@@ -284,11 +284,13 @@ export default function Login() {
         /* ── Card header: logo + title ── */
         .lp-card-header {
           display: flex; flex-direction: column;
-          align-items: flex-start;
+          align-items: center;
+          text-align: center;
           margin-bottom: 32px;
         }
         .lp-card-logo-row {
-          display: flex; align-items: center; gap: 12px;
+          display: flex; flex-direction: column; align-items: center; gap: 10px;
+          width: 100%;
           margin-bottom: 24px;
         }
         .lp-card-logo-wrap {
