@@ -244,10 +244,15 @@ async function sendMail({ to, subject, html, attachments }) {
   const smtpPass = process.env.SMTP_PASSWORD || '';
 
   // SMTP MAIL FROM must be a raw address only; display names belong in the MIME From header.
-  const rawFrom = (process.env.SMTP_FROM || smtpUser || 'no-reply@doc-automation.local').trim();
-  const fromAddr = rawFrom.replace(/^.*<([^>]+)>$/, '$1').trim() || rawFrom;
+  const configuredFrom = (process.env.SMTP_FROM || '').trim();
+  const fromAddr = (configuredFrom.match(/<([^>]+)>/)?.[1] || configuredFrom).trim();
+  const envelopeFrom = fromAddr.includes('@')
+    ? fromAddr
+    : (smtpUser || 'no-reply@doc-automation.local').trim();
   const fromName = (process.env.SMTP_FROM_NAME || '').trim();
-  const fromHeader = fromName ? `${fromName} <${fromAddr}>` : fromAddr;
+  const fromHeader = fromName
+    ? `${fromName} <${envelopeFrom}>`
+    : (configuredFrom && !configuredFrom.includes('@') ? `${configuredFrom} <${envelopeFrom}>` : envelopeFrom);
   const toList = Array.isArray(to) ? to : [to];
 
   try {
@@ -257,7 +262,7 @@ async function sendMail({ to, subject, html, attachments }) {
       port: smtpPort,
       user: smtpUser,
       pass: smtpPass,
-      from: fromAddr,
+      from: envelopeFrom,
       to:   toList,
       mimeMessage: mime,
     });
