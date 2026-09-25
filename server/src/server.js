@@ -7,7 +7,6 @@ const { startBulkWorker, stopBulkWorker } = require('./queues/bulkWorker');
 require('dotenv').config();
 
 // Last-resort safety net: without these, ANY unexpected async error anywhere in the
-// app crashes the entire Node process and takes the server down for every user.
 process.on('unhandledRejection', (err) => {
   console.error('[unhandled rejection]', err);
 });

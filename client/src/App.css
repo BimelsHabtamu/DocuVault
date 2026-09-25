@@ -484,6 +484,20 @@ button.sidebar-verify-btn {
   border-bottom-color: var(--brand);
 }
 
+/* Connection restored — green success, fades out after 4 s */
+.conn-banner--restored {
+  background: #D1FAE5;
+  color: #065F46;
+  border-bottom: 2px solid #6EE7B7;
+  animation: conn-banner-in 0.22s ease both;
+}
+.dark .conn-banner--restored {
+  background: rgba(16,185,129,0.12);
+  color: #34D399;
+  border-bottom-color: rgba(52,211,153,0.35);
+}
+
+
 /* When a banner is shown, push page content down so it isn't hidden behind both navbar + banner */
 body:has(.conn-banner) .app-content {
   margin-top: calc(var(--navbar-height) + 34px);
@@ -555,6 +569,17 @@ body:has(.conn-banner) .app-content {
 
 .conn-indicator__label {
   line-height: 1;
+}
+
+/* ── Offline-disabled action visual cue ──────────────────────────────────── */
+/* Buttons that are disabled because the user is offline should indicate WHY  */
+/* using the `title` attribute + these styles. Apply [data-offline-guard] or  */
+/* just use disabled — the :disabled pseudo covers all cases already.         */
+button:disabled[title],
+a[aria-disabled="true"][title] {
+  cursor: not-allowed;
+  opacity: 0.52;
+  position: relative;
 }
 
 .app-content { padding: 28px 32px; margin-top: var(--navbar-height); }
@@ -1751,6 +1776,67 @@ body:has(.conn-banner) .app-content {
 .faq-page { max-width: 680px; margin: 0 auto; padding: 0 4px 48px; }
 .faq-page-title { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin: 0 0 6px; }
 .faq-page-subtitle { color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 24px; }
+
+/* Role badge — what role the page has been tailored to. */
+.faq-role-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-soft, var(--bg-subtle)); color: var(--accent);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+  font-size: 0.8rem; font-weight: 600; letter-spacing: 0.01em; margin-bottom: 12px;
+}
+.faq-role-badge strong { color: var(--text-primary); }
+
+/* Personalized intro under the badge. */
+.faq-page-personalized { color: var(--text-primary); font-size: 0.95rem; margin: 0 0 18px; }
+
+/* Live search box shared by both groups. */
+.faq-search { display: flex; flex-direction: column; gap: 6px; margin-bottom: 24px; }
+.faq-search-label { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.faq-search-input {
+  width: 100%; padding: 10px 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-surface);
+  color: var(--text-primary); font-size: 0.9rem; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.faq-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft, transparent); }
+
+/* FAQ groups — Role Guide + General Help. */
+.faq-group { margin-bottom: 26px; }
+.faq-group-title {
+  font-size: 1.05rem; font-weight: 700; color: var(--text-primary);
+  padding-bottom: 8px; margin: 0 0 6px; border-bottom: 1px solid var(--border);
+}
+.faq-group-intro { color: var(--text-secondary); font-size: 0.88rem; margin: 0 0 14px; }
+
+/* Role Guide is the role-specific section — give it a subtle accent rail. */
+.faq-role-group {
+  padding-left: 12px;
+  border-left: 3px solid var(--accent, var(--brand));
+  border-radius: 2px;
+}
+
+/* Contact support CTA pinned at the bottom of the page. */
+.faq-panel-contact {
+  margin-top: 6px; padding: 18px; border-radius: 10px;
+  background: var(--bg-subtle); border: 1px solid var(--border);
+}
+.faq-panel-contact h2 { margin: 0 0 6px; font-size: 1rem; }
+.faq-panel-contact p { margin: 0 0 12px; font-size: 0.88rem; color: var(--text-secondary); }
+.faq-contact { margin-top: 8px; }
+.faq-contact-title {
+  font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 4px;
+}
+.faq-contact-text {
+  color: var(--text-secondary); font-size: 0.88rem; line-height: 1.6; margin: 0 0 14px;
+}
+.faq-contact-btn {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  padding: 9px 16px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--accent, var(--brand)); color: var(--on-accent, #fff);
+  font-size: 0.88rem; font-weight: 600; text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.faq-contact-btn:hover { background: var(--accent-hover, var(--brand-hover)); border-color: transparent; }
 .faq-list { display: flex; flex-direction: column; gap: 8px; }
 .faq-item {
   background: var(--bg-surface); border: 1px solid var(--border);

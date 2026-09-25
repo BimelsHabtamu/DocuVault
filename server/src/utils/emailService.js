@@ -18,14 +18,7 @@ function dotStuff(s) {
 
 /**
  * Convert an org logo URL to an inline base64 data URI so the image is
- * self-contained in the email and renders even on localhost / behind a firewall.
- *
- * Strategy:
- *  1. If the URL points to our own /uploads/logos/ path, resolve it directly
- *     from disk and base64-encode it — guaranteed to work in development.
- *  2. Otherwise leave the URL as-is (the caller may supply a public CDN URL).
- *  3. On any error (file missing, permission denied, etc.) fall back gracefully
- *     to the original URL string — email still sends, image may not load.
+    the original URL string — email still sends, image may not load.
  */
 function resolveLogoToDataUri(logoUrl) {
   if (!logoUrl) return logoUrl;
@@ -228,7 +221,7 @@ function smtpSend({ host, port, user, pass, from, to, mimeMessage, timeoutMs = 2
   });
 }
 
-/* ── public sendMail ─────────────────────────────────────────────────────────── */
+/* ── public sendMail  */
 async function sendMail({ to, subject, html, attachments }) {
   const smtpHost = (process.env.SMTP_HOST || '').trim();
 

@@ -5,6 +5,7 @@ import { signatureService } from '../services/workflowService';
 import { documentService } from '../services/templateService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import { ROLES } from '../utils/roles';
 import RejectRecipientsPicker from '../components/common/RejectRecipientsPicker';
 import '../pages/DocumentTracking.css';
@@ -23,6 +24,7 @@ function withinDateFilter(req, dateFilter) {
 export default function ApprovalsPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { guardedAction, isOffline } = useOfflineGuard();
   const { t } = useTranslation('layout');
   const [searchParams, setSearchParams] = useSearchParams();
   const openId = searchParams.get('open');
@@ -131,15 +133,26 @@ export default function ApprovalsPage() {
   const closePanel = () => { setActiveRequest(null); setMode(null); };
 
   const handleSendOtp = async (signatureRequestId) => {
-    setSendingOtp(true);
-    try {
-      const res = await signatureService.resendOtp(signatureRequestId);
-      showToast(res.message || t('approvals.approveModal.otpSent'), 'success');
-    } catch (err) {
-      showToast(err.message || t('approvals.approveModal.otpFailed'), 'error');
-    } finally {
-      setSendingOtp(false);
-    }
+    await guardedAction(
+      async () => {
+        setSendingOtp(true);
+        try {
+          const res = await signatureService.resendOtp(signatureRequestId);
+          showToast(res.message || t('approvals.approveModal.otpSent'), 'success');
+        } finally {
+          setSendingOtp(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. OTP cannot be sent without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) {
+            showToast(err.message || t('approvals.approveModal.otpFailed'), 'error');
+          }
+          setSendingOtp(false);
+        },
+      }
+    );
   };
 
   const handleViewPdf = async (req) => {
@@ -159,18 +172,28 @@ export default function ApprovalsPage() {
       showToast(t('approvals.approveModal.otpRequired'), 'error');
       return;
     }
-    setSubmitting(true);
-    try {
-      const res = await signatureService.approve(activeRequest.id, otpCode.trim());
-      showToast(res.message || t('approvals.approveModal.approved'), 'success');
-      closePanel();
-      dismissDeepLink();
-      loadPending();
-    } catch (err) {
-      showToast(err.message || t('approvals.approveModal.failed'), 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    await guardedAction(
+      async () => {
+        setSubmitting(true);
+        try {
+          const res = await signatureService.approve(activeRequest.id, otpCode.trim());
+          showToast(res.message || t('approvals.approveModal.approved'), 'success');
+          closePanel();
+          dismissDeepLink();
+          loadPending();
+        } finally {
+          setSubmitting(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Approval requires a live server connection.',
+        onBlocked: () => { /* keep modal open, don't clear OTP */ },
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('approvals.approveModal.failed'), 'error');
+          setSubmitting(false);
+        },
+      }
+    );
   };
 
   const submitReject = async () => {
@@ -182,33 +205,52 @@ export default function ApprovalsPage() {
       showToast(t('approvals.rejectModal.recipientRequired'), 'error');
       return;
     }
-    setSubmitting(true);
-    try {
-      const res = await signatureService.reject(activeRequest.id, rejectReason.trim(), selectedRecipientIds);
-      showToast(res.message || t('approvals.rejectModal.rejected'), 'success');
-      closePanel();
-      dismissDeepLink();
-      loadPending();
-    } catch (err) {
-      showToast(err.message || t('approvals.rejectModal.failed'), 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    await guardedAction(
+      async () => {
+        setSubmitting(true);
+        try {
+          const res = await signatureService.reject(activeRequest.id, rejectReason.trim(), selectedRecipientIds);
+          showToast(res.message || t('approvals.rejectModal.rejected'), 'success');
+          closePanel();
+          dismissDeepLink();
+          loadPending();
+        } finally {
+          setSubmitting(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Rejection requires a live server connection.',
+        onBlocked: () => { /* keep modal open, don't clear reason */ },
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('approvals.rejectModal.failed'), 'error');
+          setSubmitting(false);
+        },
+      }
+    );
   };
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const res = await documentService.remove(deleteTarget.doc_id);
-      showToast(res.message || t('approvals.deleteModal.deleted'), 'success');
-      setDeleteTarget(null);
-      loadPending();
-    } catch (err) {
-      showToast(err.message || t('approvals.deleteModal.failed'), 'error');
-    } finally {
-      setDeleting(false);
-    }
+    await guardedAction(
+      async () => {
+        setDeleting(true);
+        try {
+          const res = await documentService.remove(deleteTarget.doc_id);
+          showToast(res.message || t('approvals.deleteModal.deleted'), 'success');
+          setDeleteTarget(null);
+          loadPending();
+        } finally {
+          setDeleting(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Records cannot be deleted without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('approvals.deleteModal.failed'), 'error');
+          setDeleting(false);
+        },
+      }
+    );
   };
 
   if (loading) {
@@ -283,14 +325,20 @@ export default function ApprovalsPage() {
             <button type="button" onClick={() => handleViewPdf(deepLinkReq)} disabled={viewingPdf} className="doc-btn doc-btn-secondary">
               {viewingPdf ? t('approvals.card.opening') : t('approvals.card.viewPdf')}
             </button>
-            <button type="button" onClick={() => openApprove(deepLinkReq)} className="doc-btn doc-btn-primary">
+            <button type="button" onClick={() => openApprove(deepLinkReq)} className="doc-btn doc-btn-primary"
+              disabled={isOffline}
+              title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
               {t('approvals.card.approve')}
             </button>
-            <button type="button" onClick={() => openReject(deepLinkReq)} className="doc-btn doc-btn-danger">
+            <button type="button" onClick={() => openReject(deepLinkReq)} className="doc-btn doc-btn-danger"
+              disabled={isOffline}
+              title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
               {t('approvals.card.reject')}
             </button>
             {isAdmin && (
-              <button type="button" onClick={() => setDeleteTarget(deepLinkReq)} className="doc-btn doc-btn-danger" style={{ marginLeft: 'auto' }}>
+              <button type="button" onClick={() => setDeleteTarget(deepLinkReq)} className="doc-btn doc-btn-danger" style={{ marginLeft: 'auto' }}
+                disabled={isOffline}
+                title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                 {t('approvals.card.delete')}
               </button>
             )}
@@ -334,14 +382,20 @@ export default function ApprovalsPage() {
                 <button type="button" onClick={() => handleViewPdf(req)} disabled={viewingPdf} className="doc-btn doc-btn-secondary">
                   {viewingPdf ? t('approvals.card.opening') : t('approvals.card.viewPdf')}
                 </button>
-                <button type="button" onClick={() => openApprove(req)} className="doc-btn doc-btn-primary">
+                <button type="button" onClick={() => openApprove(req)} className="doc-btn doc-btn-primary"
+                  disabled={isOffline}
+                  title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                   {t('approvals.card.approve')}
                 </button>
-                <button type="button" onClick={() => openReject(req)} className="doc-btn doc-btn-danger">
+                <button type="button" onClick={() => openReject(req)} className="doc-btn doc-btn-danger"
+                  disabled={isOffline}
+                  title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                   {t('approvals.card.reject')}
                 </button>
                 {isAdmin && (
-                  <button type="button" onClick={() => setDeleteTarget(req)} className="doc-btn doc-btn-danger" style={{ marginLeft: 'auto' }}>
+                  <button type="button" onClick={() => setDeleteTarget(req)} className="doc-btn doc-btn-danger" style={{ marginLeft: 'auto' }}
+                    disabled={isOffline}
+                    title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                     {t('approvals.card.delete')}
                   </button>
                 )}
@@ -390,8 +444,9 @@ export default function ApprovalsPage() {
                     <button
                       type="button"
                       onClick={() => handleSendOtp(activeRequest.id)}
-                      disabled={sendingOtp}
+                      disabled={sendingOtp || isOffline}
                       className="btn-secondary"
+                      title={isOffline ? 'You are offline. OTP requires a server connection.' : undefined}
                     >
                       {sendingOtp ? t('approvals.approveModal.sending') : t('approvals.approveModal.resendOtp')}
                     </button>
@@ -399,9 +454,10 @@ export default function ApprovalsPage() {
                   <button
                     type="button"
                     onClick={submitApprove}
-                    disabled={submitting || sendingOtp}
+                    disabled={submitting || sendingOtp || isOffline}
                     className="btn-primary"
                     style={{ marginTop: 10 }}
+                    title={isOffline ? 'You are offline. Approval requires a server connection.' : undefined}
                   >
                     {submitting ? t('approvals.approveModal.verifying') : t('approvals.approveModal.confirmSign')}
                   </button>
@@ -426,9 +482,10 @@ export default function ApprovalsPage() {
                   <button
                     type="button"
                     onClick={submitReject}
-                    disabled={submitting || recipientsLoading}
+                    disabled={submitting || recipientsLoading || isOffline}
                     className="btn-danger"
                     style={{ marginTop: 10 }}
+                    title={isOffline ? 'You are offline. Rejection requires a server connection.' : undefined}
                   >
                     {submitting ? t('approvals.rejectModal.submitting') : t('approvals.rejectModal.confirmReject')}
                   </button>
@@ -464,8 +521,9 @@ export default function ApprovalsPage() {
                 <button
                   type="button"
                   onClick={confirmDelete}
-                  disabled={deleting}
+                  disabled={deleting || isOffline}
                   className="btn-danger"
+                  title={isOffline ? 'You are offline. Records cannot be deleted without a connection.' : undefined}
                 >
                   {deleting ? t('approvals.deleteModal.deleting') : t('approvals.deleteModal.confirm')}
                 </button>

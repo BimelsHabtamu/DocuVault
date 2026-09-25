@@ -577,6 +577,19 @@
   "faq": {
     "title": "ተደጋጋሚ ጥያቄዎች እና የእርዳታ ማዕከል",
     "subtitle": "DocuVaultን ስለ መጠቀም ተደጋጋሚ ጥያቄዎች።",
+    "personalized": "የእርስዎ ሚና ላይ የተመሰረቱ ጥያቄዎች — እንደ {{role}} ምን ማድረግ እንደሚችሉ እነሆ።",
+    "roleGuideTitle": "የሚና መመሪያ — {{role}}",
+    "generalHelpTitle": "አጠቃላይ እገዛ",
+    "generalHelpIntro": "ለሁሉም ሚና የሚሰሩ የመለያ፣ ደህንነት እና ድጋፍ ጥያቄዎች።",
+    "roleBadgeLabel": "የወቅቱ ሚና",
+    "searchPlaceholder": "በእገዛ ማዕከል ውስጥ ይፈልጉ…",
+    "searchLabel": "እገዛ ፈልግ",
+    "noResults": "ከፍለጋዎ ጋር የሚዛመድ ጥያቄ አልተገኘም። ሌላ ቃል ይሞክሩ።",
+    "contactTitle": "አሁንም ተጣብቀዋል?",
+    "contactText": "የድጋፍ ቡድናችን አንድ መልእክት ርቀት ላይ ነው። ሚናዎን ይንገሩን በፍጥነት መልስ እናገኝልዎታለን።",
+    "contactButton": "ድጋፍን ያግኙ",
+    "contactEmail": "support@docuvault.com",
+    "backToDashboard": "ወደ ዳሽቦርድ ተመለስ",
     "items": {
       "generateDoc": {
         "q": "ሰነድ እንዴት እፈጥራለሁ?",

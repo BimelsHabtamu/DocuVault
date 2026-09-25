@@ -1,5 +1,4 @@
 
-
 import {
   createContext,
   useCallback,
@@ -47,8 +46,17 @@ export function NetworkProvider({ children }) {
     typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'online'
   );
 
+  /**
+   * justRestored — true for ~4 s after we transition from an offline/server-down
+   * state back to 'online'.  ConnectionBanner uses this to briefly show the
+   * "Connection restored" confirmation message before going quiet again.
+   */
+  const [justRestored, setJustRestored] = useState(false);
+  const restoredTimerRef = useRef(null);
+
   const probeTimerRef = useRef(null);
   const isMountedRef = useRef(true);
+  const prevStatusRef = useRef(status);
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -67,7 +75,26 @@ export function NetworkProvider({ children }) {
     if (!isMountedRef.current) return;
     const reachable = await probeServer();
     if (!isMountedRef.current) return;
-    setStatus(reachable ? 'online' : 'server-down');
+
+    const newStatus = reachable ? 'online' : 'server-down';
+    const wasOffline =
+      prevStatusRef.current === 'offline' ||
+      prevStatusRef.current === 'server-down' ||
+      prevStatusRef.current === 'reconnecting';
+
+    setStatus(newStatus);
+
+    // If we just came back online from an offline/server-down state, show the
+    // "Connection restored" banner briefly.
+    if (newStatus === 'online' && wasOffline) {
+      if (restoredTimerRef.current) clearTimeout(restoredTimerRef.current);
+      setJustRestored(true);
+      restoredTimerRef.current = setTimeout(() => {
+        if (isMountedRef.current) setJustRestored(false);
+      }, 4000); // show for 4 seconds
+    }
+
+    prevStatusRef.current = newStatus;
   }, []);
 
   /** Start the recurring probe loop. */
@@ -86,6 +113,11 @@ export function NetworkProvider({ children }) {
     const handleOffline = () => {
       if (!isMountedRef.current) return;
       clearProbe();
+      if (restoredTimerRef.current) {
+        clearTimeout(restoredTimerRef.current);
+        setJustRestored(false);
+      }
+      prevStatusRef.current = 'offline';
       setStatus('offline');
     };
 
@@ -93,6 +125,7 @@ export function NetworkProvider({ children }) {
       if (!isMountedRef.current) return;
       // Browser says we're back — but the server might still be down.
       setStatus('reconnecting');
+      prevStatusRef.current = 'reconnecting';
       startProbing();
     };
 
@@ -107,6 +140,7 @@ export function NetworkProvider({ children }) {
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
       clearProbe();
+      if (restoredTimerRef.current) clearTimeout(restoredTimerRef.current);
     };
   }, [clearProbe, startProbing]);
 
@@ -116,15 +150,24 @@ export function NetworkProvider({ children }) {
   const isOnline = status === 'online';
 
   /**
+   * True when ANY blocked state is active (offline or server-down).
+   * Useful for declaratively disabling action buttons.
+   */
+  const isOffline =
+    status === 'offline' || status === 'server-down' || status === 'reconnecting';
+
+  /**
    * Components can call this after a failed request to force an immediate
    * re-probe (rather than waiting for the next interval tick).
    */
   const retryNow = useCallback(() => {
     if (!navigator.onLine) {
       setStatus('offline');
+      prevStatusRef.current = 'offline';
       return;
     }
     setStatus('reconnecting');
+    prevStatusRef.current = 'reconnecting';
     startProbing();
   }, [startProbing]);
 
@@ -136,8 +179,10 @@ export function NetworkProvider({ children }) {
   const markServerDown = useCallback(() => {
     if (!isMountedRef.current) return;
     if (!navigator.onLine) {
+      prevStatusRef.current = 'offline';
       setStatus('offline');
     } else {
+      prevStatusRef.current = 'server-down';
       setStatus('server-down');
       // Also restart the probe so we recover quickly
       startProbing();
@@ -145,7 +190,16 @@ export function NetworkProvider({ children }) {
   }, [startProbing]);
 
   return (
-    <NetworkContext.Provider value={{ status, isOnline, retryNow, markServerDown }}>
+    <NetworkContext.Provider
+      value={{
+        status,
+        isOnline,
+        isOffline,
+        justRestored,
+        retryNow,
+        markServerDown,
+      }}
+    >
       {children}
     </NetworkContext.Provider>
   );

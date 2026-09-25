@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
+import { useNetwork } from '../hooks/useNetwork';
 import useFormValidation from '../hooks/useFormValidation';
 import { isRequired, isValidEmail } from '../utils/validation';
 import { ROLES } from '../utils/roles';
+import { loadUserFromCache } from '../services/authService';
 import logo from '/public/logo.png';
 /*   HELPERS */
 function defaultRouteForRole(role) {
@@ -60,9 +62,16 @@ export default function Login() {
   const LOGIN_ENABLED = true;
 
   const { t } = useTranslation(['translation', 'auth']);
-  const { login }      = useAuth();
-  const navigate       = useNavigate();
-  const location       = useLocation();
+  const { login, isOfflineSession } = useAuth();
+  const { status } = useNetwork();
+  const navigate   = useNavigate();
+  const location   = useLocation();
+
+  // If the user already has a valid offline session, redirect them into the app.
+  // This handles the case where a previously-authenticated user navigates to /login
+  // while offline — they should go straight to the app, not be stuck on the login form.
+  const isOffline = status === 'offline' || (!navigator.onLine && status !== 'online');
+  const hasCachedSession = Boolean(loadUserFromCache());
 
   const [email,        setEmail]        = useState('');
   const [password,     setPassword]     = useState('');
@@ -76,6 +85,22 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!LOGIN_ENABLED) return;
+
+    // Block fresh logins when offline — security requirement:
+    // a user who has NEVER authenticated on this device cannot log in offline.
+    if (isOffline) {
+      if (hasCachedSession) {
+        // Previously authenticated — redirect into the app instead
+        const cachedUser = loadUserFromCache();
+        const to = location.state?.from?.pathname || defaultRouteForRole(cachedUser?.role);
+        navigate(to, { replace: true });
+      } else {
+        setServerError(
+          'You are offline. Please connect to the internet and try again.'
+        );
+      }
+      return;
+    }
 
     const isValid = runValidation({
       email: (v) => {
@@ -355,6 +380,34 @@ export default function Login() {
           color: #F87171;
         }
         .lp-err-icon { flex-shrink: 0; margin-top: 1px; }
+
+        /* ── Offline warning strip ── */
+        .lp-offline-warn {
+          display: flex; align-items: flex-start; gap: 9px;
+          padding: 11px 13px;
+          background: #FFFBEB;
+          border: 1px solid #FCD34D;
+          border-radius: 10px;
+          font-size: 0.80rem;
+          color: #92400E;
+          margin-bottom: 16px;
+          line-height: 1.5;
+        }
+        html.dark .lp-offline-warn {
+          background: rgba(245,158,11,0.10);
+          border-color: rgba(251,191,36,0.25);
+          color: #FCD34D;
+        }
+        .lp-offline-icon { flex-shrink: 0; font-size: 0.95rem; }
+        .lp-offline-return {
+          background: none; border: none; padding: 0;
+          color: #0F766E; font: inherit; font-weight: 600;
+          cursor: pointer; text-decoration: underline;
+          margin-left: 2px;
+        }
+        html.dark .lp-offline-return { color: #14B8A6; }
+        .lp-offline-return:hover { opacity: 0.8; }
+
 
         /* ── Form fields ── */
         .lp-field {
@@ -636,6 +689,31 @@ export default function Login() {
               <p className="lp-card-sub">{t('login.cardSubtitle')}</p>
             </header>
 
+            {/* Offline warning — shown on the login page when network is unavailable */}
+            {isOffline && (
+              <div className="lp-offline-warn" role="status">
+                <span className="lp-offline-icon">📡</span>
+                <span>
+                  {hasCachedSession
+                    ? 'You are offline. Your previous session is available — '
+                    : 'You are offline. An internet connection is required to sign in.'}
+                  {hasCachedSession && (
+                    <button
+                      type="button"
+                      className="lp-offline-return"
+                      onClick={() => {
+                        const cachedUser = loadUserFromCache();
+                        const to = defaultRouteForRole(cachedUser?.role);
+                        navigate(to, { replace: true });
+                      }}
+                    >
+                      Return to app
+                    </button>
+                  )}
+                </span>
+              </div>
+            )}
+
             {/* Server-side error */}
             {serverError && (
               <div className="lp-err" role="alert" id="lp-serr">
@@ -758,14 +836,17 @@ export default function Login() {
               <button
                 type="submit"
                 className="lp-btn"
-                disabled={submitting}
+                disabled={submitting || (isOffline && !hasCachedSession)}
                 aria-busy={submitting}
+                title={isOffline && !hasCachedSession ? 'You are offline. Please connect to sign in.' : undefined}
               >
                 {submitting ? (
                   <>
                     <span className="lp-spin" aria-hidden="true" />
                     {t('login.signingIn')}
                   </>
+                ) : isOffline && !hasCachedSession ? (
+                  'Sign In (Offline — unavailable)'
                 ) : (
                   t('login.signIn')
                 )}
