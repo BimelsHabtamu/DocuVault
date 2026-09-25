@@ -152,7 +152,7 @@ export default function Sidebar({ open, onClose }) {
           title={t('nav.landing')}
           aria-label={t('nav.landing')}
         >
-          DocuVault
+          {t('translation:common.appName')}
         </button>
         <button
           type="button"

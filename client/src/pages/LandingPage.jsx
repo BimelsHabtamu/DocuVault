@@ -335,13 +335,13 @@ function Navbar({ scrolled, dark, toggleTheme }) {
         {/* Logo + brand — logged-in users go to dashboard, guests scroll to top */}
         {user ? (
           <Link to={dashboardPath} className="lp-nav-brand">
-            <img src={logo} alt="DocuVault" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-            <span className="lp-nav-brand-name">DocuVault</span>
+            <img src={logo} alt={t('translation:common.appName')} style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+            <span className="lp-nav-brand-name">{t('translation:common.appName')}</span>
           </Link>
         ) : (
           <a href="#home" className="lp-nav-brand">
-            <img src={logo} alt="DocuVault" style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
-            <span className="lp-nav-brand-name">DocuVault</span>
+            <img src={logo} alt={t('translation:common.appName')} style={{ width: 32, height: 32, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+            <span className="lp-nav-brand-name">{t('translation:common.appName')}</span>
           </a>
         )}
 
@@ -417,8 +417,8 @@ function Footer() {
         <div className="lp-footer-top">
           <div className="lp-footer-brand-col">
             <div className="lp-footer-brand">
-              <img src={logo} alt="DocuVault" style={{ width: 28, height: 28, borderRadius: 7, objectFit: 'cover' }} />
-              <span className="lp-footer-brand-name">DocuVault</span>
+              <img src={logo} alt={t('translation:common.appName')} style={{ width: 28, height: 28, borderRadius: 7, objectFit: 'cover' }} />
+              <span className="lp-footer-brand-name">{t('translation:common.appName')}</span>
             </div>
             <p className="lp-footer-tagline">
               {t('landing.footer.tagline')}
@@ -449,7 +449,6 @@ function Footer() {
         </div>
         <div className="lp-footer-bottom">
           <span>{t('landing.footer.copyright')}</span>
-          <span>{t('landing.footer.taglineBottom')}</span>
         </div>
       </div>
     </footer>

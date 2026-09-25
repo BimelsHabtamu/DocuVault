@@ -15,7 +15,7 @@
     "mySettings": "ቅንብሮቼ",
     "notifications": "ማሳወቂያዎች",
     "profile": "መገለጫ",
-    "faqHelpCenter": "ተደጋጋሚ ጥያቄዎች እና የእርዳታ ማዕከል",
+    "faqHelpCenter": "የእገዛ ማዕከል",
     "supportAndSettings": "ድጋፍ እና ቅንብሮች",
     "toggleSidebar": "ጎነ-ምናሌ ይቀይሩ",
     "landing": "ወደ መግቢያ ገፅ ይሂዱ",
@@ -575,7 +575,7 @@
     }
   },
   "faq": {
-    "title": "ተደጋጋሚ ጥያቄዎች እና የእርዳታ ማዕከል",
+    "title": "የእገዛ ማዕከል",
     "subtitle": "DocuVaultን ስለ መጠቀም ተደጋጋሚ ጥያቄዎች።",
     "personalized": "የእርስዎ ሚና ላይ የተመሰረቱ ጥያቄዎች — እንደ {{role}} ምን ማድረግ እንደሚችሉ እነሆ።",
     "roleGuideTitle": "የሚና መመሪያ — {{role}}",

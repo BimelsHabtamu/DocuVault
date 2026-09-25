@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "ዶክሙቫልት",
+    "appName": "የሰነድ አስተዳደር",
     "loading": "በመጫን ላይ…",
     "save": "አስቀምጥ",
     "cancel": "ሰርዝ",
@@ -59,7 +59,7 @@
       "howItWorks": "እንዴት ይሰራል",
       "security": "ደህንነት",
       "about": "ስለ እኛ",
-      "faq": "ተ.ጥ",
+      "faq": "የእገዛ ማዕከል",
       "verification": "ማረጋገጫ",
       "signIn": "ግባ",
       "dashboard": "ዳሽቦርድ",
@@ -257,9 +257,8 @@
       "access": "መዳረሻ",
       "signIn": "ግባ",
       "verifyDocument": "ሰነድ ያረጋግጡ",
-      "faqHelp": "ተደጋጋሚ ጥያቄዎች እና እርዳታ",
-      "copyright": "© 2024 DocuVault. መብቱ በሕግ የተጠበቀ ነው።",
-      "taglineBottom": "ለመታመን ተሠርቷል።"
+      "faqHelp": "የእገዛ ማዕከል",
+      "copyright": "© 2024 DocuVault. መብቱ በሕግ የተጠበቀ ነው።"
     },
     "slides": {
       "autoGen": "የሰነድ ፍጠርምን ያሳልጡ",

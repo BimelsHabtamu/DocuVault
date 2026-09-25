@@ -15,7 +15,7 @@
     "mySettings": "My Settings",
     "notifications": "Notifications",
     "profile": "Profile",
-    "faqHelpCenter": "FAQ & Help Center",
+    "faqHelpCenter": "FAQ",
     "supportAndSettings": "Support & Settings",
     "toggleSidebar": "Toggle sidebar",
     "landing": "Go to Landing Page",
@@ -575,7 +575,7 @@
     }
   },
   "faq": {
-    "title": "FAQ & Help Center",
+    "title": "FAQ",
     "subtitle": "Frequently asked questions about using DocuVault.",
     "personalized": "Help tailored to your role — here is what you can do as a {{role}}.",
     "roleGuideTitle": "Role Guide — {{role}}",
