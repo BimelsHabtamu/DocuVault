@@ -15,11 +15,6 @@ function b64(s) { return Buffer.from(String(s)).toString('base64'); }
 function dotStuff(s) {
   return s.replace(/\r?\n\.\r?\n/g, '\n..\n');
 }
-
-/**
- * Convert an org logo URL to an inline base64 data URI so the image is
-    the original URL string — email still sends, image may not load.
- */
 function resolveLogoToDataUri(logoUrl) {
   if (!logoUrl) return logoUrl;
 

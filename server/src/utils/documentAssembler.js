@@ -1,5 +1,10 @@
 const pageSpec = require('../../../client/src/shared/documentPageSpec.json');
-function assembleDocumentHtml({ headerHtml, bodyHtml, footerHtml, tamperProofFooterHtml, deliveryVerificationQrHtml, watermarkText, signatureHtml, companySealHtml }) {
+const SEAL_MARKER = '__COMPANY_SEAL__';
+
+function assembleDocumentHtml({ headerHtml, bodyHtml, footerHtml, tamperProofFooterHtml, deliveryVerificationQrHtml, watermarkText, signatureHtml, companySealHtml, companySealElementHtml }) {
+  const resolvedHeaderHtml = String(headerHtml || '').replace(new RegExp(SEAL_MARKER, 'g'), companySealElementHtml || '');
+  const resolvedBodyHtml = String(bodyHtml || '').replace(new RegExp(SEAL_MARKER, 'g'), companySealElementHtml || '');
+  const resolvedFooterHtml = String(footerHtml || '').replace(new RegExp(SEAL_MARKER, 'g'), companySealElementHtml || '');
   // color coding: DRAFT stays red (unapproved/in-progress), FINAL is green
   const watermarkClass = watermarkText === 'FINAL'
     ? 'watermark-overlay watermark-final'
@@ -126,9 +131,9 @@ function assembleDocumentHtml({ headerHtml, bodyHtml, footerHtml, tamperProofFoo
 <body>
   <div class="page">
     ${watermarkBlock}
-    <div class="doc-header">${headerHtml || ''}</div>
-    <div class="doc-body">${bodyHtml || ''}</div>
-    <div class="doc-footer">${footerHtml || ''}</div>
+    <div class="doc-header">${resolvedHeaderHtml || ''}</div>
+    <div class="doc-body">${resolvedBodyHtml || ''}</div>
+    <div class="doc-footer">${resolvedFooterHtml || ''}</div>
     <div class="doc-footer-meta">
       ${signatureHtml || ''}
       ${companySealHtml || ''}
@@ -163,6 +168,22 @@ function resolveWatermarkForStatus(docStatus, templateWatermarkText) {
     return cleanTemplateWatermark || 'FINAL';
   }
   return cleanTemplateWatermark || null;
+}
+
+function buildSealElement({ companySeal, companyName, docId, dateString }) {
+  if (!companySeal || !companySeal.enabled) return '';
+  const size = Number(companySeal.size) || 110;
+
+  if (companySeal.imageUrl) {
+    return `<img src="${companySeal.imageUrl}" alt="Company Seal" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;display:block;box-shadow:0 0 0 1.5px rgba(15,39,71,0.55), 0 0 0 3px #fff, 0 0 0 4px rgba(15,39,71,0.35);" />`;
+  }
+
+  return buildGeneratedSealSvg({
+    org: companyName,
+    stampId: docId,
+    stampDate: dateString,
+    size,
+  });
 }
 
 function buildCompanySealHtml({ companySeal, companyName, docId, dateString }) {
@@ -299,4 +320,11 @@ function injectSignatureIntoFooter(footerHtml, name, photoDataUrl, signedAt) {
   return before + signedBlock + after;
 }
 
-module.exports = { assembleDocumentHtml, resolveWatermarkForStatus, injectSignatureIntoFooter, buildCompanySealHtml };
+module.exports = {
+  SEAL_MARKER,
+  assembleDocumentHtml,
+  resolveWatermarkForStatus,
+  injectSignatureIntoFooter,
+  buildCompanySealHtml,
+  buildSealElement,
+};

@@ -5,6 +5,7 @@ import { documentService } from '../services/templateService';
 import { deliveryService, signatureService, auditService } from '../services/workflowService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import ApproverSelectModal from '../components/common/ApproverSelectModal';
 import SecureDeliveryModal from '../components/common/SecureDeliveryModal';
 import { ROLES } from '../utils/roles';
@@ -59,6 +60,7 @@ function DocBadge({ status }) {
 function DocumentCard({ doc, highlighted, isAdmin, onNeedsApprover, onSecureDeliver, onChanged, onEditResubmit, ownershipRejectionBanner }) {
   const { showToast } = useToast();
   const { t } = useTranslation('layout');
+  const { guardedAction, isOffline } = useOfflineGuard();
   const cardRef = useRef(null);
   const menuRef = useRef(null);
   const [viewingDoc, setViewingDoc]           = useState(false);
@@ -113,31 +115,51 @@ function DocumentCard({ doc, highlighted, isAdmin, onNeedsApprover, onSecureDeli
   };
 
   const handleMarkDelivered = async () => {
-    setMarkingDelivered(true);
-    try {
-      const res = await deliveryService.markHandDelivered(doc.id);
-      showToast(res.message || 'Marked as hand-delivered.', 'success');
-      setMenuOpen(false);
-      onChanged();
-    } catch (err) {
-      showToast(err.message || 'Failed to update status.', 'error');
-    } finally {
-      setMarkingDelivered(false);
-    }
+    await guardedAction(
+      async () => {
+        setMarkingDelivered(true);
+        try {
+          const res = await deliveryService.markHandDelivered(doc.id);
+          showToast(res.message || 'Marked as hand-delivered.', 'success');
+          setMenuOpen(false);
+          onChanged();
+        } finally {
+          setMarkingDelivered(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Delivery status cannot be updated without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Failed to update status.', 'error');
+          setMarkingDelivered(false);
+        },
+      }
+    );
   };
 
   const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      const res = await documentService.remove(doc.id);
-      showToast(res.message || t('docTracking.deleteModal.deleted'), 'success');
-      onChanged();
-    } catch (err) {
-      showToast(err.message || t('docTracking.deleteModal.failed'), 'error');
-    } finally {
-      setDeleting(false);
-      setConfirmingDelete(false);
-    }
+    await guardedAction(
+      async () => {
+        setDeleting(true);
+        try {
+          const res = await documentService.remove(doc.id);
+          showToast(res.message || t('docTracking.deleteModal.deleted'), 'success');
+          onChanged();
+        } finally {
+          setDeleting(false);
+          setConfirmingDelete(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Records cannot be deleted without a server connection.',
+        onBlocked: () => setConfirmingDelete(false),
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('docTracking.deleteModal.failed'), 'error');
+          setDeleting(false);
+          setConfirmingDelete(false);
+        },
+      }
+    );
   };
 
   return (
@@ -212,17 +234,20 @@ function DocumentCard({ doc, highlighted, isAdmin, onNeedsApprover, onSecureDeli
               {downloading ? t('common.download', { ns: 'translation' }) + '…' : t('common.download', { ns: 'translation' })}
             </button>
             {doc.status === 'draft' && !wasRejected && (
-              <button type="button" onClick={onNeedsApprover} className="doc-btn doc-btn-primary">
+              <button type="button" onClick={onNeedsApprover} disabled={isOffline} className="doc-btn doc-btn-primary"
+                title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                 {t('docTracking.card.assignApprover')}
               </button>
             )}
             {wasRejected && (
-              <button type="button" onClick={() => onEditResubmit(null)} className="doc-btn doc-btn-primary">
+              <button type="button" onClick={() => onEditResubmit(null)} disabled={isOffline} className="doc-btn doc-btn-primary"
+                title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                 {t('docTracking.card.editResubmit')}
               </button>
             )}
             {isSignedOrDelivered && (
-              <button type="button" onClick={onSecureDeliver} className="doc-btn doc-btn-primary">
+              <button type="button" onClick={onSecureDeliver} disabled={isOffline} className="doc-btn doc-btn-primary"
+                title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                 {t('docTracking.card.deliver')}
               </button>
             )}
@@ -230,14 +255,22 @@ function DocumentCard({ doc, highlighted, isAdmin, onNeedsApprover, onSecureDeli
               <button
                 type="button"
                 onClick={handleMarkDelivered}
-                disabled={markingDelivered}
+                disabled={markingDelivered || isOffline}
                 className="doc-btn doc-btn-secondary"
+                title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
               >
                 {markingDelivered ? '…' : 'Hand Delivered'}
               </button>
             )}
             {canDelete && (doc.status === 'pending' || doc.status === 'draft') && (
-              <button type="button" onClick={() => setConfirmingDelete(true)} className="doc-btn doc-btn-danger">
+              <button type="button" onClick={() => {
+                if (isOffline) {
+                  showToast('You are offline. Please reconnect to perform this action.', 'error');
+                  return;
+                }
+                setConfirmingDelete(true);
+              }} disabled={isOffline} className="doc-btn doc-btn-danger"
+                title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                 {t('docTracking.card.delete')}
               </button>
             )}
@@ -308,6 +341,7 @@ export default function DocumentTrackingPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { t } = useTranslation('layout');
+  const { guardedAction, isOffline } = useOfflineGuard();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -390,14 +424,21 @@ export default function DocumentTrackingPage() {
   }, [loadingDocs, highlightDocId, myDocs, isAdminUser]);
 
   const handleAssignApprover = async (approverId) => {
-    try {
-      const res = await signatureService.initiate(approverModalDoc.id, approverId);
-      showToast(res.message || t('docTracking.approverAssigned'), 'success');
-      setApproverModalDoc(null);
-      loadMyDocs();
-    } catch (err) {
-      showToast(err.message || t('docTracking.approverFailed'), 'error');
-    }
+    await guardedAction(
+      async () => {
+        const res = await signatureService.initiate(approverModalDoc.id, approverId);
+        showToast(res.message || t('docTracking.approverAssigned'), 'success');
+        setApproverModalDoc(null);
+        loadMyDocs();
+      },
+      {
+        offlineMessage: 'You are offline. Sending for approval requires a server connection.',
+        onBlocked: () => { /* keep modal open */ },
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('docTracking.approverFailed'), 'error');
+        },
+      }
+    );
   };
 
   const handleSecureDeliverySent = (message) => {

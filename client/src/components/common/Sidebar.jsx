@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { ROLES } from '../../utils/roles';
+import logo from '/public/logo.png';
 import {
   IconDashboard,
   IconTemplates,
@@ -152,7 +153,8 @@ export default function Sidebar({ open, onClose }) {
           title={t('nav.landing')}
           aria-label={t('nav.landing')}
         >
-          {t('translation:common.appName')}
+          <img src={logo} alt="DocuVault logo" className="sidebar-brand-icon" />
+          <span>{t('translation:common.appName')}</span>
         </button>
         <button
           type="button"

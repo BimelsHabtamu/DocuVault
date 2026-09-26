@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import { userService } from '../services/userService';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ function Field({ label, children }) {
 export default function ProfilePage() {
   const { user, updateUser, refreshUser } = useAuth();
   const { showToast } = useToast();
+  const { guardedAction, isOffline } = useOfflineGuard();
   const fileRef = useRef(null);
 
   // ── Info form
@@ -91,16 +93,25 @@ export default function ProfilePage() {
     if (!name.trim()) return showToast('Name cannot be empty.', 'error');
     const trimEmail = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimEmail)) return showToast('Invalid email address.', 'error');
-    setInfoSaving(true);
-    try {
-      const res = await userService.updateOwnProfile({ full_name: name.trim(), email: trimEmail, phone: phone.trim() || null });
-      updateUser(res.data);
-      showToast('Profile updated.', 'success');
-    } catch (err) {
-      showToast(err.message || 'Failed to update profile.', 'error');
-    } finally {
-      setInfoSaving(false);
-    }
+    await guardedAction(
+      async () => {
+        setInfoSaving(true);
+        try {
+          const res = await userService.updateOwnProfile({ full_name: name.trim(), email: trimEmail, phone: phone.trim() || null });
+          updateUser(res.data);
+          showToast('Profile updated.', 'success');
+        } finally {
+          setInfoSaving(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Profile changes cannot be saved without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Failed to update profile.', 'error');
+          setInfoSaving(false);
+        },
+      }
+    );
   };
 
   // ── Photo pick
@@ -125,27 +136,42 @@ export default function ProfilePage() {
   };
   const savePhoto = async () => {
     if (!photoFile || photoSaving) return;
-    setPhotoSaving(true);
-    try {
-      const res = await userService.uploadAvatar(photoFile);
-      updateUser({ avatar_url: res.data.avatar_url });
-      discardPhoto();
-      showToast('Profile photo updated.', 'success');
-    } catch (err) {
-      showToast(err.message || 'Upload failed.', 'error');
-    } finally {
-      setPhotoSaving(false);
-    }
+    await guardedAction(
+      async () => {
+        setPhotoSaving(true);
+        try {
+          const res = await userService.uploadAvatar(photoFile);
+          updateUser({ avatar_url: res.data.avatar_url });
+          discardPhoto();
+          showToast('Profile photo updated.', 'success');
+        } finally {
+          setPhotoSaving(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Photo uploads require a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Upload failed.', 'error');
+          setPhotoSaving(false);
+        },
+      }
+    );
   };
   const removePhoto = async () => {
     if (!user?.avatar_url) return;
-    try {
-      await userService.removeAvatar();
-      updateUser({ avatar_url: null });
-      showToast('Photo removed.', 'success');
-    } catch (err) {
-      showToast(err.message || 'Failed to remove photo.', 'error');
-    }
+    await guardedAction(
+      async () => {
+        await userService.removeAvatar();
+        updateUser({ avatar_url: null });
+        showToast('Photo removed.', 'success');
+      },
+      {
+        offlineMessage: 'You are offline. Photo changes require a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Failed to remove photo.', 'error');
+        },
+      }
+    );
   };
 
   // ── Password save
@@ -156,16 +182,25 @@ export default function ProfilePage() {
     if (pw.next.length < 8) return setPwError('New password must be at least 8 characters.');
     if (!/[a-zA-Z]/.test(pw.next)) return setPwError('Password must contain at least one letter.');
     if (pw.next !== pw.confirm) return setPwError('Passwords do not match.');
-    setPwSaving(true);
-    try {
-      await userService.changeOwnPassword(pw.current, pw.next);
-      setPw({ current: '', next: '', confirm: '' });
-      showToast('Password updated.', 'success');
-    } catch (err) {
-      setPwError(err.message || 'Failed to update password.');
-    } finally {
-      setPwSaving(false);
-    }
+    await guardedAction(
+      async () => {
+        setPwSaving(true);
+        try {
+          await userService.changeOwnPassword(pw.current, pw.next);
+          setPw({ current: '', next: '', confirm: '' });
+          showToast('Password updated.', 'success');
+        } finally {
+          setPwSaving(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Password changes require a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) setPwError(err.message || 'Failed to update password.');
+          setPwSaving(false);
+        },
+      }
+    );
   };
 
   // ── Password strength helper (shared logic)
@@ -301,12 +336,16 @@ export default function ProfilePage() {
         <div className="profile-photo-row">
           <Avatar user={user} preview={photoPreview} size={80} />
           <div className="profile-photo-actions">
-            <button type="button" className="btn-primary profile-btn-sm" onClick={pickPhoto} disabled={photoSaving}>
+            <button type="button" className="btn-primary profile-btn-sm" onClick={pickPhoto}
+              disabled={photoSaving || isOffline}
+              title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
               {photoSaving ? 'Uploading…' : 'Change Photo'}
             </button>
             {photoFile && (
               <>
-                <button type="button" className="btn-primary profile-btn-sm" onClick={savePhoto} disabled={photoSaving}>
+                <button type="button" className="btn-primary profile-btn-sm" onClick={savePhoto}
+                  disabled={photoSaving || isOffline}
+                  title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                   {photoSaving ? 'Saving…' : 'Save Photo'}
                 </button>
                 <button type="button" className="btn-secondary profile-btn-sm" onClick={discardPhoto}>
@@ -315,7 +354,9 @@ export default function ProfilePage() {
               </>
             )}
             {user?.avatar_url && !photoFile && (
-              <button type="button" className="profile-remove-link" onClick={removePhoto}>
+              <button type="button" className="profile-remove-link" onClick={removePhoto}
+                disabled={isOffline}
+                title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                 Remove current photo
               </button>
             )}
@@ -346,7 +387,8 @@ export default function ProfilePage() {
               onChange={(e) => setPhone(e.target.value)} />
           </Field>
           <button type="submit" className="btn-primary profile-btn"
-            disabled={infoSaving}>
+            disabled={infoSaving || isOffline}
+            title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
             {infoSaving ? 'Saving…' : 'Save Changes'}
           </button>
         </form>
@@ -359,7 +401,9 @@ export default function ProfilePage() {
           {pwField('current', 'Current Password', 'current-password')}
           {pwField('next',    'New Password',     'new-password')}
           {pwField('confirm', 'Confirm New Password', 'new-password')}
-          <button type="submit" className="btn-primary profile-btn" disabled={pwSaving}>
+          <button type="submit" className="btn-primary profile-btn"
+            disabled={pwSaving || isOffline}
+            title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
             {pwSaving ? 'Updating…' : 'Update Password'}
           </button>
         </form>

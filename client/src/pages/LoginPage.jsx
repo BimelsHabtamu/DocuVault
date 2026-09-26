@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useAuth';
@@ -72,6 +72,20 @@ export default function Login() {
   // while offline — they should go straight to the app, not be stuck on the login form.
   const isOffline = status === 'offline' || (!navigator.onLine && status !== 'online');
   const hasCachedSession = Boolean(loadUserFromCache());
+
+  // ── Auto-redirect on mount and whenever network status changes ───────────
+  // If we're offline AND a cached session exists, redirect immediately without
+  // requiring the user to click anything. This is the primary fix for the UX
+  // issue where the login form was displayed with an "offline" error even though
+  // the user had a valid previous session on this device.
+  useEffect(() => {
+    if (isOffline && hasCachedSession) {
+      const cachedUser = loadUserFromCache();
+      const to = location.state?.from?.pathname || defaultRouteForRole(cachedUser?.role);
+      navigate(to, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOffline, hasCachedSession]);
 
   const [email,        setEmail]        = useState('');
   const [password,     setPassword]     = useState('');
@@ -659,8 +673,7 @@ export default function Login() {
                 <img src={logo} alt="" />
               </div>
               <div className="lp-brand-text">
-                <div className="lp-brand-name">DocuVault</div>
-                <div className="lp-brand-tagline">{t('login.brandTagline')}</div>
+                <div className="lp-brand-name">Back To Home</div>
               </div>
             </Link>
 

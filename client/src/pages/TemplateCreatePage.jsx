@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import TemplateForm from '../components/templates/TemplateForm';
 import { templateService } from '../services/templateService';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 
 function BackArrowIcon() {
   return (
@@ -17,6 +18,7 @@ export default function TemplateCreatePage({ mode = 'create' }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { guardedAction, isOffline } = useOfflineGuard();
 
   const [initialData, setInitialData] = useState(null);
   const [loading, setLoading] = useState(mode === 'edit');
@@ -34,27 +36,39 @@ export default function TemplateCreatePage({ mode = 'create' }) {
   }, [mode, id]);
 
   const handleSubmit = async (payload) => {
-    setSubmitting(true);
-    setNameError(null);
-    try {
-      if (mode === 'edit') {
-        const res = await templateService.update(id, payload);
-        showToast(res.message || `Updated — now v${res.data.version}.`, 'success');
-      } else {
-        const res = await templateService.create(payload);
-        showToast(res.message || 'Template created.', 'success');
+    await guardedAction(
+      async () => {
+        setSubmitting(true);
+        setNameError(null);
+        try {
+          if (mode === 'edit') {
+            const res = await templateService.update(id, payload);
+            showToast(res.message || `Updated — now v${res.data.version}.`, 'success');
+          } else {
+            const res = await templateService.create(payload);
+            showToast(res.message || 'Template created.', 'success');
+          }
+          navigate('/templates');
+        } catch (err) {
+          if (err.status === 409) {
+            setNameError(err.message);
+          }
+          showToast(err.message || 'Failed to save template.', 'error');
+        } finally {
+          setSubmitting(false);
+        }
+      },
+      {
+        offlineMessage: `You are offline. Templates cannot be ${mode === 'edit' ? 'updated' : 'created'} without a server connection.`,
+        onError: (err) => {
+          if (!err.isOfflineError) {
+            if (err.status === 409) setNameError(err.message);
+            showToast(err.message || 'Failed to save template.', 'error');
+          }
+          setSubmitting(false);
+        },
       }
-      navigate('/templates');
-    } catch (err) {
-      // BR-003: duplicate template name — keep the user on the form with the
-      // name field flagged, rather than just a toast they might miss.
-      if (err.status === 409) {
-        setNameError(err.message);
-      }
-      showToast(err.message || 'Failed to save template.', 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    );
   };
 
   // Rendered first in every branch below (loading / error / the real form) so there's
@@ -96,6 +110,8 @@ export default function TemplateCreatePage({ mode = 'create' }) {
         submitting={submitting}
         nameError={nameError}
         onNameChange={() => setNameError(null)}
+        disabled={isOffline}
+        disabledReason={isOffline ? 'You are offline. Please reconnect to save changes.' : undefined}
       />
     </div>
   );

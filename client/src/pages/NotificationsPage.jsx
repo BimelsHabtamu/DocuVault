@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { notificationService } from '../services/notificationService';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 
 function relativeTime(ts) {
   const diff = Date.now() - new Date(ts).getTime();
@@ -22,6 +23,7 @@ export default function NotificationsPage() {
   const { showToast } = useToast();
   const navigate      = useNavigate();
   const { t }         = useTranslation('layout');
+  const { guardedAction, isOffline } = useOfflineGuard();
 
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
@@ -67,28 +69,64 @@ export default function NotificationsPage() {
 
   const markOne = async (n) => {
     if (n.is_read) return;
+    // Optimistic update first so the UI feels instant
     setNotifications((prev) => prev.map((x) => x === n ? { ...x, is_read: true } : x));
-    try {
-      await notificationService.markRead(n.notification_type, n.id);
-    } catch {
-      setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: false } : x));
-      showToast('Could not mark as read.', 'error');
-    }
+    await guardedAction(
+      async () => {
+        await notificationService.markRead(n.notification_type, n.id);
+      },
+      {
+        offlineMessage: 'You are offline. Notifications cannot be marked as read without a server connection.',
+        onBlocked: () => {
+          // Roll back the optimistic update
+          setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: false } : x));
+        },
+        onError: (err) => {
+          if (!err.isOfflineError) {
+            // Roll back and show the error
+            setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, is_read: false } : x));
+            showToast('Could not mark as read.', 'error');
+          }
+        },
+      }
+    );
   };
 
   const markAllRead = async () => {
     const unread = notifications.filter((n) => !n.is_read);
     if (!unread.length) return;
     setMarkingAll(true);
+    // Optimistic update
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    try {
-      await Promise.all(unread.map((n) => notificationService.markRead(n.notification_type, n.id)));
-    } catch {
-      showToast('Some notifications could not be marked as read.', 'error');
-      load();
-    } finally {
-      setMarkingAll(false);
-    }
+    await guardedAction(
+      async () => {
+        try {
+          await Promise.all(unread.map((n) => notificationService.markRead(n.notification_type, n.id)));
+        } catch {
+          showToast('Some notifications could not be marked as read.', 'error');
+          load();
+        } finally {
+          setMarkingAll(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Notifications cannot be marked as read without a server connection.',
+        onBlocked: () => {
+          // Roll back optimistic update
+          setNotifications((prev) => prev.map((n) =>
+            unread.find((u) => u.id === n.id) ? { ...n, is_read: false } : n
+          ));
+          setMarkingAll(false);
+        },
+        onError: (err) => {
+          if (!err.isOfflineError) {
+            showToast('Some notifications could not be marked as read.', 'error');
+            load();
+          }
+          setMarkingAll(false);
+        },
+      }
+    );
   };
 
   const handleClick = async (n) => {
@@ -115,7 +153,8 @@ export default function NotificationsPage() {
             type="button"
             className="notif-page-mark-all"
             onClick={markAllRead}
-            disabled={markingAll}
+            disabled={markingAll || isOffline}
+            title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
           >
             {markingAll ? '…' : t('notificationsPage.markAllRead')}
           </button>
@@ -183,7 +222,8 @@ export default function NotificationsPage() {
                 <button
                   type="button"
                   className="notif-page-item-markread"
-                  title={t('notifications.title')}
+                  title={isOffline ? 'You are offline. Please reconnect to perform this action.' : t('notifications.title')}
+                  disabled={isOffline}
                   onClick={(e) => { e.stopPropagation(); markOne(n); }}
                 >
                   ✓

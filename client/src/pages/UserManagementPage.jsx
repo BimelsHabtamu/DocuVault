@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { userService } from '../services/userService';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import ConfirmModal from '../components/common/ConfirmModal';
 import useFormValidation from '../hooks/useFormValidation';
 import { FieldError, RequiredMark } from '../components/common/FormValidation';
@@ -130,6 +131,7 @@ function ViewUserModal({ user, onClose }) {
 function EditUserModal({ user, onClose, onSaved }) {
   const { t } = useTranslation('layout');
   const { showToast } = useToast();
+  const { guardedAction } = useOfflineGuard();
 
   const ROLE_OPTIONS = [
     { value: 'system_admin', label: t('userManagement.roleOptions.systemAdmin') },
@@ -153,21 +155,31 @@ function EditUserModal({ user, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.full_name.trim()) { setLocalError(t('userManagement.editModal.fullNameRequired')); return; }
-    setSaving(true);
-    try {
-      await userService.update(user.id, {
-        full_name: form.full_name.trim(),
-        role:      form.role,
-        phone:     form.phone.trim() || null,
-      });
-      showToast(t('userManagement.editModal.successMsg'), 'success');
-      onSaved({ ...user, ...form, full_name: form.full_name.trim(), phone: form.phone.trim() || null });
-      onClose();
-    } catch (err) {
-      showToast(err.message || t('userManagement.editModal.failedMsg'), 'error');
-    } finally {
-      setSaving(false);
-    }
+    await guardedAction(
+      async () => {
+        setSaving(true);
+        try {
+          await userService.update(user.id, {
+            full_name: form.full_name.trim(),
+            role:      form.role,
+            phone:     form.phone.trim() || null,
+          });
+          showToast(t('userManagement.editModal.successMsg'), 'success');
+          onSaved({ ...user, ...form, full_name: form.full_name.trim(), phone: form.phone.trim() || null });
+          onClose();
+        } finally {
+          setSaving(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. User details cannot be changed without a server connection.',
+        onBlocked: () => { /* keep modal open */ },
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('userManagement.editModal.failedMsg'), 'error');
+          setSaving(false);
+        },
+      }
+    );
   };
 
   return (
@@ -249,6 +261,7 @@ function EditUserModal({ user, onClose, onSaved }) {
 export default function UserManagementPage() {
   const { t } = useTranslation('layout');
   const { showToast } = useToast();
+  const { guardedAction, isOffline } = useOfflineGuard();
   const { errors, runValidation, clearFieldError, fieldProps } = useFormValidation();
 
   const ROLE_OPTIONS = [
@@ -303,49 +316,84 @@ export default function UserManagementPage() {
       organization: (v) => requiredRule(v, 'The organization / company / institution'),
     }, form);
     if (!isValid) return;
-    setSubmitting(true);
-    try {
-      const res = await userService.create(form);
-      showToast(res.message || t('userManagement.toasts.created'), 'success');
-      setForm(emptyForm);
-      setShowForm(false);
-      load();
-    } catch (err) {
-      showToast(err.message || t('userManagement.toasts.createFailed'), 'error');
-    } finally {
-      setSubmitting(false);
-    }
+    await guardedAction(
+      async () => {
+        setSubmitting(true);
+        try {
+          const res = await userService.create(form);
+          showToast(res.message || t('userManagement.toasts.created'), 'success');
+          setForm(emptyForm);
+          setShowForm(false);
+          load();
+        } finally {
+          setSubmitting(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Users cannot be created without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('userManagement.toasts.createFailed'), 'error');
+          setSubmitting(false);
+        },
+      }
+    );
   };
 
   const handleToggleStatus = async (user) => {
-    setBusyId(user.id);
-    try {
-      const res = await userService.updateStatus(user.id, !user.is_active);
-      showToast(res.message || t('userManagement.toasts.updated'), 'success');
-      load();
-    } catch (err) {
-      showToast(err.message || t('userManagement.toasts.updateStatusFailed'), 'error');
-    } finally {
-      setBusyId(null);
-    }
+    await guardedAction(
+      async () => {
+        setBusyId(user.id);
+        try {
+          const res = await userService.updateStatus(user.id, !user.is_active);
+          showToast(res.message || t('userManagement.toasts.updated'), 'success');
+          load();
+        } finally {
+          setBusyId(null);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. User status cannot be changed without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('userManagement.toasts.updateStatusFailed'), 'error');
+          setBusyId(null);
+        },
+      }
+    );
   };
 
-  const handleDelete = (user) => setPendingDelete(user);
+  const handleDelete = (user) => {
+    if (isOffline) {
+      showToast('You are offline. Please reconnect to perform this action.', 'error');
+      return;
+    }
+    setPendingDelete(user);
+  };
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
     const user = pendingDelete;
-    setBusyId(user.id);
-    try {
-      const res = await userService.remove(user.id);
-      showToast(res.message || t('userManagement.toasts.deleted'), 'success');
-      setUsers((prev) => prev.filter((u) => u.id !== user.id));
-    } catch (err) {
-      showToast(err.message || t('userManagement.toasts.deleteFailed'), 'error');
-    } finally {
-      setBusyId(null);
-      setPendingDelete(null);
-    }
+    await guardedAction(
+      async () => {
+        setBusyId(user.id);
+        try {
+          const res = await userService.remove(user.id);
+          showToast(res.message || t('userManagement.toasts.deleted'), 'success');
+          setUsers((prev) => prev.filter((u) => u.id !== user.id));
+        } finally {
+          setBusyId(null);
+          setPendingDelete(null);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Users cannot be deleted without a server connection.',
+        onBlocked: () => setPendingDelete(null),
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('userManagement.toasts.deleteFailed'), 'error');
+          setBusyId(null);
+          setPendingDelete(null);
+        },
+      }
+    );
   };
 
   const handleUserSaved = (updated) => {
@@ -433,7 +481,8 @@ export default function UserManagementPage() {
           <p style={{ margin: '0 0 12px', fontSize: '0.83rem', color: 'var(--text-secondary)' }}>
             {t('userManagement.form.welcomeEmailNote')}
           </p>
-          <button type="submit" disabled={submitting} className="btn-primary">
+          <button type="submit" disabled={submitting || isOffline} className="btn-primary"
+            title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
             {submitting ? t('userManagement.form.creating') : t('userManagement.form.createBtn')}
           </button>
         </form>
@@ -512,8 +561,8 @@ export default function UserManagementPage() {
                             type="button"
                             className="btn-secondary"
                             onClick={() => setEditingUser(u)}
-                            disabled={busyId === u.id}
-                            title={t('userManagement.editBtn')}
+                            disabled={busyId === u.id || isOffline}
+                            title={isOffline ? 'You are offline. Please reconnect to perform this action.' : t('userManagement.editBtn')}
                             style={{ whiteSpace: 'nowrap' }}
                           >
                             {t('userManagement.editBtn')}
@@ -522,7 +571,8 @@ export default function UserManagementPage() {
                           <button
                             type="button"
                             onClick={() => handleToggleStatus(u)}
-                            disabled={busyId === u.id}
+                            disabled={busyId === u.id || isOffline}
+                            title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
                             style={{ whiteSpace: 'nowrap' }}
                           >
                             {u.is_active ? t('userManagement.deactivate') : t('userManagement.activate')}
@@ -531,9 +581,9 @@ export default function UserManagementPage() {
                           <button
                             type="button"
                             onClick={() => handleDelete(u)}
-                            disabled={busyId === u.id}
+                            disabled={busyId === u.id || isOffline}
                             className="btn-danger"
-                            title={t('userManagement.deleteBtn')}
+                            title={isOffline ? 'You are offline. Please reconnect to perform this action.' : t('userManagement.deleteBtn')}
                             style={{ whiteSpace: 'nowrap' }}
                           >
                             {busyId === u.id ? t('userManagement.working') : t('userManagement.deleteBtn')}

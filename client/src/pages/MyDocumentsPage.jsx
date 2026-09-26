@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { templateService, documentService } from '../services/templateService';
 import { signatureService, deliveryService } from '../services/workflowService';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import TemplateViewer from '../components/templates/TemplateViewer';
 import ApproverSelectModal from '../components/common/ApproverSelectModal';
 import BulkGenerationPanel from './BulkGenerationPanel';
@@ -208,6 +209,7 @@ function ResubmitPanel({ resubmitDoc, onDone, onCancel }) {
 export default function MyDocumentsPage() {
   const { showToast } = useToast();
   const { t } = useTranslation(['translation', 'layout']);
+  const { guardedAction, isOffline } = useOfflineGuard();
   const location = useLocation();
   const navigate  = useNavigate();
   const [resubmitDoc, setResubmitDoc] = useState(location.state?.resubmitDoc || null);
@@ -257,41 +259,66 @@ export default function MyDocumentsPage() {
       showToast(t('myDocuments.enterRecordId', { ns: 'layout' }), 'error');
       return;
     }
-    setLoadingPreview(true);
-    try {
-      const res = await documentService.preview({ template_id: selectedTemplateId, record_id: id });
-      setPreviewData(res.data);
-    } catch (err) {
-      showToast(err.message || t('myDocuments.previewFailed', { ns: 'layout' }), 'error');
-    } finally {
-      setLoadingPreview(false);
-    }
+    await guardedAction(
+      async () => {
+        setLoadingPreview(true);
+        try {
+          const res = await documentService.preview({ template_id: selectedTemplateId, record_id: id });
+          setPreviewData(res.data);
+        } finally {
+          setLoadingPreview(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Preview requires a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('myDocuments.previewFailed', { ns: 'layout' }), 'error');
+          setLoadingPreview(false);
+        },
+      }
+    );
   };
 
   const handleGenerate = async () => {
     const id = recordId.trim();
     if (!selectedTemplateId || !id) return;
-    setGenerating(true);
-    try {
-      const res = await documentService.generate({ template_id: selectedTemplateId, record_id: id });
-      showToast(res.message || t('myDocuments.generatedSuccess', { ns: 'layout' }), 'success');
-      setApproverModalDoc({ id: res.data.id, doc_uuid: res.data.docUuid });
-    } catch (err) {
-      showToast(err.message || t('myDocuments.generateFailed', { ns: 'layout' }), 'error');
-    } finally {
-      setGenerating(false);
-    }
+    await guardedAction(
+      async () => {
+        setGenerating(true);
+        try {
+          const res = await documentService.generate({ template_id: selectedTemplateId, record_id: id });
+          showToast(res.message || t('myDocuments.generatedSuccess', { ns: 'layout' }), 'success');
+          setApproverModalDoc({ id: res.data.id, doc_uuid: res.data.docUuid });
+        } finally {
+          setGenerating(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Document generation requires a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('myDocuments.generateFailed', { ns: 'layout' }), 'error');
+          setGenerating(false);
+        },
+      }
+    );
   };
 
   const handleAssignApprover = async (approverId) => {
-    try {
-      const res = await signatureService.initiate(approverModalDoc.id, approverId);
-      showToast(res.message || 'Signature request sent — track it from Document Tracking.', 'success');
-      setApproverModalDoc(null);
-      navigate(`/document-tracking?highlight=${approverModalDoc.id}`);
-    } catch (err) {
-      showToast(err.message || t('docTracking.approverFailed', { ns: 'layout' }), 'error');
-    }
+    await guardedAction(
+      async () => {
+        const res = await signatureService.initiate(approverModalDoc.id, approverId);
+        showToast(res.message || 'Signature request sent — track it from Document Tracking.', 'success');
+        setApproverModalDoc(null);
+        navigate(`/document-tracking?highlight=${approverModalDoc.id}`);
+      },
+      {
+        offlineMessage: 'You are offline. Sending for approval requires a server connection.',
+        onBlocked: () => { /* keep modal open */ },
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('docTracking.approverFailed', { ns: 'layout' }), 'error');
+        },
+      }
+    );
   };
 
   if (resubmitDoc) {
@@ -387,10 +414,12 @@ export default function MyDocumentsPage() {
               </div>
 
               <div className="template-form-actions">
-                <button type="button" onClick={handlePreview} disabled={loadingPreview} className="btn-secondary">
+                <button type="button" onClick={handlePreview} disabled={loadingPreview || isOffline} className="btn-secondary"
+                  title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                   {loadingPreview ? t('myDocuments.previewing', { ns: 'layout' }) : t('myDocuments.previewBtn', { ns: 'layout' })}
                 </button>
-                <button type="button" onClick={handleGenerate} disabled={generating || !recordId} className="btn-primary">
+                <button type="button" onClick={handleGenerate} disabled={generating || !recordId || isOffline} className="btn-primary"
+                  title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
                   {generating ? t('myDocuments.generating', { ns: 'layout' }) : t('myDocuments.generateBtn', { ns: 'layout' })}
                 </button>
               </div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { templateService } from '../../services/templateService';
 import { useToast } from '../../hooks/useToast';
+import { useOfflineGuard } from '../../hooks/useOfflineGuard';
 import ConfirmModal from '../common/ConfirmModal';
 
 /** Small document-style icon, matches the "this is a document" look every template card gets. */
@@ -18,6 +19,7 @@ function DocumentIcon() {
 export default function TemplateList() {
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const { guardedAction, isOffline } = useOfflineGuard();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null); // disables buttons on the card being acted on
@@ -37,36 +39,62 @@ export default function TemplateList() {
 
   useEffect(() => { loadTemplates(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleDelete = (id, name) => setPendingDelete({ id, name });
+  const handleDelete = (id, name) => {
+    if (isOffline) {
+      showToast('You are offline. Please reconnect to perform this action.', 'error');
+      return;
+    }
+    setPendingDelete({ id, name });
+  };
 
   const confirmDelete = async () => {
     if (!pendingDelete) return;
     const { id } = pendingDelete;
-    setBusyId(id);
-    try {
-      await templateService.remove(id);
-      showToast('Template deleted successfully.', 'success');
-      setTemplates((prev) => prev.filter((t) => t.id !== id));
-    } catch (err) {
-      showToast(err.message || 'Failed to delete template.', 'error');
-    } finally {
-      setBusyId(null);
-      setPendingDelete(null);
-    }
+    await guardedAction(
+      async () => {
+        setBusyId(id);
+        try {
+          await templateService.remove(id);
+          showToast('Template deleted successfully.', 'success');
+          setTemplates((prev) => prev.filter((t) => t.id !== id));
+        } finally {
+          setBusyId(null);
+          setPendingDelete(null);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Templates cannot be deleted without a server connection.',
+        onBlocked: () => setPendingDelete(null),
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Failed to delete template.', 'error');
+          setBusyId(null);
+          setPendingDelete(null);
+        },
+      }
+    );
   };
 
   const handleToggleStatus = async (id, currentStatus) => {
     const nextStatus = currentStatus === 'active' ? 'archived' : 'active';
-    setBusyId(id);
-    try {
-      await templateService.updateStatus(id, nextStatus);
-      showToast(`Template marked as ${nextStatus}.`, 'success');
-      setTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, status: nextStatus } : t)));
-    } catch (err) {
-      showToast(err.message || 'Failed to update status.', 'error');
-    } finally {
-      setBusyId(null);
-    }
+    await guardedAction(
+      async () => {
+        setBusyId(id);
+        try {
+          await templateService.updateStatus(id, nextStatus);
+          showToast(`Template marked as ${nextStatus}.`, 'success');
+          setTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, status: nextStatus } : t)));
+        } finally {
+          setBusyId(null);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Template status cannot be changed without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Failed to update status.', 'error');
+          setBusyId(null);
+        },
+      }
+    );
   };
 
   if (loading) return <div className="template-list-loading">Loading templates…</div>;
@@ -75,7 +103,19 @@ export default function TemplateList() {
     return (
       <div className="template-list-empty">
         <p>No templates yet.</p>
-        <Link to="/templates/create" className="btn-primary">+ Create Template</Link>
+        <Link
+          to={isOffline ? '#' : '/templates/create'}
+          className="btn-primary"
+          onClick={(e) => {
+            if (isOffline) {
+              e.preventDefault();
+              showToast('You are offline. Please reconnect to perform this action.', 'error');
+            }
+          }}
+          aria-disabled={isOffline}
+        >
+          + Create Template
+        </Link>
       </div>
     );
   }
@@ -109,12 +149,26 @@ export default function TemplateList() {
             >
               View
             </button>
-            <Link to={`/templates/edit/${t.id}`} className="tpl-action-btn tpl-action-edit">Edit</Link>
+            <Link
+              to={isOffline ? '#' : `/templates/edit/${t.id}`}
+              className={`tpl-action-btn tpl-action-edit${isOffline ? ' tpl-action-btn--offline' : ''}`}
+              onClick={(e) => {
+                if (isOffline) {
+                  e.preventDefault();
+                  showToast('You are offline. Please reconnect to perform this action.', 'error');
+                }
+              }}
+              title={isOffline ? 'You are offline' : undefined}
+              aria-disabled={isOffline}
+            >
+              Edit
+            </Link>
             <button
               type="button"
               className={`tpl-action-btn ${t.status === 'active' ? 'tpl-action-archive' : 'tpl-action-activate'}`}
               onClick={() => handleToggleStatus(t.id, t.status)}
-              disabled={busyId === t.id}
+              disabled={busyId === t.id || isOffline}
+              title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
             >
               {t.status === 'active' ? 'Archive' : 'Activate'}
             </button>
@@ -122,7 +176,8 @@ export default function TemplateList() {
               type="button"
               className="tpl-action-btn tpl-action-delete"
               onClick={() => handleDelete(t.id, t.name)}
-              disabled={busyId === t.id}
+              disabled={busyId === t.id || isOffline}
+              title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
             >
               Delete
             </button>

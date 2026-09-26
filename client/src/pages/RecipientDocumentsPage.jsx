@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import { recipientService } from '../services/recipientService';
 import { useTranslation, Trans } from 'react-i18next';
 
@@ -70,6 +71,7 @@ export default function RecipientDocumentsPage() {
   const { user }      = useAuth();
   const { showToast } = useToast();
   const { t }         = useTranslation(['translation', 'layout', 'delivery']);
+  const { guardedAction, isOffline } = useOfflineGuard();
 
   const [deliveries, setDeliveries]       = useState([]);
   const [loading, setLoading]             = useState(true);
@@ -85,32 +87,50 @@ export default function RecipientDocumentsPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDownload = async (deliveryId) => {
-    setDownloading(deliveryId);
-    try {
-      await recipientService.download(deliveryId);
-    } catch (err) {
-      showToast(err.message || t('recipient.downloadFailed', { ns: 'layout' }), 'error');
-    } finally {
-      setDownloading(null);
-    }
+    await guardedAction(
+      async () => {
+        setDownloading(deliveryId);
+        try {
+          await recipientService.download(deliveryId);
+        } finally {
+          setDownloading(null);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Downloads require a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('recipient.downloadFailed', { ns: 'layout' }), 'error');
+          setDownloading(null);
+        },
+      }
+    );
   };
 
   const handleVerify = async (deliveryId) => {
-    setVerifying(deliveryId);
-    try {
-      const res = await recipientService.verify(deliveryId);
-      setVerifyResults((prev) => ({ ...prev, [deliveryId]: res.data }));
-      showToast(
-        res.data.verified
-          ? t('recipient.authentic', { ns: 'layout' })
-          : 'Hash mismatch — document may be tampered.',
-        res.data.verified ? 'success' : 'error'
-      );
-    } catch (err) {
-      showToast(err.message || t('recipient.verifyFailed', { ns: 'layout' }), 'error');
-    } finally {
-      setVerifying(null);
-    }
+    await guardedAction(
+      async () => {
+        setVerifying(deliveryId);
+        try {
+          const res = await recipientService.verify(deliveryId);
+          setVerifyResults((prev) => ({ ...prev, [deliveryId]: res.data }));
+          showToast(
+            res.data.verified
+              ? t('recipient.authentic', { ns: 'layout' })
+              : 'Hash mismatch — document may be tampered.',
+            res.data.verified ? 'success' : 'error'
+          );
+        } finally {
+          setVerifying(null);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Verification requires a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('recipient.verifyFailed', { ns: 'layout' }), 'error');
+          setVerifying(null);
+        },
+      }
+    );
   };
 
   return (
@@ -199,12 +219,13 @@ export default function RecipientDocumentsPage() {
                   <button
                     type="button"
                     onClick={() => handleDownload(d.delivery_id)}
-                    disabled={downloading === d.delivery_id}
+                    disabled={downloading === d.delivery_id || isOffline}
+                    title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
                     style={{
                       padding: '7px 18px', borderRadius: 7, border: 'none',
                       background: '#2563eb', color: '#fff', fontWeight: 600,
-                      fontSize: 13, cursor: 'pointer',
-                      opacity: downloading === d.delivery_id ? 0.65 : 1,
+                      fontSize: 13, cursor: isOffline ? 'not-allowed' : 'pointer',
+                      opacity: (downloading === d.delivery_id || isOffline) ? 0.65 : 1,
                     }}
                   >
                     {downloading === d.delivery_id
@@ -217,13 +238,14 @@ export default function RecipientDocumentsPage() {
                   <button
                     type="button"
                     onClick={() => handleVerify(d.delivery_id)}
-                    disabled={verifying === d.delivery_id}
+                    disabled={verifying === d.delivery_id || isOffline}
+                    title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
                     style={{
                       padding: '7px 18px', borderRadius: 7,
                       border: '1px solid #d1d5db', background: '#f9fafb',
                       color: '#374151', fontWeight: 600, fontSize: 13,
-                      cursor: 'pointer',
-                      opacity: verifying === d.delivery_id ? 0.65 : 1,
+                      cursor: isOffline ? 'not-allowed' : 'pointer',
+                      opacity: (verifying === d.delivery_id || isOffline) ? 0.65 : 1,
                     }}
                   >
                     {verifying === d.delivery_id

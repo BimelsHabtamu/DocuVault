@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { documentService } from '../services/templateService';
 import { signatureService } from '../services/workflowService';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import ApproverSelectModal from '../components/common/ApproverSelectModal';
 
 /** Small ring showing "done / total" progress (used while signature requests are being sent). */
@@ -60,6 +61,7 @@ function CircularProgress({ done, total, size = 40, stroke = 5 }) {
  */
 export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
   const { showToast } = useToast();
+  const { guardedAction, isOffline } = useOfflineGuard();
   const [manualIdsText, setManualIdsText] = useState('');
   const [csvIds, setCsvIds] = useState([]);
   const [csvFileName, setCsvFileName] = useState('');
@@ -203,17 +205,25 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
       );
       return;
     }
-
-    setValidating(true);
-    setValidationReport(null);
-    try {
-      const res = await documentService.validateBulk({ template_id: templateId, record_ids: recordIds });
-      setValidationReport(res.data);
-    } catch (err) {
-      showToast(err.message || 'Preview failed.', 'error');
-    } finally {
-      setValidating(false);
-    }
+    await guardedAction(
+      async () => {
+        setValidating(true);
+        setValidationReport(null);
+        try {
+          const res = await documentService.validateBulk({ template_id: templateId, record_ids: recordIds });
+          setValidationReport(res.data);
+        } finally {
+          setValidating(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Preview requires a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Preview failed.', 'error');
+          setValidating(false);
+        },
+      }
+    );
   };
 
   const readyIds = () => (validationReport ? validationReport.report.filter((r) => r.ok).map((r) => r.recordId) : []);
@@ -223,14 +233,20 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
   const handleGenerateReady = async () => {
     const recordIds = readyIds();
     if (recordIds.length === 0) return;
-    try {
-      const res = await documentService.generateBulk({ template_id: templateId, record_ids: recordIds });
-      showToast(res.message, 'success');
-      setJob({ jobId: res.data.jobId, total: res.data.total, completed: 0, failed: 0, status: 'running' });
-      setValidationReport(null);
-    } catch (err) {
-      showToast(err.message || 'Failed to start bulk generation.', 'error');
-    }
+    await guardedAction(
+      async () => {
+        const res = await documentService.generateBulk({ template_id: templateId, record_ids: recordIds });
+        showToast(res.message, 'success');
+        setJob({ jobId: res.data.jobId, total: res.data.total, completed: 0, failed: 0, status: 'running' });
+        setValidationReport(null);
+      },
+      {
+        offlineMessage: 'You are offline. Document generation requires a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || 'Failed to start bulk generation.', 'error');
+        },
+      }
+    );
   };
 
   /** Cancel: drop the Missing-Data IDs from the working list; generates nothing for them. */
@@ -289,6 +305,11 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
 
   /** Sequentially sends a signature request for every successfully-generated doc in the batch. */
   const handleAssignApproverToAll = async (approverId) => {
+    // Offline check before starting a multi-step loop — surface it before anything is sent.
+    if (isOffline) {
+      showToast('You are offline. Sending for approval requires a server connection.', 'error');
+      return;
+    }
     const successfulDocs = (job.results || []).filter((r) => r.success && r.dbId);
     setBulkAssignProgress({ done: 0, total: successfulDocs.length });
 
@@ -383,15 +404,16 @@ export default function BulkGenerationPanel({ templateId, mode = 'multiple' }) {
       </div>
 
       <div className="template-form-actions">
-        <button type="button" onClick={handlePreviewClick} disabled={validating || idCount === 0} className="btn-secondary">
+        <button type="button" onClick={handlePreviewClick} disabled={validating || idCount === 0 || isOffline} className="btn-secondary"
+          title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
           {validating ? 'Loading…' : `Preview — ${idCount} ID(s)`}
         </button>
         <button
           type="button"
           onClick={handleGenerateReady}
-          disabled={!validationReport || readyIds().length === 0}
+          disabled={!validationReport || readyIds().length === 0 || isOffline}
           className="btn-primary"
-          title={!validationReport ? 'Run Preview first' : undefined}
+          title={isOffline ? 'You are offline. Please reconnect to perform this action.' : (!validationReport ? 'Run Preview first' : undefined)}
         >
           {`Generate — ${validationReport ? readyIds().length : 0} Ready`}
         </button>

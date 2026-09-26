@@ -101,6 +101,7 @@ function WorkflowToggle({ id, label, description, checked, onChange, locked = fa
  */
 export default function TemplateForm({
   mode = 'create', initialData = null, onSubmit, submitting, nameError = null, onNameChange,
+  disabled = false, disabledReason,
 }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -1088,7 +1089,13 @@ export default function TemplateForm({
       </div>
 
       <div className="template-form-actions">
-        <button type="submit" disabled={submitting} className="btn-primary">
+        {disabled && disabledReason && (
+          <p style={{ margin: '0 0 10px', fontSize: '0.85rem', color: 'var(--danger, #dc2626)', fontWeight: 500 }}>
+            ⚠ {disabledReason}
+          </p>
+        )}
+        <button type="submit" disabled={submitting || disabled} className="btn-primary"
+          title={disabled ? disabledReason : undefined}>
           {submitting ? 'Saving…' : mode === 'edit' ? 'Update Template' : 'Create Template'}
         </button>
         {mode === 'edit' && (

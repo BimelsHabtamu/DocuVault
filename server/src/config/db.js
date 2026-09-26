@@ -1,12 +1,24 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
+const DB_SSL_ON = /^(1|true|yes|on)$/i.test(String(process.env.DB_SSL || ''));
+const DB_SSL_REJECT = /^(1|true|yes|on)$/i.test(String(process.env.DB_SSL_REJECT_UNAUTHORIZED || ''));
+const DB_SSL_CA = (process.env.DB_SSL_CA || '').replace(/\\n/g, '\n').trim();
+
+const dbSsl = DB_SSL_ON
+  ? {
+      rejectUnauthorized: DB_SSL_REJECT,
+      ...(DB_SSL_CA ? { ca: DB_SSL_CA } : {}),
+    }
+  : undefined;
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'doc_automation',
+  ...(dbSsl ? { ssl: dbSsl } : {}),
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,

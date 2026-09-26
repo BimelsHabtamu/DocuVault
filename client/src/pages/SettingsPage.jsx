@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { settingsService } from '../services/workflowService';
 import { useToast } from '../hooks/useToast';
+import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import { getAuthToken } from '../services/api';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -9,6 +10,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 export default function SettingsPage() {
   const { showToast } = useToast();
   const { t } = useTranslation(['translation', 'settings']);
+  const { guardedAction, isOffline } = useOfflineGuard();
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -27,26 +29,41 @@ export default function SettingsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    setSaving(true);
-    try {
-      const res = await settingsService.update({
-        ...settings,
-        orgName: (settings.orgName || '').trim(),
-        orgLogoUrl: settings.orgLogoUrl || '',
-      });
-      setSettings(res.data);
-      showToast(t('toasts.settingsSaved'), 'success');
-    } catch (err) {
-      showToast(err.message || t('toasts.saveSettingsFailed'), 'error');
-    } finally {
-      setSaving(false);
-    }
+    await guardedAction(
+      async () => {
+        setSaving(true);
+        try {
+          const res = await settingsService.update({
+            ...settings,
+            orgName: (settings.orgName || '').trim(),
+            orgLogoUrl: settings.orgLogoUrl || '',
+          });
+          setSettings(res.data);
+          showToast(t('toasts.settingsSaved'), 'success');
+        } finally {
+          setSaving(false);
+        }
+      },
+      {
+        offlineMessage: 'You are offline. Settings cannot be saved without a server connection.',
+        onError: (err) => {
+          if (!err.isOfflineError) showToast(err.message || t('toasts.saveSettingsFailed'), 'error');
+          setSaving(false);
+        },
+      }
+    );
   };
 
   /** Upload the organization logo via the shared logo endpoint, then persist its URL. */
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Pre-flight offline check before reading the file or attempting the upload
+    if (isOffline) {
+      showToast('You are offline. Logo uploads require a server connection.', 'error');
+      if (logoInputRef.current) logoInputRef.current.value = '';
+      return;
+    }
     setUploadingLogo(true);
     try {
       const formData = new FormData();
@@ -120,7 +137,8 @@ export default function SettingsPage() {
               type="button"
               className="btn-primary"
               onClick={() => logoInputRef.current?.click()}
-              disabled={uploadingLogo}
+              disabled={uploadingLogo || isOffline}
+              title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}
               style={{ fontSize: '0.85rem', padding: '8px 14px' }}
             >
               {uploadingLogo ? t('actions.uploading') : t('branding.uploadLogo')}
@@ -179,7 +197,8 @@ export default function SettingsPage() {
           {t('lifecycle.note')}
         </p>
 
-        <button type="submit" disabled={saving} className="btn-primary">
+        <button type="submit" disabled={saving || isOffline} className="btn-primary"
+          title={isOffline ? 'You are offline. Please reconnect to perform this action.' : undefined}>
           {saving ? t('actions.saving') : t('actions.saveSettings')}
         </button>
       </form>
