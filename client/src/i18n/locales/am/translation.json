@@ -72,9 +72,9 @@
     },
     "hero": {
       "badge": "የድርጅት ሰነድ አስተዳደር",
-      "title1": "ደህንነቱ የተጠበቀ። ፈርም።",
-      "title2": "አቅርብ።",
-      "title3": "ለእያንዳንዱ ሰነድ ታምን።",
+      "title1": "ደህንነቱ የተጠበቀ ፈርም",
+      "title2": "አቅርብ",
+      "title3": "ለእያንዳንዱ ሰነድ ታምን",
       "signInToWorkspace": "ወደ ሥራ ቦታ ግባ",
       "verifyDocument": "ሰነድ ያረጋግጡ",
       "slideLabel": "ወደ ስላይድ {{number}} ሂድ"

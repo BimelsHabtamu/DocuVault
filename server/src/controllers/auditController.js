@@ -307,8 +307,8 @@ async function archiveOldDocuments() {
   const fs = require('fs');
   const path = require('path');
   const { getAppSettings } = require('../utils/appSettings');
-  const archiveDir = path.join(__dirname, '..', '..', 'storage', 'archive');
-  if (!fs.existsSync(archiveDir)) fs.mkdirSync(archiveDir, { recursive: true });
+  const { STORAGE_DIRS, ensureDir } = require('../config/storage');
+  const archiveDir = ensureDir(STORAGE_DIRS.archive);
 
   try {
     const { archiveYears } = getAppSettings();

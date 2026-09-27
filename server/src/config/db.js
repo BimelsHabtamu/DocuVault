@@ -12,6 +12,33 @@ const dbSsl = DB_SSL_ON
     }
   : undefined;
 
+/**
+ * Canonical list of every value `audit_logs.action` is allowed to hold.
+ *
+ * This used to live as two separate constants (`FULL_ACTION_ENUM` and
+ * `FULL_ACTION_ENUM_V2`) in two different blocks of ensureSchema(), and they had
+ * drifted apart: the second list was missing BULK_ZIP_CREATED and
+ * BULK_ZIP_DOWNLOADED. Because block 1 ran first and added those two, then block
+ * 10 rebuilt the enum from its shorter list, every single boot silently REVERTED
+ * them. The two write sites that use them
+ * (bulkWorker.js BULK_ZIP_CREATED, documentController.js BULK_ZIP_DOWNLOADED)
+ * therefore failed with "Data truncated for column 'action'" on every call, and
+ * because recordAudit() swallows write errors the bulk-ZIP audit trail was
+ * silently lost rather than reported. One shared constant removes the whole
+ * class of bug — there is no longer a second list to fall out of sync.
+ */
+const AUDIT_ACTION_ENUM = [
+  'PREVIEW', 'GENERATE', 'SIGN', 'REJECT', 'DELIVER', 'VERIFY', 'DOWNLOAD', 'VIEW',
+  'LOGIN', 'LOGOUT', 'CREATE_TEMPLATE', 'UPDATE_TEMPLATE', 'DELETE_TEMPLATE', 'ARCHIVE_TEMPLATE',
+  'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_COMPLETE',
+  'DELETE_DOCUMENT',
+  'SECURE_DELIVER', 'OTP_VERIFY', 'OWNERSHIP_CONFIRM', 'OWNERSHIP_REJECT',
+  'OWNERSHIP_REJECTED_NOTIFY', 'DELIVERY_OWNED_NOTIFY',
+  'REVOKE_DOCUMENT',
+  'BULK_ZIP_CREATED', 'BULK_ZIP_DOWNLOADED',
+  'WORKFLOW_COMPLETE_NOTIFY', 'ACKNOWLEDGE_NOTIFY',
+];
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   port: process.env.DB_PORT || 3306,
@@ -68,31 +95,21 @@ async function ensureSchema() {
     console.error('[db] Could not ensure notification_reads table exists:', err.message);
   }
 
-  // 2) audit_logs.action enum — grown over time by several migrations (005, 012, and
-  //    now the document soft-delete feature). Rebuilt from the full current list every
-  //    boot and only actually ALTERed when something's missing, so this one block
-  //    covers every value that's ever been added instead of needing a new near-
-  //    duplicate block each time another action is introduced.
-  const FULL_ACTION_ENUM = [
-    'PREVIEW', 'GENERATE', 'SIGN', 'REJECT', 'DELIVER', 'VERIFY', 'DOWNLOAD', 'VIEW',
-    'LOGIN', 'LOGOUT', 'CREATE_TEMPLATE', 'UPDATE_TEMPLATE', 'DELETE_TEMPLATE', 'ARCHIVE_TEMPLATE',
-    'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_COMPLETE',
-    'DELETE_DOCUMENT',
-    'SECURE_DELIVER', 'OTP_VERIFY', 'OWNERSHIP_CONFIRM', 'OWNERSHIP_REJECT',
-    'OWNERSHIP_REJECTED_NOTIFY', 'DELIVERY_OWNED_NOTIFY', 'REVOKE_DOCUMENT',
-    'BULK_ZIP_CREATED', 'BULK_ZIP_DOWNLOADED',
-  ];
+  // 2) audit_logs.action enum — grown over time by several migrations. Rebuilt from
+  //    the full current list every boot and only actually ALTERed when something's
+  //    missing, so this block covers every value that's ever been added instead of
+  //    needing a new near-duplicate block each time another action is introduced.
   try {
     const [[col]] = await pool.query(
       `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
        WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'audit_logs' AND COLUMN_NAME = 'action'`,
       [dbName]
     );
-    const missing = col ? FULL_ACTION_ENUM.filter((a) => !col.COLUMN_TYPE.includes(`'${a}'`)) : [];
+    const missing = col ? AUDIT_ACTION_ENUM.filter((a) => !col.COLUMN_TYPE.includes(`'${a}'`)) : [];
     if (missing.length > 0) {
       await pool.query(`
         ALTER TABLE audit_logs
-          MODIFY COLUMN action ENUM(${FULL_ACTION_ENUM.map((a) => `'${a}'`).join(',')}) NOT NULL
+          MODIFY COLUMN action ENUM(${AUDIT_ACTION_ENUM.map((a) => `'${a}'`).join(',')}) NOT NULL
       `);
       console.log(`[db] Added ${missing.join(', ')} to audit_logs.action enum.`);
     }
@@ -525,33 +542,11 @@ async function ensureSchema() {
       console.log('[db] Added rejection_notify_token_used_at to generated_docs.');
     }
 
-    // d) OWNERSHIP_REJECTED_NOTIFY / DELIVERY_OWNED_NOTIFY / WORKFLOW_COMPLETE_NOTIFY /
-    //    ACKNOWLEDGE_NOTIFY audit actions (migration 019 / 022)
-    const FULL_ACTION_ENUM_V2 = [
-      'PREVIEW', 'GENERATE', 'SIGN', 'REJECT', 'DELIVER', 'VERIFY', 'DOWNLOAD', 'VIEW',
-      'LOGIN', 'LOGOUT', 'CREATE_TEMPLATE', 'UPDATE_TEMPLATE', 'DELETE_TEMPLATE', 'ARCHIVE_TEMPLATE',
-      'CREATE_USER', 'UPDATE_USER', 'DELETE_USER', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_COMPLETE',
-      'DELETE_DOCUMENT',
-      'SECURE_DELIVER', 'OTP_VERIFY', 'OWNERSHIP_CONFIRM', 'OWNERSHIP_REJECT',
-      'OWNERSHIP_REJECTED_NOTIFY', 'DELIVERY_OWNED_NOTIFY',
-      'REVOKE_DOCUMENT',
-      'WORKFLOW_COMPLETE_NOTIFY', 'ACKNOWLEDGE_NOTIFY',
-    ];
-    const [[actionCol]] = await pool.query(
-      `SELECT COLUMN_TYPE FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'audit_logs' AND COLUMN_NAME = 'action'`,
-      [dbName]
-    );
-    const missingActions = actionCol
-      ? FULL_ACTION_ENUM_V2.filter((a) => !actionCol.COLUMN_TYPE.includes(`'${a}'`))
-      : [];
-    if (missingActions.length > 0) {
-      await pool.query(`
-        ALTER TABLE audit_logs
-          MODIFY COLUMN action ENUM(${FULL_ACTION_ENUM_V2.map((a) => `'${a}'`).join(',')}) NOT NULL
-      `);
-      console.log(`[db] Added ${missingActions.join(', ')} to audit_logs.action enum.`);
-    }
+    // d) WORKFLOW_COMPLETE_NOTIFY / ACKNOWLEDGE_NOTIFY audit actions
+    //    (migration 019 / 022). These are covered by the shared
+    //    AUDIT_ACTION_ENUM rebuilt in step 2 above, which runs before this
+    //    block, so there is deliberately no second ALTER here — that duplication
+    //    is what used to strip BULK_ZIP_* back out of the enum on every boot.
   } catch (err) {
     console.error('[db] Could not apply migration 019 (delivery workflow improvements):', err.message);
   }

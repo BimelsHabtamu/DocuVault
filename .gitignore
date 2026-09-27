@@ -32,3 +32,10 @@ Thumbs.db
 
 # Coverage
 coverage/
+
+# Runtime file storage — generated PDFs, uploaded logos/avatars/seals/signatures,
+# bulk ZIPs and the cold-storage archive. These are user data recreated at
+# runtime (and backed by a persistent disk in production), never source. The
+# .gitkeep files preserve the directory structure in a fresh clone.
+server/storage/**
+!server/storage/**/.gitkeep

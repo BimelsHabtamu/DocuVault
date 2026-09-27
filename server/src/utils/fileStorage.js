@@ -1,14 +1,12 @@
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
+const { STORAGE_DIRS, ensureDir } = require('../config/storage');
 
 // NFR-002: PDFs stored outside public webroot with randomized filenames component.
-const STORAGE_ROOT = path.join(__dirname, '..', '..', 'storage', 'generated-docs');
+const STORAGE_ROOT = STORAGE_DIRS.generatedDocs;
 
 function ensureStorageDir() {
-  if (!fs.existsSync(STORAGE_ROOT)) {
-    fs.mkdirSync(STORAGE_ROOT, { recursive: true });
-  }
+  ensureDir(STORAGE_ROOT);
 }
 
 function sanitizeForFilename(value) {

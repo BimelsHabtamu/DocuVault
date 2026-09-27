@@ -72,9 +72,9 @@
     },
     "hero": {
       "badge": "Enterprise Document Management",
-      "title1": "Secure. Sign.",
-      "title2": "Deliver.",
-      "title3": "Trust Every Document.",
+      "title1": "Secure Sign",
+      "title2": "Deliver",
+      "title3": "Trust Every Document",
       "signInToWorkspace": "Sign In to Workspace",
       "verifyDocument": "Verify a Document",
       "slideLabel": "Go to slide {{number}}"

@@ -1,5 +1,6 @@
 const app = require('./app');
 const { verifyConnection, ensureSchema } = require('./config/db');
+const { ensureAllStorageDirs } = require('./config/storage');
 const { startScheduler } = require('./utils/scheduler');
 const { checkUnicodeFontsAvailable } = require('./utils/pdfGenerator');
 const { checkRedisReachable } = require('./queues/bulkQueue');
@@ -27,6 +28,19 @@ process.on('uncaughtException', (err) => {
 const PORT = process.env.PORT || 5000;
 
 (async () => {
+  // Create every storage subdirectory before anything can try to write to one.
+  // On a persistent disk the mount starts empty, and multer/pdf writes throw
+  // ENOENT rather than creating the tree, so the very first upload after a
+  // fresh deploy would otherwise fail.
+  const storageDirs = ensureAllStorageDirs();
+  console.log(`[storage] Root: ${require('./config/storage').STORAGE_ROOT}`);
+  if (process.env.STORAGE_ROOT) {
+    console.log('[storage] STORAGE_ROOT is set (persistent disk) — files survive redeploys.');
+  } else {
+    console.log('[storage] STORAGE_ROOT is NOT set — using local ./storage (Ephemeral; files are lost on redeploy).');
+  }
+  console.log(`[storage] Directories ready: ${Object.keys(storageDirs).join(', ')}`);
+
   await verifyConnection();
   await ensureSchema();
 

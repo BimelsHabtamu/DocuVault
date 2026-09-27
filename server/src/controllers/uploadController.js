@@ -1,11 +1,10 @@
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 require('dotenv').config();
+const { STORAGE_DIRS, ensureDir } = require('../config/storage');
 
-const LOGO_STORAGE_DIR = path.join(__dirname, '..', '..', 'storage', 'logos');
-if (!fs.existsSync(LOGO_STORAGE_DIR)) fs.mkdirSync(LOGO_STORAGE_DIR, { recursive: true });
+const LOGO_STORAGE_DIR = ensureDir(STORAGE_DIRS.logos);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, LOGO_STORAGE_DIR),
@@ -48,8 +47,7 @@ function handleLogoUpload(req, res) {
 // pattern as logos above, but in its own directory since these are personal
 // account assets, not template branding assets.
 // ---------------------------------------------------------------------------
-const AVATAR_STORAGE_DIR = path.join(__dirname, '..', '..', 'storage', 'avatars');
-if (!fs.existsSync(AVATAR_STORAGE_DIR)) fs.mkdirSync(AVATAR_STORAGE_DIR, { recursive: true });
+const AVATAR_STORAGE_DIR = ensureDir(STORAGE_DIRS.avatars);
 
 const avatarStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, AVATAR_STORAGE_DIR),
@@ -79,8 +77,7 @@ const avatarUpload = multer({
 // as plain <img src> URLs at PDF-render time.
 // ---------------------------------------------------------------------------
 
-const SEAL_STORAGE_DIR = path.join(__dirname, '..', '..', 'storage', 'seal');
-if (!fs.existsSync(SEAL_STORAGE_DIR)) fs.mkdirSync(SEAL_STORAGE_DIR, { recursive: true });
+const SEAL_STORAGE_DIR = ensureDir(STORAGE_DIRS.seal);
 
 const sealStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, SEAL_STORAGE_DIR),
@@ -111,8 +108,7 @@ function handleSealUpload(req, res) {
 
 // ---------------------------------------------------------------------------
 
-const AUTHSIG_STORAGE_DIR = path.join(__dirname, '..', '..', 'storage', 'authsig');
-if (!fs.existsSync(AUTHSIG_STORAGE_DIR)) fs.mkdirSync(AUTHSIG_STORAGE_DIR, { recursive: true });
+const AUTHSIG_STORAGE_DIR = ensureDir(STORAGE_DIRS.authsig);
 
 const authSigStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, AUTHSIG_STORAGE_DIR),

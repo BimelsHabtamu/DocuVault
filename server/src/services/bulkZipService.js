@@ -36,16 +36,14 @@ const path     = require('path');
 const archiver = require('archiver');
 
 // NFR-002: keep ZIPs outside the public webroot, same convention as generated-docs.
-const ZIP_STORAGE_ROOT = path.join(__dirname, '..', '..', 'storage', 'bulk-zips');
+const ZIP_STORAGE_ROOT = require('../config/storage').STORAGE_DIRS.bulkZips;
 
 /**
  * Creates the bulk-zips storage directory if it does not already exist.
  * Called once inside createBulkZip; safe to call multiple times (idempotent).
  */
 function ensureZipStorageDir() {
-  if (!fs.existsSync(ZIP_STORAGE_ROOT)) {
-    fs.mkdirSync(ZIP_STORAGE_ROOT, { recursive: true });
-  }
+  require('../config/storage').ensureDir(ZIP_STORAGE_ROOT);
 }
 
 /**

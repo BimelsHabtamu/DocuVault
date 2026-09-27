@@ -23,7 +23,7 @@ function resolveLogoToDataUri(logoUrl) {
     const match = logoUrl.match(/\/uploads\/logos\/([^/?#]+)$/);
     if (match) {
       const filename = match[1];
-      const LOGO_DIR = path.join(__dirname, '..', '..', 'storage', 'logos');
+      const LOGO_DIR = require('../config/storage').STORAGE_DIRS.logos;
       const filePath = path.join(LOGO_DIR, filename);
 
       if (fs.existsSync(filePath)) {

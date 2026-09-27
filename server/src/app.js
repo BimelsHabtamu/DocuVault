@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 require('dotenv').config();
+const { STORAGE_DIRS } = require('./config/storage');
 
 const authRoutes = require('./routes/authRoutes');
 const templateRoutes = require('./routes/templateRoutes');
@@ -33,18 +33,41 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS: allow the configured CLIENT_URL, localhost:5173 (Vite default), and any
-// private LAN IP (192.168.x.x / 10.x.x.x / 172.16-31.x.x) so that dev machines
-// on the same network can reach the backend without CORS blocks.
+// CORS: allow the configured CLIENT_URL(s), localhost:5173/5174 (Vite defaults),
+// and any private LAN IP (192.168.x.x / 10.x.x.x / 172.16-31.x.x) so that dev
+// machines on the same network can reach the backend without CORS blocks.
+//
+// CLIENT_URL accepts a COMMA-SEPARATED list. Production needs more than one
+// entry in practice: the Vercel production domain plus any custom domain, and
+// Vercel gives every deploy its own unique preview subdomain
+// (myapp-abc123.vercel.app) which changes on every push — so a list is the only
+// practical way to keep previews from being blocked. Example:
+//
+//   CLIENT_URL=https://myapp.vercel.app,https://app.mycompany.com
 const ALLOWED_ORIGINS = new Set(
   [
-    process.env.CLIENT_URL,
+    // flatten the comma-separated list, trimming whitespace and dropping empties
+    ...String(process.env.CLIENT_URL || '')
+      .split(',')
+      .map((o) => o.trim().replace(/\/+$/, ''))
+      .filter(Boolean),
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:5174',
     'http://127.0.0.1:5174',
-  ].filter(Boolean)
+  ]
 );
+
+// Trailing slashes are stripped above from the configured list, so normalise the
+// incoming header the same way before comparing or a single stray "/" in the
+// browser's Origin silently fails the exact-match check below.
+function normalizeOrigin(origin) {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    return String(origin || '').trim().replace(/\/+$/, '');
+  }
+}
 
 function isLanOrigin(origin) {
   if (!origin) return false;
@@ -62,7 +85,7 @@ app.use(cors({
   origin(origin, cb) {
     // Allow same-origin requests (origin === undefined) and Vite dev proxy
     // (which strips the origin header), plus the explicit allow-list and LAN IPs.
-    if (!origin || ALLOWED_ORIGINS.has(origin) || isLanOrigin(origin)) {
+    if (!origin || ALLOWED_ORIGINS.has(normalizeOrigin(origin)) || isLanOrigin(origin)) {
       return cb(null, true);
     }
     cb(new Error(`CORS: origin '${origin}' not allowed`));
@@ -79,9 +102,9 @@ app.use(cors({
 app.use(express.json({ limit: '30mb' }));
 
 // FR-008: uploaded logos are branding assets, safe to serve statically (unlike generated docs — NFR-002)
-app.use('/uploads/logos', express.static(path.join(__dirname, '..', 'storage', 'logos')));
+app.use('/uploads/logos', express.static(STORAGE_DIRS.logos));
 // Profile photos are likewise safe to serve statically — public-facing account assets, not documents.
-app.use('/uploads/avatars', express.static(path.join(__dirname, '..', 'storage', 'avatars')));
+app.use('/uploads/avatars', express.static(STORAGE_DIRS.avatars));
 
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'API is up.' });
