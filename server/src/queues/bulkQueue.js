@@ -9,12 +9,6 @@ const REDIS_HOST     = process.env.REDIS_HOST     || '127.0.0.1';
 const REDIS_PORT     = Number(process.env.REDIS_PORT) || 6379;
 const REDIS_PASSWORD = process.env.REDIS_PASSWORD || undefined;
 
-/**
- * Shared ioredis connection used by the Queue (producer) and bulkJobTracker.
- * enableOfflineQueue: false — if Redis goes down mid-run, commands fail fast
- * instead of silently queuing in memory forever.
- * maxRetriesPerRequest: null — required by BullMQ; it handles its own retry logic.
- */
 const redisConnection = new Redis({
   host:                 REDIS_HOST,
   port:                 REDIS_PORT,
@@ -33,14 +27,7 @@ redisConnection.on('error', (err) => {
 
 const QUEUE_NAME = 'bulk-pdf-generation';
 
-/**
- * The BullMQ Queue instance (producer side).
- * defaultJobOptions:
- *   attempts: 3          — job-level retries for transient failures (NFR-004)
- *   backoff: exponential — 2s → 4s → 8s between retries
- *   removeOnComplete: { age: 86400 * 7 }  — keep completed jobs 7 days for polling
- *   removeOnFail:     { age: 86400 * 30 } — keep failed jobs 30 days for audit
- */
+
 const bulkQueue = new Queue(QUEUE_NAME, {
   connection: redisConnection,
   defaultJobOptions: {
@@ -56,15 +43,6 @@ const bulkQueue = new Queue(QUEUE_NAME, {
 
 // ── Boot-time health check ────────────────────────────────────────────────────
 
-/**
- * Attempts a real TCP + Redis PING to confirm Redis is reachable.
- * Called once from server.js before the HTTP server starts.
- * Uses a short-lived dedicated connection so it never conflicts with the
- * shared pool connection's own connection lifecycle.
- * Throws with a descriptive message if Redis cannot be reached.
- *
- * @returns {Promise<void>}
- */
 async function checkRedisReachable() {
   const probe = new Redis({
     host:                 REDIS_HOST,
