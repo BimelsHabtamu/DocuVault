@@ -42,6 +42,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import DashboardPage from './pages/DashboardPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import LandingPage from './pages/LandingPage';
+import WelcomePage from './pages/WelcomePage';
 
 import './App.css';
 
@@ -49,7 +50,7 @@ import './App.css';
 function RootRedirect() {
   const { user, isLoading } = useAuth();
   if (isLoading) return <div className="route-loading">Loading…</div>;
-  if (!user) return <Navigate to="/landing" replace />;
+  if (!user) return <Navigate to="/welcome" replace />;
   if (user.role === ROLES.RECIPIENT) return <Navigate to="/my-documents" replace />;
   return <Navigate to="/dashboard" replace />;
 }
@@ -62,6 +63,7 @@ export default function App() {
       <AuthProvider>
         <Routes>
           {/* Public routes — no login required */}
+          <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/landing" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -256,7 +258,7 @@ export default function App() {
             />
           </Route>
           
-          <Route path="*" element={<RootRedirect />} />
+          <Route path="*" element={<Navigate to="/welcome" replace />} />
         </Routes>
       </AuthProvider>
       </ToastProvider>

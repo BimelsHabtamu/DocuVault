@@ -56,14 +56,25 @@ function BarChart({ daily }) {
 }
 
 function StatusDonut({ statusBreakdown }) {
-  const total = statusBreakdown.reduce((s, r) => s + r.count, 0) || 1;
+  const [hidden, setHidden] = useState(new Set());
+
+  const toggle = (status) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.has(status) ? next.delete(status) : next.add(status);
+      return next;
+    });
+
+  // Only include visible statuses in the chart
+  const visible = statusBreakdown.filter((r) => !hidden.has(r.status));
+  const total = visible.reduce((s, r) => s + r.count, 0);
+
   let cumulative = 0;
-  const stops = statusBreakdown.map((r) => {
-    const start = (cumulative / total) * 360;
+  const stops = visible.map((r) => {
+    const start = (cumulative / (total || 1)) * 360;
     cumulative += r.count;
-    const end = (cumulative / total) * 360;
-    const color = STATUS_COLORS[r.status] || '#94A3B8';
-    return `${color} ${start}deg ${end}deg`;
+    const end = (cumulative / (total || 1)) * 360;
+    return `${STATUS_COLORS[r.status] || '#94A3B8'} ${start}deg ${end}deg`;
   });
   const gradient = stops.length ? `conic-gradient(${stops.join(', ')})` : '#E2E8F0';
 
@@ -73,6 +84,7 @@ function StatusDonut({ statusBreakdown }) {
         style={{
           width: 110, height: 110, borderRadius: '50%', background: gradient,
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          transition: 'background 0.3s',
         }}
       >
         <div style={{
@@ -85,13 +97,38 @@ function StatusDonut({ statusBreakdown }) {
         </div>
       </div>
       <div className="ar-donut-legend">
-        {statusBreakdown.map((r) => (
-          <div className="ar-donut-legend-row" key={r.status}>
-            <span className="ar-donut-dot" style={{ background: STATUS_COLORS[r.status] || '#94A3B8' }} />
-            <span className="ar-donut-legend-label">{STATUS_LABELS[r.status] || r.status}</span>
-            <span className="ar-donut-legend-count">{r.count}</span>
-          </div>
-        ))}
+        {statusBreakdown.map((r) => {
+          const isHidden = hidden.has(r.status);
+          return (
+            <div
+              className="ar-donut-legend-row ar-donut-legend-row--clickable"
+              key={r.status}
+              role="checkbox"
+              aria-checked={!isHidden}
+              tabIndex={0}
+              title={isHidden ? `Show ${STATUS_LABELS[r.status] || r.status}` : `Hide ${STATUS_LABELS[r.status] || r.status}`}
+              onClick={() => toggle(r.status)}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle(r.status)}
+            >
+              <span
+                className="ar-donut-dot"
+                style={{ background: isHidden ? 'var(--text-muted, #94A3B8)' : (STATUS_COLORS[r.status] || '#94A3B8') }}
+              />
+              <span
+                className="ar-donut-legend-label"
+                style={{ textDecoration: isHidden ? 'line-through' : 'none', opacity: isHidden ? 0.45 : 1 }}
+              >
+                {STATUS_LABELS[r.status] || r.status}
+              </span>
+              <span
+                className="ar-donut-legend-count"
+                style={{ opacity: isHidden ? 0.45 : 1 }}
+              >
+                {r.count}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import AuditTrailTab from '../components/audit/AuditTrailTab';
 import KpiDashboardTab from '../components/audit/KpiDashboardTab';
 import ReportsSearchTab from '../components/audit/ReportsSearchTab';
@@ -12,6 +11,7 @@ const TABS = [
   { id: 'reports', label: 'Reports & Search' },
   { id: 'archive', label: 'Archive Management' },
 ];
+
 
 /**
  * Module 7 — Audit & Reports (FR-036–FR-040).
