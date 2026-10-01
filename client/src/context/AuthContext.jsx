@@ -1,4 +1,5 @@
 import { createContext, useEffect, useState, useCallback } from 'react';
+import { CONNECTION_RESTORED_EVENT } from './NetworkContext';
 import {
   login as loginRequest,
   logout as logoutRequest,
@@ -6,7 +7,10 @@ import {
   restoreTokenFromStorage,
   saveUserToCache,
   loadUserFromCache,
+  verifyOfflineCredentials,
 } from '../services/authService';
+import { setCacheNamespace } from '../services/offlineCache';
+import { warmCacheForRole, refreshCacheForRole } from '../services/cacheWarmingService';
 
 export const AuthContext = createContext(null);
 
@@ -40,45 +44,51 @@ export function AuthProvider({ children }) {
   const [isOfflineSession, setIsOfflineSession] = useState(false);
   const [error, setError] = useState(null);
 
+  // ── Per-user offline cache namespace ─────────────────────────────────────
+
+  /**
+   * Every cached API response is stored under the signed-in user's id, and the
+   * previous namespace is dropped on switch. Without this, two people sharing a
+   * machine could read each other's cached documents while offline.
+   *
+   * Deliberately does nothing while `user` is null: on a fresh page load we have
+   * not identified the user yet, and defaulting to 'anon' would wipe the offline
+   * cache of a session-only user every time they reopen the tab — before they
+   * have had the chance to sign back in. Signing out wipes the cache explicitly
+   * (authService.logout), and signing in as someone else replaces the namespace.
+   */
+  useEffect(() => {
+    if (!user?.id) return;
+    setCacheNamespace(user.id);
+  }, [user?.id]);
+
   // ── Session restoration on app load ──────────────────────────────────────
 
   useEffect(() => {
     (async () => {
       const token = restoreTokenFromStorage();
       if (!token) {
-        // No token → user has never authenticated on this device
         setIsLoading(false);
         return;
       }
 
-      const isNetworkAvailable = navigator.onLine;
-
-      if (!isNetworkAvailable) {
-        // Offline path: try to restore from the local user cache
-        const cachedUser = loadUserFromCache();
-        if (cachedUser) {
-          // Previously authenticated on this device — allow offline session
-          setUser(cachedUser);
-          setIsOfflineSession(true);
-        } else {
-          // Token exists but no cached profile → never fully authenticated
-          // on this device; require online login.
-          setUser(null);
-          setIsOfflineSession(false);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // Online path: validate token + get a fresh profile from the server
+      // Always try the server — no navigator.onLine gating.
       try {
         const currentUser = await fetchCurrentUser();
         setUser(currentUser);
         setIsOfflineSession(false);
-      } catch {
-        // Token expired / invalid — clear silently, force re-login
-        setUser(null);
-        setIsOfflineSession(false);
+        void warmCacheForRole(currentUser.role);
+      } catch (err) {
+        // Token expired / invalid (401, 403) — clear silently, force re-login.
+        // For any other error (server temporarily down) fall back to cache.
+        const cachedUser = loadUserFromCache();
+        if (cachedUser && err?.isOfflineError) {
+          setUser(cachedUser);
+          setIsOfflineSession(true);
+        } else {
+          setUser(null);
+          setIsOfflineSession(false);
+        }
       } finally {
         setIsLoading(false);
       }
@@ -90,19 +100,28 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!isOfflineSession) return;
 
-    const handleOnline = async () => {
+    const handleReconnect = async () => {
       try {
         const currentUser = await fetchCurrentUser();
         setUser(currentUser);
         setIsOfflineSession(false);
+        // Refresh all cached data now that the connection is back.
+        // No delay — we want fresh data ASAP after coming back online.
+        void refreshCacheForRole(currentUser.role);
       } catch {
         // Token might have expired while offline; don't force logout automatically.
         // The next server action they attempt will surface the error.
       }
     };
 
-    window.addEventListener('online', handleOnline);
-    return () => window.removeEventListener('online', handleOnline);
+    // 'online' covers losing Wi-Fi; the custom event covers the server coming
+    // back up while the device itself never went offline (deploys, restarts).
+    window.addEventListener('online', handleReconnect);
+    window.addEventListener(CONNECTION_RESTORED_EVENT, handleReconnect);
+    return () => {
+      window.removeEventListener('online', handleReconnect);
+      window.removeEventListener(CONNECTION_RESTORED_EVENT, handleReconnect);
+    };
   }, [isOfflineSession]);
 
   // ── Auth actions ──────────────────────────────────────────────────────────
@@ -113,11 +132,44 @@ export function AuthProvider({ children }) {
       const loggedInUser = await loginRequest(email, password, rememberMe);
       setUser(loggedInUser);
       setIsOfflineSession(false);
+      // Eagerly cache all key pages in the background so the app is immediately
+      // usable offline — even if the user never visits those pages before going offline.
+      void warmCacheForRole(loggedInUser.role);
       return loggedInUser;
     } catch (err) {
       setError(err.message || 'Login failed.');
       throw err;
     }
+  }, []);
+
+  /**
+   * offlineLogin — authenticate using the locally-cached credential hash.
+   *
+   * Called by LoginPage when the device is offline (or server is unreachable)
+   * and the user submits the login form. If the entered credentials match the
+   * stored hash AND a cached user profile exists, we restore the session exactly
+   * as the startup path does — setting isOfflineSession=true so that the rest
+   * of the app knows server mutations are unavailable.
+   *
+   * Returns the cached user on success, throws on failure (wrong credentials,
+   * no cached profile, hash unavailable).
+   */
+  const offlineLogin = useCallback(async (email, password) => {
+    const cachedUser = loadUserFromCache();
+    if (!cachedUser) {
+      throw new Error(
+        'No offline profile found. Please connect to the internet and sign in once first.'
+      );
+    }
+
+    const valid = await verifyOfflineCredentials(email, password);
+    if (!valid) {
+      throw new Error('Incorrect email or password.');
+    }
+
+    setUser(cachedUser);
+    setIsOfflineSession(true);
+    return cachedUser;
   }, []);
 
   const logout = useCallback(async () => {
@@ -156,6 +208,7 @@ export function AuthProvider({ children }) {
         error,
         isOfflineSession,
         login,
+        offlineLogin,
         logout,
         updateUser,
         refreshUser,

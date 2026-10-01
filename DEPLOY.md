@@ -219,3 +219,16 @@ service must be at **1 instance**. Do not scale it up while using a disk.
 
 **`Data truncated for column 'action'`** — a stale `audit_logs.action` enum. The
 `npm run migrate` script repairs it; running it once is enough.
+
+**Offline mode says "not saved on this device yet"** — nothing has been cached
+for that screen. Responses are only stored once a GET succeeds while online, and
+only production builds register the service worker (`import.meta.env.PROD` gate
+in `client/src/services/serviceWorker.js`). Visit the screen once with a
+connection, then try again. Note that the worker needs HTTPS — it will not
+register on a plain-HTTP origin other than `localhost`.
+
+**Users see another account's data after signing out** — should be impossible:
+sign-out wipes both the per-user IndexedDB namespace and the worker's HTTP
+cache. If you ever find a leak, check that `logout()` in
+`client/src/services/authService.js` is the path being used and not a direct
+`localStorage.clear()`.

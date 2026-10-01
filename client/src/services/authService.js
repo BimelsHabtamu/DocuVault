@@ -1,6 +1,82 @@
 import { api, setAuthToken } from './api';
+import { clearAllCaches } from './offlineCache';
+import { clearServiceWorkerCaches } from './serviceWorker';
 
 const TOKEN_STORAGE_KEY = 'doc_automation_token';
+
+
+const CREDENTIAL_HASH_KEY = 'doc_automation_cred_hash';
+const CREDENTIAL_SALT_KEY = 'doc_automation_cred_salt';
+
+/** Generate a random hex salt string. */
+function generateSalt() {
+  const arr = new Uint8Array(16);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** SHA-256 hash of an arbitrary string, returned as a hex string. */
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  return Array.from(new Uint8Array(hashBuffer), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashCredentials(email, password, salt) {
+  try {
+    return await sha256(`${salt}:${email.toLowerCase().trim()}:${password}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCredentialHash(email, password, rememberMe) {
+  try {
+    const salt = generateSalt();
+    const hash = await hashCredentials(email, password, salt);
+    if (!hash) return; // Web Crypto unavailable — graceful degradation
+
+    const store = rememberMe ? localStorage : sessionStorage;
+    store.setItem(CREDENTIAL_SALT_KEY, salt);
+    store.setItem(CREDENTIAL_HASH_KEY, hash);
+  } catch {
+  }
+}
+
+export async function verifyOfflineCredentials(email, password) {
+  try {
+    // Check both storage tiers
+    const salt =
+      sessionStorage.getItem(CREDENTIAL_SALT_KEY) ||
+      localStorage.getItem(CREDENTIAL_SALT_KEY);
+    const storedHash =
+      sessionStorage.getItem(CREDENTIAL_HASH_KEY) ||
+      localStorage.getItem(CREDENTIAL_HASH_KEY);
+
+    if (!salt || !storedHash) return false;
+
+    const hash = await hashCredentials(email, password, salt);
+    if (!hash) return false;
+
+    // Constant-time comparison to prevent timing attacks
+    if (hash.length !== storedHash.length) return false;
+    let diff = 0;
+    for (let i = 0; i < hash.length; i++) {
+      diff |= hash.charCodeAt(i) ^ storedHash.charCodeAt(i);
+    }
+    return diff === 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Remove the credential hash from all storage tiers. */
+export function clearCredentialHash() {
+  sessionStorage.removeItem(CREDENTIAL_HASH_KEY);
+  sessionStorage.removeItem(CREDENTIAL_SALT_KEY);
+  localStorage.removeItem(CREDENTIAL_HASH_KEY);
+  localStorage.removeItem(CREDENTIAL_SALT_KEY);
+}
 
 /**
  * ── Offline-safe user profile cache ──────────────────────────────────────────
@@ -88,6 +164,9 @@ export async function login(email, password, rememberMe = false) {
   // Cache the user profile for offline session restoration
   saveUserToCache(user);
 
+  // Save a credential hash so the user can log in again while offline
+  await saveCredentialHash(email, password, rememberMe);
+
   return user;
 }
 
@@ -101,12 +180,21 @@ export async function fetchCurrentUser() {
 export async function logout() {
   try {
     await api.post('/auth/logout');
+  } catch {
+    // Signing out must always succeed locally. If the server is unreachable the
+    // JWT simply expires on its own, and the token + caches are cleared below.
   } finally {
     setAuthToken(null);
     sessionStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     // Also clear the offline user cache on explicit logout
     clearUserCache();
+    // Clear the offline credential hash
+    clearCredentialHash();
+    // Wipe every cached document/response and the worker's shell so nothing
+    // from this session is readable by the next person on this device.
+    await clearAllCaches();
+    void clearServiceWorkerCaches();
   }
 }
 

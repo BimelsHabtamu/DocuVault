@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useOfflineGuard } from '../hooks/useOfflineGuard';
 import { userService } from '../services/userService';
+import OfflineStorageCard from '../components/common/OfflineStorageCard';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -393,6 +394,9 @@ export default function ProfilePage() {
           </button>
         </form>
       </Section>
+
+      {/* ── Offline storage ── */}
+      <OfflineStorageCard />
 
       {/* ── Password ── */}
       <Section title="Change Password">
