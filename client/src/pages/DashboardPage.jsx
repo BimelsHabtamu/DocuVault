@@ -144,6 +144,11 @@ function StatusDonut({ statusBreakdown }) {
       return next;
     });
 
+  const clear = () => {
+    localStorage.removeItem(LS_KEY);
+    setSelected(null);
+  };
+
   const STATUS_LABELS = {
     draft:     t('dashboard.statusLabels.draft'),
     pending:   t('dashboard.statusLabels.pending'),
@@ -183,6 +188,16 @@ function StatusDonut({ statusBreakdown }) {
         </div>
       </div>
       <div className="db-donut-legend">
+        {selected && (
+          <button
+            type="button"
+            className="db-donut-clear-btn"
+            onClick={clear}
+            title="Clear selection"
+          >
+            × Clear
+          </button>
+        )}
         {statusBreakdown.map((r) => {
           const isSelected = selected === r.status;
           const isDimmed   = selected && !isSelected;

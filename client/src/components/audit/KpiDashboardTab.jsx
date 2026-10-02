@@ -67,6 +67,11 @@ function StatusDonut({ statusBreakdown }) {
       return next;
     });
 
+  const clear = () => {
+    localStorage.removeItem(LS_KEY);
+    setSelected(null);
+  };
+
   const total = statusBreakdown.reduce((s, r) => s + r.count, 0);
 
   // Dim non-selected segments when one is active
@@ -112,6 +117,16 @@ function StatusDonut({ statusBreakdown }) {
         </div>
       </div>
       <div className="ar-donut-legend">
+        {selected && (
+          <button
+            type="button"
+            className="ar-donut-clear-btn"
+            onClick={clear}
+            title="Clear selection"
+          >
+            × Clear
+          </button>
+        )}
         {statusBreakdown.map((r) => {
           const isSelected = selected === r.status;
           const isDimmed  = selected && !isSelected;

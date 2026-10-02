@@ -287,6 +287,17 @@
   color: var(--text-muted);
   margin-top: 2px;
 }
+.db-donut-clear-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: 1.5px solid var(--border, #E2E8F0);
+  border-radius: 6px; padding: 2px 8px;
+  font-size: 0.72rem; font-weight: 600; cursor: pointer;
+  color: var(--text-muted); font-family: inherit;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  margin-bottom: 2px;
+}
+.db-donut-clear-btn:hover { border-color: #DC2626; color: #DC2626; background: rgba(220,38,38,0.06); }
+.db-donut-clear-btn:focus-visible { outline: 2px solid #0F766E; outline-offset: 2px; }
 .db-donut-legend {
   display: flex;
   flex-direction: column;
