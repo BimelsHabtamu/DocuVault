@@ -56,27 +56,34 @@ function BarChart({ daily }) {
 }
 
 function StatusDonut({ statusBreakdown }) {
-  const [hidden, setHidden] = useState(new Set());
+  const LS_KEY = 'docuvault_kpi_selected_status';
+  const [selected, setSelected] = useState(() => localStorage.getItem(LS_KEY) || null);
 
   const toggle = (status) =>
-    setHidden((prev) => {
-      const next = new Set(prev);
-      next.has(status) ? next.delete(status) : next.add(status);
+    setSelected((prev) => {
+      const next = prev === status ? null : status;
+      if (next) localStorage.setItem(LS_KEY, next);
+      else localStorage.removeItem(LS_KEY);
       return next;
     });
 
-  // Only include visible statuses in the chart
-  const visible = statusBreakdown.filter((r) => !hidden.has(r.status));
-  const total = visible.reduce((s, r) => s + r.count, 0);
+  const total = statusBreakdown.reduce((s, r) => s + r.count, 0);
 
+  // Dim non-selected segments when one is active
   let cumulative = 0;
-  const stops = visible.map((r) => {
+  const stops = statusBreakdown.map((r) => {
     const start = (cumulative / (total || 1)) * 360;
     cumulative += r.count;
     const end = (cumulative / (total || 1)) * 360;
-    return `${STATUS_COLORS[r.status] || '#94A3B8'} ${start}deg ${end}deg`;
+    const dimmed = selected && selected !== r.status;
+    const color = dimmed ? 'color-mix(in srgb, var(--bg-subtle, #E2E8F0) 70%, transparent)' : (STATUS_COLORS[r.status] || '#94A3B8');
+    return `${color} ${start}deg ${end}deg`;
   });
   const gradient = stops.length ? `conic-gradient(${stops.join(', ')})` : '#E2E8F0';
+
+  const selectedRow = selected ? statusBreakdown.find((r) => r.status === selected) : null;
+  const displayCount = selectedRow ? selectedRow.count : total;
+  const displayLabel = selectedRow ? (STATUS_LABELS[selected] || selected) : 'total docs';
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -92,40 +99,36 @@ function StatusDonut({ statusBreakdown }) {
           background: 'var(--bg-surface)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         }}>
-          <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{total}</span>
-          <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 2 }}>total docs</span>
+          <span style={{
+            fontSize: '1.1rem', fontWeight: 700, lineHeight: 1,
+            color: selected ? (STATUS_COLORS[selected] || 'var(--text-primary)') : 'var(--text-primary)',
+            transition: 'color 0.2s',
+          }}>
+            {displayCount}
+          </span>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 2, textAlign: 'center', maxWidth: 58 }}>
+            {displayLabel}
+          </span>
         </div>
       </div>
       <div className="ar-donut-legend">
         {statusBreakdown.map((r) => {
-          const isHidden = hidden.has(r.status);
+          const isSelected = selected === r.status;
+          const isDimmed  = selected && !isSelected;
           return (
             <div
-              className="ar-donut-legend-row ar-donut-legend-row--clickable"
+              className={`ar-donut-legend-row ar-donut-legend-row--clickable${isSelected ? ' ar-donut-legend-row--selected' : ''}${isDimmed ? ' ar-donut-legend-row--dimmed' : ''}`}
               key={r.status}
-              role="checkbox"
-              aria-checked={!isHidden}
+              role="button"
+              aria-pressed={isSelected}
               tabIndex={0}
-              title={isHidden ? `Show ${STATUS_LABELS[r.status] || r.status}` : `Hide ${STATUS_LABELS[r.status] || r.status}`}
+              style={isSelected ? { '--row-accent': STATUS_COLORS[r.status] || '#0F766E' } : {}}
               onClick={() => toggle(r.status)}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle(r.status)}
             >
-              <span
-                className="ar-donut-dot"
-                style={{ background: isHidden ? 'var(--text-muted, #94A3B8)' : (STATUS_COLORS[r.status] || '#94A3B8') }}
-              />
-              <span
-                className="ar-donut-legend-label"
-                style={{ textDecoration: isHidden ? 'line-through' : 'none', opacity: isHidden ? 0.45 : 1 }}
-              >
-                {STATUS_LABELS[r.status] || r.status}
-              </span>
-              <span
-                className="ar-donut-legend-count"
-                style={{ opacity: isHidden ? 0.45 : 1 }}
-              >
-                {r.count}
-              </span>
+              <span className="ar-donut-dot" style={{ background: STATUS_COLORS[r.status] || '#94A3B8' }} />
+              <span className="ar-donut-legend-label">{STATUS_LABELS[r.status] || r.status}</span>
+              <span className="ar-donut-legend-count">{r.count}</span>
             </div>
           );
         })}

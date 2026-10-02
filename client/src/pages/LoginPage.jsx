@@ -9,10 +9,8 @@ import logo from '/public/logo.png';
 /*   HELPERS */
 function defaultRouteForRole(role) {
   switch (role) {
-    case ROLES.SUPER_ADMIN:
-    case ROLES.SYSTEM_ADMIN: return '/templates';
-    case ROLES.APPROVER:     return '/approvals';
-    default:                 return '/documents';
+    case ROLES.RECIPIENT: return '/my-documents';
+    default:              return '/dashboard';
   }
 }
 
