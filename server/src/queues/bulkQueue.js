@@ -46,11 +46,19 @@ const REDIS_PORT = REDIS_URL
   ? (() => { try { return new URL(REDIS_URL).port || 6379; } catch { return 6379; } })()
   : (Number(process.env.REDIS_PORT) || 6379);
 
-const redisConnection = new Redis(buildConnectionOptions({
-  // BullMQ requirement: BullMQ commands must not time out while a job is running.
-  maxRetriesPerRequest: null,
-  enableOfflineQueue:   false,  // fail fast when Redis is unavailable
-}));
+// When REDIS_URL is set, pass it directly as the first argument to ioredis so
+// the full connection string (including TLS scheme, password, host and port) is
+// used instead of falling back to the default 127.0.0.1:6379.
+const redisConnection = REDIS_URL
+  ? new Redis(REDIS_URL, buildConnectionOptions({
+      maxRetriesPerRequest: null,
+      enableOfflineQueue:   false,
+      tls: REDIS_URL.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
+    }))
+  : new Redis(buildConnectionOptions({
+      maxRetriesPerRequest: null,
+      enableOfflineQueue:   false,
+    }));
 
 redisConnection.on('error', (err) => {
   // Log but don't crash — ioredis will retry; we handle the "permanently down"

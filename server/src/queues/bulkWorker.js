@@ -243,13 +243,21 @@ let _worker = null;
 function startBulkWorker() {
   if (_worker) return _worker;
 
-  const workerConnection = new (require('ioredis'))({
-    host:                 REDIS_HOST,
-    port:                 REDIS_PORT,
-    password:             REDIS_PASSWORD,
-    maxRetriesPerRequest: null,
-    enableOfflineQueue:   false,
-  });
+  const Redis = require('ioredis');
+  const REDIS_URL = process.env.REDIS_URL || '';
+  const workerConnection = REDIS_URL
+    ? new Redis(REDIS_URL, {
+        maxRetriesPerRequest: null,
+        enableOfflineQueue:   false,
+        tls: REDIS_URL.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
+      })
+    : new Redis({
+        host:                 REDIS_HOST,
+        port:                 REDIS_PORT,
+        password:             REDIS_PASSWORD,
+        maxRetriesPerRequest: null,
+        enableOfflineQueue:   false,
+      });
 
   _worker = new Worker(QUEUE_NAME, processBulkJob, {
     connection:  workerConnection,
