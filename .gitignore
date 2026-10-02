@@ -9,11 +9,20 @@ build/
 **/build/
 
 # Environment files (contains secrets)
+# Covers .env, .env.local, .env.production, .env.staging — every variant.
+# .env.production in particular held real Render/MySQL/SMTP credentials and was
+# NOT matched by the narrower patterns below, so it was one `git add .` away
+# from being committed.
 .env
 .env.local
 .env.*.local
+.env.*
 **/.env
 **/.env.local
+**/.env.*.local
+**/.env.*
+!**/.env.example
+!**/.env.production.example
 
 # Logs
 logs/
