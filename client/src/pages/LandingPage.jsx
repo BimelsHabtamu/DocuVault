@@ -354,8 +354,6 @@ function InlineVerifyWidget() {
 }
 function Navbar({ scrolled, dark, toggleTheme }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [contactOpen, setContactOpen] = useState(false);
-  const contactRef = useRef(null);
   const { user } = useAuth();
   const { t } = useTranslation(['translation', 'auth']);
 
@@ -370,24 +368,8 @@ function Navbar({ scrolled, dark, toggleTheme }) {
     { href: '#about',        label: t('landing.nav.about') },
     { href: '#faq',          label: t('landing.nav.faq') },
     { href: '#verification', label: t('landing.nav.verification') },
+    { href: '#contact',      label: t('landing.nav.contact') },
   ];
-
-  const CONTACTS = CONTACT_LINKS(t);
-
-  // Close the Contact Us menu on outside click / Escape
-  useEffect(() => {
-    if (!contactOpen) return;
-    const onPointerDown = (e) => {
-      if (contactRef.current && !contactRef.current.contains(e.target)) setContactOpen(false);
-    };
-    const onKeyDown = (e) => { if (e.key === 'Escape') setContactOpen(false); };
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [contactOpen]);
 
   return (
     <header className={`lp-nav${scrolled ? ' lp-nav-scrolled' : ''}`}>
@@ -411,44 +393,6 @@ function Navbar({ scrolled, dark, toggleTheme }) {
             <a key={href} href={href} className="lp-nav-link">{label}</a>
           ))}
 
-          {/* Contact Us dropdown */}
-          <div className="lp-contact" ref={contactRef}>
-            <button
-              type="button"
-              className={`lp-nav-link lp-contact-btn${contactOpen ? ' lp-contact-btn-open' : ''}`}
-              onClick={() => setContactOpen(o => !o)}
-              aria-expanded={contactOpen}
-              aria-haspopup="true"
-            >
-              {t('landing.nav.contact')}
-              <svg className="lp-contact-caret" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-            {contactOpen && (
-              <div className="lp-contact-menu" role="menu">
-                <div className="lp-contact-title">{t('landing.nav.contactTitle')}</div>
-                {CONTACTS.map(({ key, label, value, href, external, icon }) => (
-                  <a
-                    key={key}
-                    href={href}
-                    role="menuitem"
-                    className="lp-contact-item"
-                    {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                  >
-                    <span className="lp-contact-item-icon">{icon}</span>
-                    <span className="lp-contact-item-text">
-                      <span className="lp-contact-item-label">{label}</span>
-                      <span className="lp-contact-item-value">{value}</span>
-                    </span>
-                    <svg className="lp-contact-item-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M7 17L17 7M9 7h8v8"/>
-                    </svg>
-                  </a>
-                ))}
-              </div>
-            )}
-          </div>
         </nav>
 
         {/* Right: language + 🌙 toggle + Sign In / Dashboard */}
@@ -487,25 +431,6 @@ function Navbar({ scrolled, dark, toggleTheme }) {
           {NAV_LINKS.map(({ href, label }) => (
             <a key={href} href={href} onClick={() => setMobileOpen(false)} className="lp-mobile-link">{label}</a>
           ))}
-
-          <div className="lp-mobile-contact">
-            <div className="lp-mobile-contact-title">{t('landing.nav.contact')}</div>
-            {CONTACTS.map(({ key, label, value, href, external, icon }) => (
-              <a
-                key={key}
-                href={href}
-                onClick={() => setMobileOpen(false)}
-                className="lp-mobile-contact-item"
-                {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              >
-                <span className="lp-mobile-contact-icon">{icon}</span>
-                <span className="lp-mobile-contact-text">
-                  <span className="lp-mobile-contact-label">{label}</span>
-                  <span className="lp-mobile-contact-value">{value}</span>
-                </span>
-              </a>
-            ))}
-          </div>
 
           <div className="lp-mobile-actions">
             <LanguageSwitcher variant="menu" />
@@ -552,8 +477,9 @@ function Footer() {
                 { href: '#how',      label: t('landing.nav.howItWorks') },
                 { href: '#security', label: t('landing.nav.security') },
                 { href: '#about',    label: t('landing.nav.about') },
-                { href: '#faq',      label: t('landing.nav.faq') },
+                { href: '#faq',          label: t('landing.nav.faq') },
                 { href: '#verification', label: t('landing.nav.verification') },
+                { href: '#contact',      label: t('landing.nav.contact') },
               ].map(({ href, label }) => (
                 <a key={href} href={href} className="lp-footer-link">{label}</a>
               ))}
@@ -605,6 +531,7 @@ export default function LandingPage() {
   const refFaq      = useReveal();
   const refVerify   = useReveal();
   const refFinalCta = useReveal();
+  const refContact  = useReveal();
 
   const slides  = SLIDES(t);
   const features = FEATURES(t);
@@ -663,8 +590,6 @@ export default function LandingPage() {
           --lp-stat-border: rgba(255,255,255,0.06);
           --lp-nav-bg-scrolled: rgba(10,22,40,0.96);
           --lp-nav-mobile-bg:   rgba(10,22,40,0.97);
-          --lp-contact-menu-bg: #0C1A2E;
-          --lp-contact-icon-bg: rgba(15,118,110,0.20);
           --lp-hero-bottom: #070F1C;
           --lp-footer-bg:   #050D1A;
           --lp-section-badge-bg:     rgba(15,118,110,0.15);
@@ -696,8 +621,6 @@ export default function LandingPage() {
           --lp-stat-border: rgba(0,0,0,0.06);
           --lp-nav-bg-scrolled: rgba(255,255,255,0.96);
           --lp-nav-mobile-bg:   rgba(255,255,255,0.98);
-          --lp-contact-menu-bg: #FFFFFF;
-          --lp-contact-icon-bg: rgba(15,118,110,0.12);
           --lp-hero-bottom: #F8FAFC;
           --lp-footer-bg:   #1E293B;
           --lp-section-badge-bg:     rgba(15,118,110,0.10);
@@ -782,78 +705,6 @@ export default function LandingPage() {
         html:not(.dark) .lp-nav.lp-nav-scrolled .lp-nav-link { color: #475569; }
         html:not(.dark) .lp-nav.lp-nav-scrolled .lp-nav-link:hover { color: #0F766E; background: rgba(15,118,110,0.07); }
 
-        /* -- Contact Us dropdown (desktop) -- */
-        .lp-contact { position: relative; }
-        .lp-contact-btn {
-          display: inline-flex; align-items: center; gap: 5px;
-          background: none; border: none; cursor: pointer;
-          font-family: inherit; font-size: inherit; font-weight: inherit;
-          letter-spacing: inherit;
-        }
-        .lp-contact-btn:focus-visible {
-          outline: 2px solid rgba(255,255,255,0.6); outline-offset: 2px;
-        }
-        html:not(.dark) .lp-nav.lp-nav-scrolled .lp-contact-btn:focus-visible {
-          outline-color: #0F766E;
-        }
-        .lp-contact-caret {
-          transition: transform 0.2s;
-          opacity: 0.7;
-        }
-        .lp-contact-btn-open .lp-contact-caret { transform: rotate(180deg); }
-        .lp-contact-menu {
-          position: absolute; top: calc(100% + 10px); right: 0;
-          min-width: 300px;
-          background: var(--lp-contact-menu-bg);
-          border: 1px solid var(--lp-border-med);
-          border-radius: 14px;
-          padding: 8px;
-          box-shadow: 0 18px 48px rgba(0,0,0,0.35);
-          animation: lp-contact-in 0.16s ease-out;
-        }
-        @keyframes lp-contact-in {
-          from { opacity: 0; transform: translateY(-6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        .lp-contact-title {
-          font-size: 0.68rem; font-weight: 700;
-          letter-spacing: 0.14em; text-transform: uppercase;
-          color: var(--lp-text-faint);
-          padding: 6px 10px 8px;
-        }
-        .lp-contact-item {
-          display: flex; align-items: center; gap: 12px;
-          padding: 10px;
-          border-radius: 10px;
-          text-decoration: none;
-          color: var(--lp-text);
-          transition: background 0.15s;
-        }
-        .lp-contact-item:hover { background: var(--lp-contact-icon-bg); }
-        .lp-contact-item:focus-visible { outline: 2px solid #0F766E; outline-offset: -2px; }
-        .lp-contact-item-icon {
-          display: flex; align-items: center; justify-content: center;
-          width: 34px; height: 34px; flex-shrink: 0;
-          border-radius: 9px;
-          background: var(--lp-contact-icon-bg);
-          color: var(--lp-accent);
-          transition: transform 0.15s;
-        }
-        .lp-contact-item:hover .lp-contact-item-icon { transform: scale(1.06); }
-        .lp-contact-item-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-        .lp-contact-item-label {
-          font-size: 0.8rem; font-weight: 600; line-height: 1.3;
-        }
-        .lp-contact-item-value {
-          font-size: 0.72rem; color: var(--lp-text-muted);
-          line-height: 1.4; word-break: break-all;
-        }
-        .lp-contact-item-arrow {
-          flex-shrink: 0; opacity: 0.45;
-          color: var(--lp-text);
-          transition: opacity 0.15s, transform 0.15s;
-        }
-        .lp-contact-item:hover .lp-contact-item-arrow { opacity: 0.9; transform: translate(1px,-1px); }
         .lp-nav-actions {
           display: flex; align-items: center; gap: 10px;
           flex-shrink: 0; margin-left: 32px;
@@ -937,36 +788,6 @@ export default function LandingPage() {
           transition: color 0.15s, padding-left 0.15s;
         }
         .lp-mobile-link:hover { color: #0F766E; padding-left: 6px; }
-        .lp-mobile-contact {
-          margin-top: 14px; padding-top: 6px;
-          border-top: 1px solid var(--lp-border);
-        }
-        .lp-mobile-contact-title {
-          font-size: 0.68rem; font-weight: 700;
-          letter-spacing: 0.14em; text-transform: uppercase;
-          color: var(--lp-text-faint);
-          padding: 10px 0 8px;
-        }
-        .lp-mobile-contact-item {
-          display: flex; align-items: center; gap: 12px;
-          padding: 10px; margin-bottom: 6px;
-          border-radius: 10px;
-          border: 1px solid var(--lp-border-med);
-          background: var(--lp-bg-card);
-          text-decoration: none; color: var(--lp-text);
-          transition: border-color 0.15s, background 0.15s;
-        }
-        .lp-mobile-contact-item:hover { border-color: #0F766E; }
-        .lp-mobile-contact-icon {
-          display: flex; align-items: center; justify-content: center;
-          width: 34px; height: 34px; flex-shrink: 0;
-          border-radius: 9px;
-          background: var(--lp-contact-icon-bg);
-          color: var(--lp-accent);
-        }
-        .lp-mobile-contact-text { display: flex; flex-direction: column; min-width: 0; }
-        .lp-mobile-contact-label { font-size: 0.85rem; font-weight: 600; }
-        .lp-mobile-contact-value { font-size: 0.75rem; color: var(--lp-text-muted); word-break: break-all; }
         .lp-mobile-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
         .lp-mobile-theme-btn {
           display: flex; align-items: center; gap: 10px;
@@ -1077,6 +898,50 @@ export default function LandingPage() {
         html:not(.dark) .lp-tech-badge:hover { border-color:rgba(15,118,110,0.30); }
 
         /* ── Footer ── */
+        /* ── Contact section ── */
+        .lp-contact-section { background: var(--lp-bg-alt); padding: 96px 24px; }
+        .lp-contact-section-inner { max-width: 900px; margin: 0 auto; }
+        .lp-contact-section-head { text-align: center; margin-bottom: 56px; }
+        .lp-contact-section-title {
+          font-size: clamp(1.7rem, 3.5vw, 2.4rem);
+          font-weight: 900; letter-spacing: -0.03em;
+          color: var(--lp-text); margin-bottom: 14px; line-height: 1.15;
+        }
+        .lp-contact-section-sub {
+          font-size: 1rem; color: var(--lp-text-muted); line-height: 1.7;
+          max-width: 520px; margin: 0 auto;
+        }
+        .lp-contact-cards {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 18px;
+        }
+        .lp-contact-card {
+          display: flex; flex-direction: column; align-items: flex-start; gap: 14px;
+          padding: 24px 22px;
+          background: var(--lp-bg-card);
+          border: 1px solid var(--lp-border-med);
+          border-radius: 16px;
+          text-decoration: none;
+          color: var(--lp-text);
+          transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+        }
+        .lp-contact-card:hover {
+          border-color: #0F766E;
+          transform: translateY(-3px);
+          box-shadow: 0 12px 32px rgba(15,118,110,0.15);
+        }
+        .lp-contact-card:focus-visible { outline: 2px solid #0F766E; outline-offset: 2px; }
+        .lp-contact-card-icon {
+          display: flex; align-items: center; justify-content: center;
+          width: 44px; height: 44px; border-radius: 12px;
+          background: rgba(15,118,110,0.15);
+          color: var(--lp-accent); flex-shrink: 0;
+        }
+        .lp-contact-card-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .lp-contact-card-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lp-text-faint); }
+        .lp-contact-card-value { font-size: 0.9rem; font-weight: 600; color: var(--lp-text); word-break: break-all; line-height: 1.4; }
+
         .lp-footer { background:var(--lp-footer-bg);border-top:1px solid rgba(255,255,255,0.06);padding:40px 24px; }
         .lp-footer-inner { max-width:1200px;margin:0 auto; }
         .lp-footer-top { display:flex;flex-wrap:wrap;gap:32px;justify-content:space-between;margin-bottom:32px; }
@@ -1419,6 +1284,33 @@ export default function LandingPage() {
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.transform = 'none'; }}>
                 {t('landing.footer.verifyDocument')}
               </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ══ CONTACT ══ */}
+        <section id="contact" className="lp-contact-section">
+          <div className="lp-contact-section-inner">
+            <div ref={refContact} className="lp-reveal lp-contact-section-head">
+              <SectionBadge label={t('landing.nav.contact')} />
+              <h2 className="lp-contact-section-title">{t('landing.contact.title')}</h2>
+              <p className="lp-contact-section-sub">{t('landing.contact.subtitle')}</p>
+            </div>
+            <div className="lp-contact-cards">
+              {CONTACT_LINKS(t).map(({ key, label, value, href, external, icon }) => (
+                <a
+                  key={key}
+                  href={href}
+                  className="lp-contact-card"
+                  {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                >
+                  <div className="lp-contact-card-icon">{icon}</div>
+                  <div className="lp-contact-card-body">
+                    <span className="lp-contact-card-label">{label}</span>
+                    <span className="lp-contact-card-value">{value}</span>
+                  </div>
+                </a>
+              ))}
             </div>
           </div>
         </section>

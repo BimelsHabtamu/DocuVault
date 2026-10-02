@@ -251,6 +251,10 @@
       "signInToWorkspace": "Sign In to Workspace",
       "verifyDocument": "Verify a Document"
     },
+    "contact": {
+      "title": "Get in Touch",
+      "subtitle": "Have a question or want to learn more? Reach out through any of the channels below."
+    },
     "footer": {
       "tagline": "Secure document generation, e-signature, and cryptographic verification for modern organisations.",
       "platform": "Platform",
