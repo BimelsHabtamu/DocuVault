@@ -124,30 +124,32 @@ function BarChart({ daily }) {
 function StatusDonut({ statusBreakdown }) {
   const { t } = useTranslation('layout');
 
-  const LS_KEY = 'docuvault_kpi_selected_status';
-  const [selected, setSelected] = useState(() => localStorage.getItem(LS_KEY) || null);
+  const LS_KEY = 'docuvault_kpi_hidden_statuses';
 
-  // Stay in sync if KPI Dashboard tab changes the value in another tab/component
+  const [hidden, setHidden] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) || '[]')); }
+    catch { return new Set(); }
+  });
+
+  // Stay in sync when KPI tab updates localStorage from another component
   useEffect(() => {
     const onStorage = (e) => {
-      if (e.key === LS_KEY) setSelected(e.newValue || null);
+      if (e.key === LS_KEY) {
+        try { setHidden(new Set(JSON.parse(e.newValue || '[]'))); }
+        catch { setHidden(new Set()); }
+      }
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const toggle = (status) =>
-    setSelected((prev) => {
-      const next = prev === status ? null : status;
-      if (next) localStorage.setItem(LS_KEY, next);
-      else localStorage.removeItem(LS_KEY);
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.has(status) ? next.delete(status) : next.add(status);
+      localStorage.setItem(LS_KEY, JSON.stringify([...next]));
       return next;
     });
-
-  const clear = () => {
-    localStorage.removeItem(LS_KEY);
-    setSelected(null);
-  };
 
   const STATUS_LABELS = {
     draft:     t('dashboard.statusLabels.draft'),
@@ -157,62 +159,42 @@ function StatusDonut({ statusBreakdown }) {
     delivered: t('dashboard.statusLabels.delivered'),
   };
 
-  const total = statusBreakdown.reduce((s, r) => s + Number(r.count), 0) || 1;
+  const visible = statusBreakdown.filter((r) => !hidden.has(r.status));
+  const total = visible.reduce((s, r) => s + Number(r.count), 0) || 1;
+
   let cumulative = 0;
-  const stops = statusBreakdown.map((r) => {
+  const stops = visible.map((r) => {
     const start = (cumulative / total) * 360;
     cumulative += Number(r.count);
     const end = (cumulative / total) * 360;
-    const dimmed = selected && selected !== r.status;
-    const color = dimmed ? '#2D3748' : (STATUS_COLORS[r.status] || '#94A3B8');
-    return `${color} ${start}deg ${end}deg`;
+    return `${STATUS_COLORS[r.status] || '#94A3B8'} ${start}deg ${end}deg`;
   });
   const gradient = stops.length
     ? `conic-gradient(${stops.join(', ')})`
     : 'var(--bg-subtle)';
 
-  const selectedRow = selected ? statusBreakdown.find(r => r.status === selected) : null;
-  const displayCount = selectedRow ? selectedRow.count : total;
-  const displayLabel = selectedRow
-    ? (STATUS_LABELS[selected] || selected)
-    : t('dashboard.statusBreakdown.totalDocs');
-
   return (
     <div className="db-donut-wrap">
       <div className="db-donut-ring-wrap" style={{ background: gradient, transition: 'background 0.3s' }}>
         <div className="db-donut-hole">
-          <span className="db-donut-total" style={selected ? { color: STATUS_COLORS[selected], transition: 'color 0.2s' } : {}}>
-            {displayCount}
-          </span>
-          <span className="db-donut-total-label">{displayLabel}</span>
+          <span className="db-donut-total">{total}</span>
+          <span className="db-donut-total-label">{t('dashboard.statusBreakdown.totalDocs')}</span>
         </div>
       </div>
       <div className="db-donut-legend">
-        {selected && (
-          <button
-            type="button"
-            className="db-donut-clear-btn"
-            onClick={clear}
-            title="Clear selection"
-          >
-            × Clear
-          </button>
-        )}
         {statusBreakdown.map((r) => {
-          const isSelected = selected === r.status;
-          const isDimmed   = selected && !isSelected;
+          const isHidden = hidden.has(r.status);
           return (
             <div
-              className={`db-donut-legend-row db-donut-legend-row--btn${isSelected ? ' db-donut-legend-row--selected' : ''}${isDimmed ? ' db-donut-legend-row--dimmed' : ''}`}
+              className={`db-donut-legend-row db-donut-legend-row--btn${isHidden ? ' db-donut-legend-row--hidden' : ''}`}
               key={r.status}
               role="button"
-              aria-pressed={isSelected}
+              aria-pressed={isHidden}
               tabIndex={0}
-              style={isSelected ? { '--legend-accent': STATUS_COLORS[r.status] } : {}}
               onClick={() => toggle(r.status)}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle(r.status)}
             >
-              <span className="db-donut-dot" style={{ background: STATUS_COLORS[r.status] || '#94A3B8' }} />
+              <span className="db-donut-dot" style={{ background: isHidden ? 'var(--text-muted, #94A3B8)' : (STATUS_COLORS[r.status] || '#94A3B8') }} />
               <span className="db-donut-legend-label">{STATUS_LABELS[r.status] || r.status}</span>
               <span className="db-donut-legend-count">{r.count}</span>
             </div>

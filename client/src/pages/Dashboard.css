@@ -287,17 +287,6 @@
   color: var(--text-muted);
   margin-top: 2px;
 }
-.db-donut-clear-btn {
-  display: inline-flex; align-items: center; gap: 4px;
-  background: none; border: 1.5px solid var(--border, #E2E8F0);
-  border-radius: 6px; padding: 2px 8px;
-  font-size: 0.72rem; font-weight: 600; cursor: pointer;
-  color: var(--text-muted); font-family: inherit;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-  margin-bottom: 2px;
-}
-.db-donut-clear-btn:hover { border-color: #DC2626; color: #DC2626; background: rgba(220,38,38,0.06); }
-.db-donut-clear-btn:focus-visible { outline: 2px solid #0F766E; outline-offset: 2px; }
 .db-donut-legend {
   display: flex;
   flex-direction: column;
@@ -320,17 +309,8 @@
 }
 .db-donut-legend-row--btn:hover { background: var(--bg-subtle); border-color: var(--border); }
 .db-donut-legend-row--btn:focus-visible { outline: 2px solid #0F766E; outline-offset: 2px; }
-.db-donut-legend-row--selected {
-  border-color: var(--legend-accent, #0F766E) !important;
-  background: color-mix(in srgb, var(--legend-accent, #0F766E) 10%, transparent) !important;
-}
-.db-donut-legend-row--selected .db-donut-legend-label,
-.db-donut-legend-row--selected .db-donut-legend-count {
-  color: var(--legend-accent, #0F766E);
-  font-weight: 700;
-}
-.db-donut-legend-row--dimmed { opacity: 0.38; }
-.db-donut-legend-row--dimmed .db-donut-legend-label { text-decoration: line-through; }
+.db-donut-legend-row--hidden .db-donut-legend-label { text-decoration: line-through; opacity: 0.45; }
+.db-donut-legend-row--hidden .db-donut-legend-count { opacity: 0.45; }
 .db-donut-dot {
   width: 9px; height: 9px;
   border-radius: 50%;

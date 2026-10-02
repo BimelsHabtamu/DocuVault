@@ -56,92 +56,66 @@ function BarChart({ daily }) {
 }
 
 function StatusDonut({ statusBreakdown }) {
-  const LS_KEY = 'docuvault_kpi_selected_status';
-  const [selected, setSelected] = useState(() => localStorage.getItem(LS_KEY) || null);
+  const LS_KEY = 'docuvault_kpi_hidden_statuses';
+
+  const [hidden, setHidden] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem(LS_KEY) || '[]')); }
+    catch { return new Set(); }
+  });
 
   const toggle = (status) =>
-    setSelected((prev) => {
-      const next = prev === status ? null : status;
-      if (next) localStorage.setItem(LS_KEY, next);
-      else localStorage.removeItem(LS_KEY);
+    setHidden((prev) => {
+      const next = new Set(prev);
+      next.has(status) ? next.delete(status) : next.add(status);
+      localStorage.setItem(LS_KEY, JSON.stringify([...next]));
       return next;
     });
 
-  const clear = () => {
-    localStorage.removeItem(LS_KEY);
-    setSelected(null);
-  };
+  // Only visible statuses appear in the donut
+  const visible = statusBreakdown.filter((r) => !hidden.has(r.status));
+  const total = visible.reduce((s, r) => s + r.count, 0);
 
-  const total = statusBreakdown.reduce((s, r) => s + r.count, 0);
-
-  // Dim non-selected segments when one is active
   let cumulative = 0;
-  const stops = statusBreakdown.map((r) => {
+  const stops = visible.map((r) => {
     const start = (cumulative / (total || 1)) * 360;
     cumulative += r.count;
     const end = (cumulative / (total || 1)) * 360;
-    const dimmed = selected && selected !== r.status;
-    const color = dimmed ? 'color-mix(in srgb, var(--bg-subtle, #E2E8F0) 70%, transparent)' : (STATUS_COLORS[r.status] || '#94A3B8');
-    return `${color} ${start}deg ${end}deg`;
+    return `${STATUS_COLORS[r.status] || '#94A3B8'} ${start}deg ${end}deg`;
   });
   const gradient = stops.length ? `conic-gradient(${stops.join(', ')})` : '#E2E8F0';
 
-  const selectedRow = selected ? statusBreakdown.find((r) => r.status === selected) : null;
-  const displayCount = selectedRow ? selectedRow.count : total;
-  const displayLabel = selectedRow ? (STATUS_LABELS[selected] || selected) : 'total docs';
-
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-      <div
-        style={{
-          width: 110, height: 110, borderRadius: '50%', background: gradient,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          transition: 'background 0.3s',
-        }}
-      >
+      <div style={{
+        width: 110, height: 110, borderRadius: '50%', background: gradient,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        transition: 'background 0.3s',
+      }}>
         <div style={{
           width: 66, height: 66, borderRadius: '50%',
           background: 'var(--bg-surface)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         }}>
-          <span style={{
-            fontSize: '1.1rem', fontWeight: 700, lineHeight: 1,
-            color: selected ? (STATUS_COLORS[selected] || 'var(--text-primary)') : 'var(--text-primary)',
-            transition: 'color 0.2s',
-          }}>
-            {displayCount}
+          <span style={{ fontSize: '1.1rem', fontWeight: 700, lineHeight: 1, color: 'var(--text-primary)' }}>
+            {total}
           </span>
-          <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 2, textAlign: 'center', maxWidth: 58 }}>
-            {displayLabel}
-          </span>
+          <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginTop: 2 }}>total docs</span>
         </div>
       </div>
       <div className="ar-donut-legend">
-        {selected && (
-          <button
-            type="button"
-            className="ar-donut-clear-btn"
-            onClick={clear}
-            title="Clear selection"
-          >
-            × Clear
-          </button>
-        )}
         {statusBreakdown.map((r) => {
-          const isSelected = selected === r.status;
-          const isDimmed  = selected && !isSelected;
+          const isHidden = hidden.has(r.status);
           return (
             <div
-              className={`ar-donut-legend-row ar-donut-legend-row--clickable${isSelected ? ' ar-donut-legend-row--selected' : ''}${isDimmed ? ' ar-donut-legend-row--dimmed' : ''}`}
+              className={`ar-donut-legend-row ar-donut-legend-row--clickable${isHidden ? ' ar-donut-legend-row--hidden' : ''}`}
               key={r.status}
               role="button"
-              aria-pressed={isSelected}
+              aria-pressed={isHidden}
               tabIndex={0}
-              style={isSelected ? { '--row-accent': STATUS_COLORS[r.status] || '#0F766E' } : {}}
               onClick={() => toggle(r.status)}
               onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && toggle(r.status)}
             >
-              <span className="ar-donut-dot" style={{ background: STATUS_COLORS[r.status] || '#94A3B8' }} />
+              <span className="ar-donut-dot" style={{ background: isHidden ? 'var(--text-muted, #94A3B8)' : (STATUS_COLORS[r.status] || '#94A3B8') }} />
               <span className="ar-donut-legend-label">{STATUS_LABELS[r.status] || r.status}</span>
               <span className="ar-donut-legend-count">{r.count}</span>
             </div>
