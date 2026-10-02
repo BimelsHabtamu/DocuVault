@@ -87,11 +87,18 @@ const bulkQueue = new Queue(QUEUE_NAME, {
 // ── Boot-time health check ────────────────────────────────────────────────────
 
 async function checkRedisReachable() {
-  const probe = new Redis(buildConnectionOptions({
-    maxRetriesPerRequest: 1,
-    connectTimeout:       5000,
-    lazyConnect:          true,
-  }));
+  const probe = REDIS_URL
+    ? new Redis(REDIS_URL, {
+        maxRetriesPerRequest: 1,
+        connectTimeout:       5000,
+        lazyConnect:          true,
+        tls: REDIS_URL.startsWith('rediss://') ? { rejectUnauthorized: false } : undefined,
+      })
+    : new Redis(buildConnectionOptions({
+        maxRetriesPerRequest: 1,
+        connectTimeout:       5000,
+        lazyConnect:          true,
+      }));
   try {
     await probe.connect();
     const pong = await probe.ping();
